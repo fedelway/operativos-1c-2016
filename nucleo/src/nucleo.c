@@ -12,34 +12,43 @@
 #include <stdlib.h>
 #include "commons/config.h"
 
-void crearConfiguracion(char* config); //creo la configuracion y checkeo que sea valida
+void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
+bool validarParametrosDeConfiguracion();
 
-t_config configuracion;
+t_config* configuracion;
 
-int main(char* config_path) {
+int main() {
 	puts("Proyecto para Nucleo"); /* prints !!!Hello World!!! */
 
-	crearConfiguracion(config_path);
+	crearConfiguracion();
 
 	return EXIT_SUCCESS;
 }
 
-void crearConfiguracion(char* config){
+void crearConfiguracion(){
 
-	configuracion = *config_create(config);
+	configuracion = config_create("resource/config.cfg");
 
-	if(		config_has_property(configuracion, "PUERTO_PROG")
-		&& 	config_has_property(configuracion, "PUERTO_CPU")
-		&& 	config_has_property(configuracion, "QUANTUM")
-		&& 	config_has_property(configuracion, "QUANTUM_SLEEP")
-		&& 	config_has_property(configuracion, "SEM_IDS")
-		&& 	config_has_property(configuracion, "SEM_INIT")
-		&& 	config_has_property(configuracion, "IO_IDS")
-		&& 	config_has_property(configuracion, "IO_SLEEP")
-		&& 	config_has_property(configuracion, "SHARED_VARS")
-	)return;
-	else{
-		puts("configuracion no valida");
-		exit(EXIT_SUCCESS);
+	if (validarParametrosDeConfiguracion()){
+	 printf("Tiene todos los parametros necesarios");
+	 return;
+	}else{
+		printf("configuracion no valida");
+		exit(EXIT_FAILURE);
 	}
+}
+
+//Validar que todos los parámetros existan en el archivo de configuracion
+
+bool validarParametrosDeConfiguracion(){
+
+	return (config_has_property(configuracion, "PUERTO_PROG")
+			&& 	config_has_property(configuracion, "PUERTO_CPU")
+			&& 	config_has_property(configuracion, "QUANTUM")
+			&& 	config_has_property(configuracion, "QUANTUM_SLEEP")
+			&& 	config_has_property(configuracion, "SEM_IDS")
+			&& 	config_has_property(configuracion, "SEM_INIT")
+			&& 	config_has_property(configuracion, "IO_IDS")
+			&& 	config_has_property(configuracion, "IO_SLEEP")
+			&& 	config_has_property(configuracion, "SHARED_VARS"));
 }
