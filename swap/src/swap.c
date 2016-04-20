@@ -17,15 +17,14 @@ t_config* configuracion;
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
 
-int main() {
+int main(int argc,char *argv[]) {
 
-	char* config_path = "resource/config.cfg";
 	int cfg_puerto_escucha, cfg_cantidad_paginas, cfg_tamanio_pagina, cfg_retardo_compactacion;
 	char* cfg_nombre_swap;
 
 	printf("Proyecto para Swap\n");
 
-	crearConfiguracion(config_path);
+	crearConfiguracion(argv[1]);
 
 	//Ejemplos para obtener los valores de configuración (Solo por ahora)
 	cfg_puerto_escucha = config_get_int_value(configuracion, "PUERTO_ESCUCHA");
@@ -63,7 +62,7 @@ void crearConfiguracion(char* config_path){
 //Valida que todos los parámetros existan en el archivo de configuración
 bool validarParametrosDeConfiguracion(){
 
-	return (config_has_property(configuracion, "PUERTO_ESCUCHA")
+	return (	config_has_property(configuracion, "PUERTO_ESCUCHA")
 			&& 	config_has_property(configuracion, "NOMBRE_SWAP")
 			&& 	config_has_property(configuracion, "CANTIDAD_PAGINAS")
 			&& 	config_has_property(configuracion, "TAMANIO_PAGINA")

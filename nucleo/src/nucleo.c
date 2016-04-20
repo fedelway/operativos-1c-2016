@@ -17,17 +17,17 @@ bool validarParametrosDeConfiguracion();
 
 t_config* configuracion;
 
-int main() {
+int main(int argc,char *argv[]) {
 	puts("Proyecto para Nucleo"); /* prints !!!Hello World!!! */
 
-	crearConfiguracion();
+	crearConfiguracion(argv[1]);
 
 	return EXIT_SUCCESS;
 }
 
-void crearConfiguracion(){
+void crearConfiguracion(char *config_path){
 
-	configuracion = config_create("resource/config.cfg");
+	configuracion = config_create(config_path);
 
 	if (validarParametrosDeConfiguracion()){
 	 printf("Tiene todos los parametros necesarios");
@@ -42,7 +42,7 @@ void crearConfiguracion(){
 
 bool validarParametrosDeConfiguracion(){
 
-	return (config_has_property(configuracion, "PUERTO_PROG")
+	return (	config_has_property(configuracion, "PUERTO_PROG")
 			&& 	config_has_property(configuracion, "PUERTO_CPU")
 			&& 	config_has_property(configuracion, "QUANTUM")
 			&& 	config_has_property(configuracion, "QUANTUM_SLEEP")
