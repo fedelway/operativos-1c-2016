@@ -15,7 +15,7 @@
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
 
-t_config* configuracion;
+t_config* config;
 
 int main(int argc,char *argv[]) {
 	puts("Proyecto para Nucleo"); /* prints !!!Hello World!!! */
@@ -27,7 +27,7 @@ int main(int argc,char *argv[]) {
 
 void crearConfiguracion(char *config_path){
 
-	configuracion = config_create(config_path);
+	config = config_create(config_path);
 
 	if (validarParametrosDeConfiguracion()){
 	 printf("Tiene todos los parametros necesarios");
@@ -42,13 +42,13 @@ void crearConfiguracion(char *config_path){
 
 bool validarParametrosDeConfiguracion(){
 
-	return (	config_has_property(configuracion, "PUERTO_PROG")
-			&& 	config_has_property(configuracion, "PUERTO_CPU")
-			&& 	config_has_property(configuracion, "QUANTUM")
-			&& 	config_has_property(configuracion, "QUANTUM_SLEEP")
-			&& 	config_has_property(configuracion, "SEM_IDS")
-			&& 	config_has_property(configuracion, "SEM_INIT")
-			&& 	config_has_property(configuracion, "IO_IDS")
-			&& 	config_has_property(configuracion, "IO_SLEEP")
-			&& 	config_has_property(configuracion, "SHARED_VARS"));
+	return (	config_has_property(config, "PUERTO_PROG")
+			&& 	config_has_property(config, "PUERTO_CPU")
+			&& 	config_has_property(config, "QUANTUM")
+			&& 	config_has_property(config, "QUANTUM_SLEEP")
+			&& 	config_has_property(config, "SEM_IDS")
+			&& 	config_has_property(config, "SEM_INIT")
+			&& 	config_has_property(config, "IO_IDS")
+			&& 	config_has_property(config, "IO_SLEEP")
+			&& 	config_has_property(config, "SHARED_VARS"));
 }

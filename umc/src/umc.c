@@ -15,7 +15,7 @@
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 
-t_config configuracion;
+t_config config;
 
 int main(int argc,char *argv[]) {
 	puts("Proyecto para UMC"); /* prints !!!Hello World!!! */
@@ -27,7 +27,7 @@ int main(int argc,char *argv[]) {
 
 void crearConfiguracion(char* config_path){
 
-	configuracion = *create_config(config_path);
+	config = *create_config(config_path);
 
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
@@ -38,12 +38,12 @@ void crearConfiguracion(char* config_path){
 }
 
 bool validarParametrosDeConfiguracion(){
-	return 	config_has_property(configuracion, "PUERTO")
-		&& 	config_has_property(configuracion, "IP_SWAP")
-		&& 	config_has_property(configuracion, "PUERTO_SWAP")
-		&& 	config_has_property(configuracion, "MARCOS")
-		&& 	config_has_property(configuracion, "MARCOS_SIZE")
-		&& 	config_has_property(configuracion, "MARCO_X_PROC")
-		&& 	config_has_property(configuracion, "ENTRADAS_TLB")
-		&& 	config_has_property(configuracion, "RETARDO");
+	return 	config_has_property(config, "PUERTO")
+		&& 	config_has_property(config, "IP_SWAP")
+		&& 	config_has_property(config, "PUERTO_SWAP")
+		&& 	config_has_property(config, "MARCOS")
+		&& 	config_has_property(config, "MARCOS_SIZE")
+		&& 	config_has_property(config, "MARCO_X_PROC")
+		&& 	config_has_property(config, "ENTRADAS_TLB")
+		&& 	config_has_property(config, "RETARDO");
 }
