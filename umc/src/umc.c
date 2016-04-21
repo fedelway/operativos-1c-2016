@@ -15,7 +15,7 @@
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 
-t_config config;
+t_config *config;
 
 int main(int argc,char *argv[]) {
 	puts("Proyecto para UMC"); /* prints !!!Hello World!!! */
@@ -27,7 +27,7 @@ int main(int argc,char *argv[]) {
 
 void crearConfiguracion(char* config_path){
 
-	config = *create_config(config_path);
+	config = config_create(config_path);
 
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
