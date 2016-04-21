@@ -24,11 +24,18 @@ int main(int argc,char *argv[]) {
 
 	printf("Proyecto para Swap\n");
 
+	if(argc != 2){
+		fprintf(stderr,"Uso: swap config_path\n");
+		return 1;
+	}
+
+	printf("Obteniendo los datos de %s\n", argv[1]);
+
 	crearConfiguracion(argv[1]);
 
 	//Ejemplos para obtener los valores de configuración (Solo por ahora)
-	cfg_puerto_escucha = config_get_int_value(config, "PUERTO_ESCUCHA");
-	printf("El puerto de escucha es el %d\n", cfg_puerto_escucha);
+	cfg_puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
+	printf("El puerto de escucha es el %s\n", cfg_puerto_escucha);
 
 	cfg_nombre_swap = config_get_string_value(config, "NOMBRE_SWAP");
 	printf("El nombre del swap es %s\n", cfg_nombre_swap);
