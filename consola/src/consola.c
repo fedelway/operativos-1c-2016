@@ -9,21 +9,28 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <unistd.h> // for close conection
 #include "commons/config.h"
 
-t_config config;
+t_config* config;
+
+#define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
-int conectarseA(int ip, int puerto);
+int conectarseA(char* ip, char* puerto);
 
 int main(int argc,char *argv[]) {
+
+	char* nucleo_ip;
+	char* nucleo_puerto;
 
 	if(argc != 2){
 		fprintf(stderr,"uso: consola config_path\n");
@@ -32,19 +39,22 @@ int main(int argc,char *argv[]) {
 
 	crearConfiguracion(argv[1]);
 
-	conectarseA(config_get_int_value(config,"NUCLEO_IP"), config_get_int_value(config,"NUCLEO_PUERTO"));
+	nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
+	nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
+
+	conectarseA(nucleo_ip, nucleo_puerto);
 
 	return EXIT_SUCCESS;
 }
 
 void crearConfiguracion(char* config_path){
 
-	config = *create_config(config_path);
+	config = config_create(config_path);
 
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n\n");
 	}else{
-		printf("configuracion no valida");
+		printf("Configuracion no valida");
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -52,15 +62,16 @@ void crearConfiguracion(char* config_path){
 bool validarParametrosDeConfiguracion(){
 	return 	config_has_property(config, "PROGRAMA_ANSISOP")
 		&& 	config_has_property(config, "NUCLEO_IP")
-		&&	config_has_property(config, "PUERTO_NUCLEO");
+		&&	config_has_property(config, "NUCLEO_PUERTO");
 }
 
-int conectarseA(int ip, int puerto){
-	struct addrinfo hints, *serverInfo;
+int conectarseA(char* ip, char* puerto){
+
+    struct addrinfo hints, *serverInfo;
 	int result_getaddrinfo;
 	int socket_conexion;
 
-	memset(hints, 0, sizeof(hints));
+	memset(&hints, '\0', sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
@@ -74,9 +85,22 @@ int conectarseA(int ip, int puerto){
 	socket_conexion = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
 	if( connect(socket_conexion, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
-		printf("Fallo al conectar/n");
+		printf("Fallo al conectar\n");
 		exit(1);
 	}
 
-	return socket_conexion;
+	int enviar = 1;
+	char message[PACKAGESIZE];
+
+	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
+
+	while(enviar){
+		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
+		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
+	}
+
+	close(socket_conexion);
+
+	return 0;
 }
