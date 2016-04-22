@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <time.h> //Para la estructura timeval del select
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -22,6 +23,7 @@
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
 int conectarPuertoDeEscucha(char* puerto);
+int conectarPuertoEscucha(char *puerto);
 
 t_config* config;
 
@@ -30,15 +32,14 @@ t_config* config;
 
 int main(int argc,char *argv[]) {
 
-	char* puerto_prog;
-
-	printf("Proyecto para Nucleo\n");
+	char *puerto_prog, *puerto_cpu;
 
 	crearConfiguracion(argv[1]);
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
 
 	conectarPuertoDeEscucha(puerto_prog);
+
 	return EXIT_SUCCESS;
 }
 
@@ -67,6 +68,27 @@ bool validarParametrosDeConfiguracion(){
 			&& 	config_has_property(config, "IO_IDS")
 			&& 	config_has_property(config, "IO_SLEEP")
 			&& 	config_has_property(config, "SHARED_VARS"));
+}
+
+int conectarPuertoEscucha(char *puerto){
+
+	struct addrinfo hints, *serverInfo;
+	int result_getaddrinfo;
+	int socket_escucha;
+
+	memset(&hints, '\0', sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = SOCK_STREAM;
+
+	result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo);
+
+	if(result_getaddrinfo != 0){
+		fprint(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
+		return 2;
+	}
+
+	socket_escucha = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 }
 
 int conectarPuertoDeEscucha(char* puerto){
