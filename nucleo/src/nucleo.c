@@ -24,6 +24,7 @@ void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
 int conectarPuertoDeEscucha(char* puerto);
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
+void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, int prog_fd);
 
 t_config* config;
 
@@ -34,17 +35,20 @@ int main(int argc,char *argv[]) {
 
 	char *puerto_prog, *puerto_cpu;
 	fd_set listen, write; 			//En estos 2 sets tengo todos los descriptores de lectura/escritura
-	fd_set readyListen, readyWrite; //Aca el select me dice que descriptores estan listos para leer/escribir
-	int max_fd = 0;						//Hace falta para el select();
+	int max_fd = 0;					//El maximo valor de file descriptor
+	int cpu_fd, prog_fd;
 
 	FD_ZERO(&listen); FD_ZERO(&write);
-	FD_ZERO(&readyListen); FD_ZERO(&readyWrite); //Limpio los sets de file descriptors.
 
 	crearConfiguracion(argv[1]);
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
+	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
 
-	conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
+	prog_fd = conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
+	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
+
+	trabajarConexiones(&listen, &write, &max_fd, cpu_fd, prog_fd);
 
 	return EXIT_SUCCESS;
 }
@@ -106,7 +110,51 @@ int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd){
 	//Ya tengo el socket configurado, lo agrego a la lista de escucha
 	FD_SET(socket_escucha, setEscucha);
 
-	return 0;
+	return socket_escucha;
+}
+
+//TODO: Todas las validaciones de errores
+void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, int prog_fd){
+
+	int i;
+
+	//Setteo la estructura time
+	//TODO: Cambiarlo para que tome valores de archivo de configuracion
+	struct timeval time;
+	time.tv_sec = 10;
+	time.tv_usec = 0;
+
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+	int nuevo_fd;
+
+	fd_set readyListen, readyWrite; //En estos sets van los descriptores que estan listos para lectura/escritura
+
+	FD_ZERO(&readyListen); FD_ZERO(&readyWrite);
+
+	for(;;){
+		*readyListen = *listen;
+		*readyWrite = *write;
+
+		select((*max_fd + 1), &readyListen, &readyWrite, NULL, &time);
+
+		//busca en todos los file descriptor datos que leer/escribir
+		for(i=0; i <= *max_fd; i++){
+
+			if(FD_ISSET(i, &readyListen)){
+
+				if(i == prog_fd || i == cpu_fd){
+					//Agrego la nueva conexion
+					nuevo_fd = accept(i, (struct sockaddr *) &addr, &addrlen);
+
+					FD_SET(nuevo_fd, &readyListen);
+				}
+			}else{
+				//Envio/Recibo info.
+				//Supongo que esto lo haremos con una funcion que se vaya encargando de ir laburando con los procesos y eso
+			}
+		}//Busqueda de todos los File Descriptor
+	}//Ciclo principal
 }
 
 int conectarPuertoDeEscucha(char* puerto){
