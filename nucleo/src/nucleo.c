@@ -23,7 +23,7 @@
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
 int conectarPuertoDeEscucha(char* puerto);
-int conectarPuertoEscucha(char *puerto);
+int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
 
 t_config* config;
 
@@ -33,12 +33,18 @@ t_config* config;
 int main(int argc,char *argv[]) {
 
 	char *puerto_prog, *puerto_cpu;
+	fd_set listen, write; 			//En estos 2 sets tengo todos los descriptores de lectura/escritura
+	fd_set readyListen, readyWrite; //Aca el select me dice que descriptores estan listos para leer/escribir
+	int max_fd = 0;						//Hace falta para el select();
+
+	FD_ZERO(&listen); FD_ZERO(&write);
+	FD_ZERO(&readyListen); FD_ZERO(&readyWrite); //Limpio los sets de file descriptors.
 
 	crearConfiguracion(argv[1]);
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
 
-	conectarPuertoDeEscucha(puerto_prog);
+	conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
 
 	return EXIT_SUCCESS;
 }
@@ -70,7 +76,7 @@ bool validarParametrosDeConfiguracion(){
 			&& 	config_has_property(config, "SHARED_VARS"));
 }
 
-int conectarPuertoEscucha(char *puerto){
+int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd){
 
 	struct addrinfo hints, *serverInfo;
 	int result_getaddrinfo;
@@ -84,11 +90,23 @@ int conectarPuertoEscucha(char *puerto){
 	result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo);
 
 	if(result_getaddrinfo != 0){
-		fprint(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
+		fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
 		return 2;
 	}
 
 	socket_escucha = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+
+	if(socket_escucha > *max_fd){
+		*max_fd = socket_escucha;
+	}
+
+	bind(socket_escucha, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	freeaddrinfo(serverInfo);
+
+	//Ya tengo el socket configurado, lo agrego a la lista de escucha
+	FD_SET(socket_escucha, setEscucha);
+
+	return 0;
 }
 
 int conectarPuertoDeEscucha(char* puerto){
