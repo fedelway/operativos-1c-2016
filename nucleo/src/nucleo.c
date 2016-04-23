@@ -38,6 +38,11 @@ int main(int argc,char *argv[]) {
 	int max_fd = 0;					//El maximo valor de file descriptor
 	int cpu_fd, prog_fd;
 
+	if(argc != 2){
+		fprintf(stderr,"uso: nucleo config_path\n");
+		return 1;
+	}
+
 	FD_ZERO(&listen); FD_ZERO(&write);
 
 	crearConfiguracion(argv[1]);
@@ -48,6 +53,7 @@ int main(int argc,char *argv[]) {
 	prog_fd = conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
 	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
 
+	printf("trabajarConexiones");
 	trabajarConexiones(&listen, &write, &max_fd, cpu_fd, prog_fd);
 
 	return EXIT_SUCCESS;
@@ -104,8 +110,12 @@ int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd){
 		*max_fd = socket_escucha;
 	}
 
-	bind(socket_escucha, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	if(bind(socket_escucha, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
+		return -1;
+	}
 	freeaddrinfo(serverInfo);
+
+	listen(socket_escucha, BACKLOG);
 
 	//Ya tengo el socket configurado, lo agrego a la lista de escucha
 	FD_SET(socket_escucha, setEscucha);
@@ -117,6 +127,7 @@ int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd){
 void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, int prog_fd){
 
 	int i;
+	char package[PACKAGESIZE]; //Aca van a llegar los mensajes
 
 	//Setteo la estructura time
 	//TODO: Cambiarlo para que tome valores de archivo de configuracion
@@ -132,10 +143,11 @@ void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, 
 
 	FD_ZERO(&readyListen); FD_ZERO(&readyWrite);
 
-	for(;;){
-		*readyListen = *listen;
-		*readyWrite = *write;
+	//for(;;){
+		readyListen = *listen; //pongo todos los sockets en la lista para que los seleccione
+		readyWrite = *write;
 
+		printf("Select");
 		select((*max_fd + 1), &readyListen, &readyWrite, NULL, &time);
 
 		//busca en todos los file descriptor datos que leer/escribir
@@ -147,14 +159,29 @@ void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, 
 					//Agrego la nueva conexion
 					nuevo_fd = accept(i, (struct sockaddr *) &addr, &addrlen);
 
-					FD_SET(nuevo_fd, &readyListen);
+					if(nuevo_fd > *max_fd){
+						*max_fd = nuevo_fd;
+					}
+
+					FD_SET(nuevo_fd, listen);
 				}
-			}else{
-				//Envio/Recibo info.
+
+				//No es puerto escucha, recibo el paquete.
+				memset(package,'\0',PACKAGESIZE);
+				if(recv(i, package, PACKAGESIZE, 0) == 0){
+					//El cliente corto la conexion. Cierro el socket y remuevo de la lista
+
+					close(i);
+					FD_CLR(i, listen);
+				}
+
+			}else if(FD_ISSET(i, &readyWrite)){
+				//Envio info.
 				//Supongo que esto lo haremos con una funcion que se vaya encargando de ir laburando con los procesos y eso
+				//Igual no estoy seguro de que lo vayamos a usar
 			}
 		}//Busqueda de todos los File Descriptor
-	}//Ciclo principal
+	//} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
 }
 
 int conectarPuertoDeEscucha(char* puerto){
