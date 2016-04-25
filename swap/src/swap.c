@@ -10,58 +10,50 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <unistd.h> // for close conections
 #include "commons/config.h"
 
-t_config* config;
+
 
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
+int conectarPuertoDeEscucha(char* puerto);
+
+t_config* config;
+
+#define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
+#define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
+
 
 int main(int argc,char *argv[]) {
 
-	int cfg_puerto_escucha, cfg_cantidad_paginas, cfg_tamanio_pagina, cfg_retardo_compactacion;
-	char* cfg_nombre_swap;
+	char* puerto_escucha;
 
 	printf("Proyecto para Swap\n");
 
-	if(argc != 2){
-		fprintf(stderr,"Uso: swap config_path\n");
-		return 1;
-	}
-
-	printf("Obteniendo los datos de %s\n", argv[1]);
-
 	crearConfiguracion(argv[1]);
 
-	//Ejemplos para obtener los valores de configuración (Solo por ahora)
-	cfg_puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
-	printf("El puerto de escucha es el %s\n", cfg_puerto_escucha);
+	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 
-	cfg_nombre_swap = config_get_string_value(config, "NOMBRE_SWAP");
-	printf("El nombre del swap es %s\n", cfg_nombre_swap);
-
-	cfg_cantidad_paginas = config_get_int_value(config, "CANTIDAD_PAGINAS");
-	printf("La cantidad de paginas es de %d\n", cfg_cantidad_paginas);
-
-	cfg_tamanio_pagina = config_get_int_value(config, "TAMANIO_PAGINA");
-	printf("El tamanio de una paginas es de %d\n", cfg_tamanio_pagina);
-
-	cfg_retardo_compactacion = config_get_int_value(config, "RETARDO_COMPACTACION");
-	printf("El retardo de compactacion es de %d\n", cfg_retardo_compactacion);
-
+	conectarPuertoDeEscucha(puerto_escucha);
 	return EXIT_SUCCESS;
 }
 
-//levanta los datos de configuracion en una estructura t_struct
-void crearConfiguracion(char* config_path){
+void crearConfiguracion(char *config_path){
 
 	config = config_create(config_path);
 
-	if(validarParametrosDeConfiguracion()){
-		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
-		return;
+	if (validarParametrosDeConfiguracion()){
+	 printf("Tiene todos los parametros necesarios");
+	 return;
 	}else{
-		printf("Archivo de configuracion no valido.");
+		printf("configuracion no valida");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -74,4 +66,70 @@ bool validarParametrosDeConfiguracion(){
 			&& 	config_has_property(config, "CANTIDAD_PAGINAS")
 			&& 	config_has_property(config, "TAMANIO_PAGINA")
 			&& 	config_has_property(config, "RETARDO_COMPACTACION"));
+}
+
+int conectarPuertoDeEscucha(char* puerto){
+
+    struct addrinfo hints, *serverInfo;
+    int result_getaddrinfo;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; 		// AF_INET or AF_INET6 to force version
+	hints.ai_flags = AI_PASSIVE;		// Asigna el address del localhost: 127.0.0.1
+	hints.ai_socktype = SOCK_STREAM;	// Indica que usaremos el protocolo TCP
+
+	getaddrinfo(NULL, puerto, &hints, &serverInfo);
+
+    if ((result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo)) != 0) {
+        fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
+        return 2;
+    }
+
+    //Obtengo un socket para que escuche las conexiones entrantes
+	int listeningSocket;
+	listeningSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+
+    printf("Asocio al listennigSocket al puerto: %s.\n", puerto);
+
+	//Asocio al socket con el puerto para escuchar las conexiones en dicho puerto
+	bind(listeningSocket,serverInfo->ai_addr, serverInfo->ai_addrlen);
+	freeaddrinfo(serverInfo); // Libero serverInfo
+
+    printf("Listening....\n");
+
+	//Le digo al socket que se quede escuchando
+    //TODO: Ver de donde sacamos el Backlog
+	listen(listeningSocket, BACKLOG);		// IMPORTANTE: listen() es una syscall BLOQUEANTE.
+
+	//Si hay una conexion entrante, la acepta y crea un nuevo socket mediante el cual nos podamos comunicar con el cliente
+	//El listennigSocket lo seguimos usando para escuchar las conexiones entrantes.
+	//Nota TODO: Para que el listenningSocket vuelva a esperar conexiones, necesitariamos volver a decirle que escuche, con listen();
+
+	struct sockaddr_in addr; // addr contien los datos de la conexion del cliente.
+	socklen_t addrlen = sizeof(addr);
+
+	int socketCliente = accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
+
+	//Ya estamos listos para recibir paquetes de nuestro cliente...
+	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
+
+	char package[PACKAGESIZE];
+	int status = 1;		// Estructura que maneja el status de los recieve.
+
+	printf("Cliente conectado. Esperando mensajes:\n");
+
+	//Cuando el cliente cierra la conexion, recv() devolvera 0.
+	while (status != 0){
+	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
+		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
+		if (status != 0) printf("%s", package);
+	}
+
+	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
+
+	//Al terminar el intercambio de paquetes, cerramos todas las conexiones.
+	close(socketCliente);
+	close(listeningSocket);
+
+	return 0;
 }
