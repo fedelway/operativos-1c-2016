@@ -19,11 +19,14 @@
 #include <netinet/in.h>
 #include <unistd.h> // for close conections
 #include "commons/config.h"
+#include "commons/log.h"
+#include "commons/string.h"
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
 
 t_config* config;
+t_log* logger;
 
 int main(int argc,char *argv[]) {
 
@@ -36,8 +39,9 @@ int main(int argc,char *argv[]) {
 	char* puerto_conexion_nucleo;
 	char* puerto_conexion_umc;
 
-	printf("Proyecto para CPU..\n");
+	logger = log_create("cpu.log", "CPU",true, LOG_LEVEL_INFO);
 
+    log_info(logger, "Proyecto para CPU..");
 	crearConfiguracion(argv[1]);
 
 	nucleo_ip = config_get_string_value(config, "NUCLEO_IP");
@@ -47,10 +51,12 @@ int main(int argc,char *argv[]) {
 	puerto_conexion_nucleo = config_get_string_value(config, "PUERTO_PARA_NUCLEO");
 	puerto_conexion_umc = config_get_string_value(config, "PUERTO_PARA_UMC");
 
-	printf("Me conecto al nucleo a través del puerto: %s\n", puerto_conexion_nucleo);
-	printf("Me conecto a la umc a través del puerto: %s\n", puerto_conexion_umc);
-	printf("IP y puerto del núcleo: %s - %s\n", nucleo_ip, nucleo_puerto);
-	printf("IP y puerto de la umc: %s - %s\n", umc_ip, umc_puerto);
+	log_info(logger, "Me conecto al nucleo a través del puerto: %s", puerto_conexion_nucleo);
+	log_info(logger, "Me conecto a la umc a través del puerto: %s", puerto_conexion_umc);
+	log_info(logger, "IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
+	log_info(logger, "IP y puerto de la umc: %s - %s", umc_ip, umc_puerto);
+
+	log_destroy(logger);
 
 	return EXIT_SUCCESS;
 }
@@ -61,10 +67,12 @@ void crearConfiguracion(char* config_path){
 	config = config_create(config_path);
 
 	if (validarParametrosDeConfiguracion()){
-	 printf("El archivo de configuración tiene todos los parametros requeridos.\n");
+	 log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 	 return;
 	}else{
-		printf("Configuración no valida\n");
+		log_warning(logger, "LOG A NIVEL %s de prueba", "WARNING");
+	    log_error(logger, "Configuración no valida");
+	    log_destroy(logger);
 		exit(EXIT_FAILURE);
 	}
 }
