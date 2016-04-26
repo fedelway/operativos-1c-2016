@@ -39,7 +39,7 @@ int main(int argc,char *argv[]) {
 	int cpu_fd, prog_fd;
 
 	if(argc != 2){
-		fprintf(stderr,"uso: nucleo config_path\n");
+		fprintf(stderr,"Uso: nucleo config_path\n");
 		return 1;
 	}
 
@@ -51,9 +51,12 @@ int main(int argc,char *argv[]) {
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
 
 	prog_fd = conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
-	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
+	printf("Esperando conexiones de consolas.. (PUERTO: %s)\n", puerto_prog);
 
-	printf("trabajarConexiones");
+	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
+	printf("Esperando conexiones de CPUs.. (PUERTO: %s)\n", puerto_cpu);
+
+	printf("trabajarConexiones\n");
 	trabajarConexiones(&listen, &write, &max_fd, cpu_fd, prog_fd);
 
 	return EXIT_SUCCESS;
@@ -64,10 +67,10 @@ void crearConfiguracion(char *config_path){
 	config = config_create(config_path);
 
 	if (validarParametrosDeConfiguracion()){
-	 printf("Tiene todos los parametros necesarios");
+	 printf("Tiene todos los parametros necesarios\n");
 	 return;
 	}else{
-		printf("configuracion no valida");
+		printf("Configuracion no valida\n");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -147,7 +150,7 @@ void trabajarConexiones(fd_set *listen, fd_set* write, int *max_fd, int cpu_fd, 
 		readyListen = *listen; //pongo todos los sockets en la lista para que los seleccione
 		readyWrite = *write;
 
-		printf("Select");
+		printf("Select.. \n");
 		select((*max_fd + 1), &readyListen, &readyWrite, NULL, &time);
 
 		//busca en todos los file descriptor datos que leer/escribir
