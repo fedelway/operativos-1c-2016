@@ -1,12 +1,13 @@
 /*
  ============================================================================
+
  Name        : umc.c
  Author      :
  Version     :
  Copyright   : Your copyright notice
  Description : Hello World in C, Ansi-style
  ============================================================================
- */
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -96,18 +97,45 @@ int conectarseA(char* ip, char* puerto){
 		exit(1);
 	}
 
+	int status =1;
 	int enviar = 1;
 	char message[PACKAGESIZE];
 
 	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
 
 	while(enviar){
-		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+	 	fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
 		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
 		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-	}
 
+		//para recibir
+
+		while(status != 0){
+			memset (message,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
+			status = recv(socket_conexion, (void*) message, PACKAGESIZE, 0);
+			if (status != 0) printf("%s", message);
+		}
+
+		while(status != 0){
+			fgets(message, PACKAGESIZE, stdin);	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+			if (!strcmp(message,"exit\n")) status = 0;			// Chequeo que el usuario no quiera salir
+			if (status) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
+		}
+
+		while(status != 0){
+			memset (message,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
+			status = recv(socket_conexion, (void*) message, PACKAGESIZE, 0);
+			if (status != 0) printf("%s", message);
+		}
+		//para recibir
+	}
 	close(socket_conexion);
 
 	return 0;
 }
+
+
+
+
+
+

@@ -1,7 +1,7 @@
 /*
  ============================================================================
  Name        : swap.c
- Author      : 
+ Author      :
  Version     :
  Copyright   : Your copyright notice
  Description : Hello World in C, Ansi-style
@@ -114,7 +114,7 @@ int conectarPuertoDeEscucha(char* puerto){
 	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
 
 	char package[PACKAGESIZE];
-	int status = 1;		// Estructura que maneja el status de los recieve.
+	int status = 1;		// Estructura que maneja el status de los receive.
 
 	printf("Cliente conectado. Esperando mensajes:\n");
 
@@ -123,7 +123,24 @@ int conectarPuertoDeEscucha(char* puerto){
 	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
 		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
 		if (status != 0) printf("%s", package);
-	}
+
+
+	//nooo
+
+			int enviar=1;
+
+			while (enviar){
+				fgets(package, PACKAGESIZE, stdin);
+				if (!strcmp(package,"exit\n")) enviar= 0;	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+				if (enviar) send(socketCliente, package, strlen(package) + 1, 0); 	// Solo envio si el usuario no quiere salir.
+
+					while (enviar != 0){
+						memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
+						status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
+						if (enviar != 0) printf("%s", package);
+					}
+			//para enviar
+			}
 
 	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
 
@@ -132,4 +149,5 @@ int conectarPuertoDeEscucha(char* puerto){
 	close(listeningSocket);
 
 	return 0;
+	}
 }
