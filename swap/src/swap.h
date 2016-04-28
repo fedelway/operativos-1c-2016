@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <unistd.h> // for close conections
 #include "commons/config.h"
+#include "commons/log.h"
 
 #include "socketServidor.h"
 

@@ -13,6 +13,7 @@
 
 
 t_config* config;
+t_log* logger;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
@@ -23,14 +24,18 @@ int main(int argc,char *argv[]) {
 
 	char* puerto_escucha;
 
-	printf("Proyecto para Swap\n");
+	logger = log_create("swap.log", "SWAP",true, LOG_LEVEL_INFO);
+	log_info(logger, "Proyecto para SWAP..");
 
 	crearConfiguracion(argv[1]);
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
-
+	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
 	conectarPuertoDeEscucha2(puerto_escucha);
-	return EXIT_SUCCESS;
+
+	log_destroy(logger);
+
+    return EXIT_SUCCESS;
 }
 
 void crearConfiguracion(char *config_path){
@@ -38,10 +43,11 @@ void crearConfiguracion(char *config_path){
 	config = config_create(config_path);
 
 	if (validarParametrosDeConfiguracion()){
-	 printf("Tiene todos los parametros necesarios");
+	 log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 	 return;
 	}else{
-		printf("configuracion no valida");
+		log_error(logger, "Configuración no válida");
+		log_destroy(logger);
 		exit(EXIT_FAILURE);
 	}
 }
