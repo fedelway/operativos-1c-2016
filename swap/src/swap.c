@@ -16,6 +16,7 @@ t_config* config;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
+int conectarPuertoDeEscucha2(char* puerto);
 
 
 int main(int argc,char *argv[]) {
@@ -103,32 +104,22 @@ int conectarPuertoDeEscucha2(char* puerto){
 
 	char package[PACKAGESIZE];
 	int status = 1;		// Estructura que maneja el status de los receive.
+	int enviar=1;
 
 	printf("Cliente conectado. Esperando mensajes:\n");
 
 	//Cuando el cliente cierra la conexion, recv() devolvera 0.
-	while (status != 0){
+	while (status != 0 && enviar !=0){
 	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
 		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
 		if (status != 0) printf("%s", package);
 
+	//Envío un mensaje al cliente que se conectó
+		fgets(package, PACKAGESIZE, stdin);
+		if (!strcmp(package,"exit\n")) enviar= 0;	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+		if (enviar) send(socketCliente, package, strlen(package) + 1, 0); 	// Solo envio si el usuario no quiere salir.
 
-	//nooo
-
-			int enviar=1;
-
-			while (enviar){
-				fgets(package, PACKAGESIZE, stdin);
-				if (!strcmp(package,"exit\n")) enviar= 0;	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
-				if (enviar) send(socketCliente, package, strlen(package) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-
-					while (enviar != 0){
-						memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
-						status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
-						if (enviar != 0) printf("%s", package);
-					}
-			//para enviar
-			}
+	}
 
 	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
 
@@ -137,6 +128,6 @@ int conectarPuertoDeEscucha2(char* puerto){
 	close(listeningSocket);
 
 	return 0;
-	}
 }
+
 
