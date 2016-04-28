@@ -9,25 +9,12 @@
  ============================================================================
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h> // for close conection
-#include "commons/config.h"
+
+#include "umc.h"
 
 t_config *config;
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
-
-void crearConfiguracion(char* config_path);
-bool validarParametrosDeConfiguracion();
-int conectarseA(char* ip, char* puerto);
-
 
 
 int main(int argc,char *argv[]) {
@@ -133,9 +120,4 @@ int conectarseA(char* ip, char* puerto){
 
 	return 0;
 }
-
-
-
-
-
 

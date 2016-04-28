@@ -1,62 +1,12 @@
-/*
- ============================================================================
- Name        : swap.c
- Author      :
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
+#include "socketServidor.h"
 
-
-#include "swap.h"
-
-
-t_config* config;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 
 
-int main(int argc,char *argv[]) {
 
-	char* puerto_escucha;
-
-	printf("Proyecto para Swap\n");
-
-	crearConfiguracion(argv[1]);
-
-	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
-
-	conectarPuertoDeEscucha2(puerto_escucha);
-	return EXIT_SUCCESS;
-}
-
-void crearConfiguracion(char *config_path){
-
-	config = config_create(config_path);
-
-	if (validarParametrosDeConfiguracion()){
-	 printf("Tiene todos los parametros necesarios");
-	 return;
-	}else{
-		printf("configuracion no valida");
-		exit(EXIT_FAILURE);
-	}
-}
-
-//Valida que todos los parámetros existan en el archivo de configuración
-bool validarParametrosDeConfiguracion(){
-
-	return (	config_has_property(config, "PUERTO_ESCUCHA")
-			&& 	config_has_property(config, "NOMBRE_SWAP")
-			&& 	config_has_property(config, "CANTIDAD_PAGINAS")
-			&& 	config_has_property(config, "TAMANIO_PAGINA")
-			&& 	config_has_property(config, "RETARDO_COMPACTACION"));
-}
-
-
-int conectarPuertoDeEscucha2(char* puerto){
+int conectarPuertoDeEscucha(char* puerto){
 
     struct addrinfo hints, *serverInfo;
     int result_getaddrinfo;
@@ -102,7 +52,7 @@ int conectarPuertoDeEscucha2(char* puerto){
 	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
 
 	char package[PACKAGESIZE];
-	int status = 1;		// Estructura que maneja el status de los receive.
+	int status = 1;		// Estructura que maneja el status de los recieve.
 
 	printf("Cliente conectado. Esperando mensajes:\n");
 
@@ -111,24 +61,7 @@ int conectarPuertoDeEscucha2(char* puerto){
 	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
 		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
 		if (status != 0) printf("%s", package);
-
-
-	//nooo
-
-			int enviar=1;
-
-			while (enviar){
-				fgets(package, PACKAGESIZE, stdin);
-				if (!strcmp(package,"exit\n")) enviar= 0;	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
-				if (enviar) send(socketCliente, package, strlen(package) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-
-					while (enviar != 0){
-						memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
-						status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
-						if (enviar != 0) printf("%s", package);
-					}
-			//para enviar
-			}
+	}
 
 	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
 
@@ -137,6 +70,4 @@ int conectarPuertoDeEscucha2(char* puerto){
 	close(listeningSocket);
 
 	return 0;
-	}
 }
-
