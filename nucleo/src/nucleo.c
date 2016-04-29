@@ -201,6 +201,8 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 					close(i);
 					printf("Se ha desconectado\n");
 					FD_CLR(i, listen);
+					FD_CLR(i, &cpu_fd_set);
+					FD_CLR(i, &prog_fd_set);
 				}else{
 
 					if(FD_ISSET(i, &cpu_fd_set)){
