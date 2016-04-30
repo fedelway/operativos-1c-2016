@@ -13,6 +13,6 @@
 
 
 int conectarseA(char* ip, char* puerto);
-
+int cerrarConexionSocket(int socket);
 
 #endif /* SOCKETCLIENTE_H_ */

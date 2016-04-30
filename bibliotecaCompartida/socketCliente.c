@@ -30,18 +30,11 @@ int conectarseA(char* ip, char* puerto){
 		exit(1);
 	}
 
-	int enviar = 1;
-	char message[PACKAGESIZE];
+	return socket_conexion;
+}
 
-	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
 
-	while(enviar){
-		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
-		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
-		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-	}
-
-	close(socket_conexion);
-
+int cerrarConexionSocket(int socket){
+	close(socket);
 	return 0;
 }

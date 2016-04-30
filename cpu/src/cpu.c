@@ -8,22 +8,7 @@
  ============================================================================
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h> //Para la estructura timeval del select
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h> // for close conections
-#include "commons/config.h"
-#include "commons/log.h"
-#include "commons/string.h"
-
-void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
-bool validarParametrosDeConfiguracion();
+#include "cpu.h"
 
 t_config* config;
 t_log* logger;
@@ -35,26 +20,50 @@ int main(int argc,char *argv[]) {
 	char* umc_ip;
 	char* umc_puerto;
 
-	//Puertos propios de la CPU desde donde se conecta a los demás procesos
-	char* puerto_conexion_nucleo;
-	char* puerto_conexion_umc;
+	int socket_nucleo, socket_umc;
 
 	logger = log_create("cpu.log", "CPU",true, LOG_LEVEL_INFO);
 
-    log_info(logger, "Proyecto para CPU..");
+    log_info(logger, "Inciando proceso CPU..");
 	crearConfiguracion(argv[1]);
 
 	nucleo_ip = config_get_string_value(config, "NUCLEO_IP");
 	nucleo_puerto = config_get_string_value(config, "NUCLEO_PUERTO");
 	umc_ip = config_get_string_value(config, "UMC_IP");
 	umc_puerto = config_get_string_value(config, "UMC_PUERTO");
-	puerto_conexion_nucleo = config_get_string_value(config, "PUERTO_PARA_NUCLEO");
-	puerto_conexion_umc = config_get_string_value(config, "PUERTO_PARA_UMC");
 
-	log_info(logger, "Me conecto al nucleo a través del puerto: %s", puerto_conexion_nucleo);
-	log_info(logger, "Me conecto a la umc a través del puerto: %s", puerto_conexion_umc);
 	log_info(logger, "IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
 	log_info(logger, "IP y puerto de la umc: %s - %s", umc_ip, umc_puerto);
+
+	//Conexión al nucleo
+	log_info(logger, "Conectando al nucleo. IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
+	socket_nucleo = conectarseA(nucleo_ip, nucleo_puerto);
+	log_info(logger, "Conexion establecida con el nucleo. (Socket: %d)",socket_nucleo);
+
+	//Conexión al umc
+
+	log_info(logger, "Conectando a la umc. IP y puerto del núcleo: %s - %s", umc_ip, umc_puerto);
+	socket_umc = conectarseA(umc_ip, umc_puerto);
+	log_info(logger, "Conexion establecida con la umc. (Socket: %d)",socket_umc);
+
+	int enviar = 1;
+	int status = 1;
+	char message[PACKAGESIZE];
+
+	while(enviar && status !=0){
+	 	fgets(message, PACKAGESIZE, stdin);
+		if (!strcmp(message,"exit\n")) enviar = 0;
+		if (enviar) send(socket_umc, message, strlen(message) + 1, 0);
+
+		//Recibo mensajes del servidor
+		memset (message,'\0',PACKAGESIZE);
+		status = recv(socket_umc, (void*) message, PACKAGESIZE, 0);
+		if (status != 0) printf("%s", message);
+	}
+
+	log_info(logger, "Cierro conexiones.",socket_nucleo);
+	cerrarConexionSocket(socket_nucleo);
+	cerrarConexionSocket(socket_umc);
 
 	log_destroy(logger);
 
@@ -82,7 +91,5 @@ bool validarParametrosDeConfiguracion(){
 	return (	config_has_property(config, "NUCLEO_IP")
 			&&  config_has_property(config, "NUCLEO_PUERTO")
 			&& 	config_has_property(config, "UMC_IP")
-			&& 	config_has_property(config, "UMC_PUERTO")
-			&& 	config_has_property(config, "PUERTO_PARA_NUCLEO")
-			&& 	config_has_property(config, "PUERTO_PARA_UMC"));
+			&& 	config_has_property(config, "UMC_PUERTO"));
 }
