@@ -27,6 +27,7 @@ int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
 void hacerAlgoCPU(char*);
 void hacerAlgoProg(char*);
+void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 
 t_config* config;
 
@@ -167,7 +168,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				if (i == prog_fd) {
 					//Agrego la nueva conexion
 
-					agregarConexion(i, max_fd, *listen, &prog_fd_set, 2000);
+					agregarConexion(i, max_fd, listen, &prog_fd_set, 2000);
 				}
 
 				if (i == cpu_fd) {
@@ -208,6 +209,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
 	//msj Es el mensaje de autentificacion.
 
+	int soy_nucleo = 1000;
 	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -217,12 +219,19 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 	printf("Se ha conectado un nuevo usuario.\n");
 
-	recv(nuevo_fd, *msj_recibido, 1, 0);
+	send(nuevo_fd, &soy_nucleo, 1, 0);
+	recv(nuevo_fd, &msj_recibido, 1, 0);
 
 	if(msj_recibido == msj){
 
 		if (nuevo_fd > *max_fd) {
 			*max_fd = nuevo_fd;
+		}
+
+		if(msj == 2000){
+			printf("El nuevo usuario es una consola.\n");
+		}else if(msj == 3000){
+			printf("El nuevo usuario es una cpu.\n");
 		}
 
 		FD_SET(nuevo_fd, listen);

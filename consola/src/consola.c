@@ -26,6 +26,7 @@ t_config* config;
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 int conectarseA(char* ip, char* puerto);
+void validarNucleo(int nucleo_fd);
 
 int main(int argc,char *argv[]) {
 
@@ -89,6 +90,8 @@ int conectarseA(char* ip, char* puerto){
 		exit(1);
 	}
 
+	validarNucleo(socket_conexion);
+
 	int enviar = 1;
 	char message[PACKAGESIZE];
 
@@ -103,4 +106,21 @@ int conectarseA(char* ip, char* puerto){
 	close(socket_conexion);
 
 	return 0;
+}
+
+void validarNucleo(int nucleo_fd){
+
+	int msj_recibido;
+	int soy_consola = 2000;
+
+	recv(nucleo_fd, &msj_recibido, 1, 0);
+
+	if(msj_recibido == 1000){
+		printf("Nucleo validado.\n");
+		send(nucleo_fd, &soy_consola, 1, 0);
+	}else{
+		printf("El nucleo no pudo ser validado");
+		exit(0);
+	}
+
 }
