@@ -219,8 +219,8 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 	printf("Se ha conectado un nuevo usuario.\n");
 
-	send(nuevo_fd, &soy_nucleo, 1, 0);
-	recv(nuevo_fd, &msj_recibido, 1, 0);
+	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == msj){
 
@@ -230,16 +230,17 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 		if(msj == 2000){
 			printf("El nuevo usuario es una consola.\n");
+
 		}else if(msj == 3000){
 			printf("El nuevo usuario es una cpu.\n");
 		}
 
 		FD_SET(nuevo_fd, listen);
 		FD_SET(nuevo_fd, particular);
+	}else{
+		printf("No se verifico la autenticidad del usuario, cerrando la conexion. \n");
+		close(nuevo_fd);
 	}
-
-	printf("No se verifico la autenticidad del usuario, cerrando la conexion. \n");
-	close(nuevo_fd);
 
 }
 

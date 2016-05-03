@@ -113,13 +113,13 @@ void validarNucleo(int nucleo_fd){
 	int msj_recibido;
 	int soy_consola = 2000;
 
-	recv(nucleo_fd, &msj_recibido, 1, 0);
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == 1000){
 		printf("Nucleo validado.\n");
-		send(nucleo_fd, &soy_consola, 1, 0);
+		send(nucleo_fd, &soy_consola, sizeof(int), 0);
 	}else{
-		printf("El nucleo no pudo ser validado");
+		printf("El nucleo no pudo ser validado.\n");
 		exit(0);
 	}
 
