@@ -1,0 +1,14 @@
+0 - 1000 : Los guardamos por si necesitamos.
+
+1000 - 1999 : Mensajes que envia el nucleo.
+
+2000 - 2999 : Mensajes que envia la consola.
+
+3000-3999 : Mensajes que envia la cpu.
+
+4000 - 4999 : Mensajes que envia la umc.
+
+5000-5999 : Mensajes que envia la swap.
+
+
+Los mensajes x000 deberian ser de verificacion del handshake.

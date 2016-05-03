@@ -144,8 +144,6 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 	time.tv_sec = 10;
 	time.tv_usec = 0;
 
-	struct sockaddr_in addr; // Para recibir nuevas conexiones
-	socklen_t addrlen = sizeof(addr);
 	int nuevo_fd;
 
 	fd_set readyListen, cpu_fd_set, prog_fd_set; //En estos sets van los descriptores que estan listos para lectura/escritura
@@ -168,29 +166,13 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 				if (i == prog_fd) {
 					//Agrego la nueva conexion
-					nuevo_fd = accept(i, (struct sockaddr *) &addr, &addrlen);
 
-					printf("Se ha conectado una nueva consola\n");
-
-					if (nuevo_fd > *max_fd) {
-						*max_fd = nuevo_fd;
-					}
-
-					FD_SET(nuevo_fd, listen);
-					FD_SET(nuevo_fd, &prog_fd_set);
+					agregarConexion(i, max_fd, *listen, &prog_fd_set, 2000);
 				}
 
 				if (i == cpu_fd) {
-					nuevo_fd = accept(i, (struct sockaddr *) &addr, &addrlen);
 
-					printf("Se ha conectado una nueva cpu\n");
-
-					if (nuevo_fd > *max_fd) {
-						*max_fd = nuevo_fd;
-					}
-
-					FD_SET(nuevo_fd, listen);
-					FD_SET(nuevo_fd, &cpu_fd_set);
+					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
 				}
 
 				//No es puerto escucha, recibo el paquete.
@@ -221,6 +203,35 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 			}
 		}				//Busqueda de todos los File Descriptor
 	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
+}
+
+void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
+	//msj Es el mensaje de autentificacion.
+
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado un nuevo usuario.\n");
+
+	recv(nuevo_fd, *msj_recibido, 1, 0);
+
+	if(msj_recibido == msj){
+
+		if (nuevo_fd > *max_fd) {
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd, listen);
+		FD_SET(nuevo_fd, particular);
+	}
+
+	printf("No se verifico la autenticidad del usuario, cerrando la conexion. \n");
+	close(nuevo_fd);
+
 }
 
 void hacerAlgoCPU(char *package){
