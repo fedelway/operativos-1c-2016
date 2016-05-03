@@ -61,15 +61,44 @@ int main(int argc,char *argv[]) {
 
 void enviar_source(int nucleo_fd, FILE *source, int source_size){
 
-	char *archivo = malloc(source_size + 1);
-	int cant_leida;
+	char *archivo = malloc(source_size);
+	int cant_leida, cant_enviada;
+	int aux;
+	int mandoArchivo = 2001;
 
 	cant_leida = fread(archivo, sizeof(char), source_size, source);
 
+	//leo hasta que termine completamente
 	while(cant_leida < source_size){
 
-		fread(archivo + cant_leida, sizeof(char), source_size - cant_leida, source);
+		//Leo a partir de la posicion que venia leyendo, la cantidad maxima menos lo que leyo.
+		aux = fread(archivo + cant_leida, sizeof(char), source_size - cant_leida, source);
+
+		if (aux == -1){
+			printf("Error de lectura.\ņ");
+			exit(1);
+		}
+		cant_leida += aux;
 	}
+
+	//ya tengo todo el texto en *archivo. Le digo al nucleo que le voy a mandar el archivo.
+	send(nucleo_fd, &mandoArchivo, sizeof(int), 0);
+	send(nucleo_fd, &source_size, sizeof(int), 0);
+
+	cant_enviada = send(nucleo_fd, archivo, source_size, 0);
+
+	//Envio el archivo entero
+	while(cant_enviada < source_size){
+
+		aux = send(nucleo_fd, archivo + cant_enviada, source_size - cant_enviada, 0);
+		if(aux == -1){
+			printf("Error al enviar archivo.\n");
+			exit(1);
+		}
+		cant_enviada += aux;
+	}
+
+	//ya tengo todo el archivo enviado
 }
 
 FILE *abrirSource(char *path, int *source_size){
