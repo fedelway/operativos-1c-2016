@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <fcntl.h> //Para manejar archivos con fd, no se si lo vayamos a usar, pero lo use y lo cambie
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -27,25 +29,70 @@ void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 int conectarseA(char* ip, char* puerto);
 void validarNucleo(int nucleo_fd);
+FILE *abrirSource(char *path, int *source_size);
+void enviar_source(int nucleo_fd, FILE *source, int source_size);
 
 int main(int argc,char *argv[]) {
 
 	char* nucleo_ip;
 	char* nucleo_puerto;
+	int source_size;
+	int nucleo_fd;
+	FILE *source;
 
-	if(argc != 2){
-		fprintf(stderr,"uso: consola config_path\n");
+	if(argc != 3){
+		fprintf(stderr,"uso: consola config_path ansisop_source_path\n");
 		return 1;
 	}
+
+	source = abrirSource(argv[2], &source_size);
 
 	crearConfiguracion(argv[1]);
 
 	nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
 	nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
 
-	conectarseA(nucleo_ip, nucleo_puerto);
+	nucleo_fd = conectarseA(nucleo_ip, nucleo_puerto);
+
+	enviar_source(nucleo_fd, source, source_size);
 
 	return EXIT_SUCCESS;
+}
+
+void enviar_source(int nucleo_fd, FILE *source, int source_size){
+
+	char *archivo = malloc(source_size + 1);
+	int cant_leida;
+
+	cant_leida = fread(archivo, sizeof(char), source_size, source);
+
+	while(cant_leida < source_size){
+
+		fread(archivo + cant_leida, sizeof(char), source_size - cant_leida, source);
+	}
+}
+
+FILE *abrirSource(char *path, int *source_size){
+
+	FILE *source;
+	struct stat file_info;
+
+	source = fopen(path, "r");
+
+	if (source == NULL){
+		printf("Error al abrir el archivo fuente.\n");
+		exit(0);
+	}
+
+	if( stat(path, &file_info) == -1){
+		printf("Error con stat.\n");
+	}
+
+	//Me fijo el tamanio del archivo en bytes.
+	*source_size = file_info.st_size;
+	printf("Tamanio archivo(bytes): %i\n", *source_size);
+
+	return source;
 }
 
 void crearConfiguracion(char* config_path){
@@ -92,20 +139,20 @@ int conectarseA(char* ip, char* puerto){
 
 	validarNucleo(socket_conexion);
 
-	int enviar = 1;
-	char message[PACKAGESIZE];
+// Comento esto, ya no creo que lo vayamos a usar mas que para probar.
+//	int enviar = 1;
+//	char message[PACKAGESIZE];
 
 	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
 
-	while(enviar){
-		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
-		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
-		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-	}
+//	while(enviar){
+//		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
+//		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
+//		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
+//	}
+//	close(socket_conexion);
 
-	close(socket_conexion);
-
-	return 0;
+	return socket_conexion;
 }
 
 void validarNucleo(int nucleo_fd){
