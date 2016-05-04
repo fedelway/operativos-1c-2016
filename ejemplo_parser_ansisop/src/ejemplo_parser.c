@@ -49,7 +49,7 @@ void dummy_imprimirTexto(char* texto) {
 	printf("ImprimirTexto: %s", texto);
 }
 
-AnSISOP_funciones functions = {
+AnSISOP_funciones funciones = {
 		.AnSISOP_definirVariable		= dummy_definirVariable,
 		.AnSISOP_obtenerPosicionVariable= dummy_obtenerPosicionVariable,
 		.AnSISOP_dereferenciar			= dummy_dereferenciar,
@@ -59,7 +59,7 @@ AnSISOP_funciones functions = {
 
 };
 
-AnSISOP_kernel kernel_functions = { };
+AnSISOP_kernel funciones_kernel = { };
 
 
 int main(int argc,char *argv[]) {
@@ -70,38 +70,50 @@ int main(int argc,char *argv[]) {
 	//Primero pruebo levantar y analizar el codigo de un archivo
 
 	//Levanto un archivo ansisop de prueba
-	char* line;
+	char* programa_ansisop;
 
-	line = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend\n";
+	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend\n";
 
 
 	printf("Ejecutando AnalizadorLinea\n");
-    analizadorLinea("a = 3", &functions, &kernel_functions);
 	printf("================\n");
-
-	printf("================\n");
-	printf("El programa de ejemplo es %s\n", line);
-	printf("================\n");
-	analizadorLinea(strdup(line), &functions, &kernel_functions);
+	printf("El programa de ejemplo es \n%s\n", programa_ansisop);
 	printf("================\n");
 
 	t_metadata_program* metadata;
-	metadata = metadata_desde_literal(line);
+	metadata = metadata_desde_literal(programa_ansisop);
 
-	int start = metadata->instrucciones_serializado->start;
-	int size = metadata->instrucciones_serializado->offset;
+	t_puntero_instruccion inicio;
+	int offset;
 
-   char dest[50];
-   printf("Before memcpy dest = %s\n", dest);
-   memcpy(dest, &metadata->instrucciones_serializado->start, metadata->instrucciones_serializado->offset +1);
-   printf("After memcpy dest = %s\n", dest);
+int i;
+	for(i=0; i < metadata->instrucciones_size; i++){
+		t_intructions instr = metadata->instrucciones_serializado[i];
+		inicio = instr.start;
+		offset = instr.offset;
+		char* instruccion = malloc(offset+1);
+		//instruccion = obtener_cadena(programa_ansisop, inicio, offset);
+		memset(instruccion, '\0', offset);
+		strncpy(instruccion, &(programa_ansisop[inicio]), offset);
+		analizadorLinea(instruccion, &funciones, &funciones_kernel);
+		free(instruccion);
+	}
 
    printf("================\n");
-
-   t_puntero_instruccion instrucciones = metadata->instruccion_inicio;
-   analizadorLinea(&instrucciones, &functions, &kernel_functions);
-
 	log_destroy(logger);
 
 	return EXIT_SUCCESS;
 }
+
+/*
+char* obtener_cadena(char* programa_ansisop, t_puntero_instruccion inicio, int offset){
+	char* instruccion;
+	int i;
+
+	for (i = 0; i < offset; ++i) {
+		printf("\nvalue: %c", programa_ansisop[inicio+i]);
+	}
+
+	return instruccion;
+
+}*/
