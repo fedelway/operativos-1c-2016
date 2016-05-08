@@ -102,6 +102,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	}
 */
 	//ya tengo todo el archivo enviado
+
+	free(archivo);
 }
 
 FILE *abrirSource(char *path, int *source_size){

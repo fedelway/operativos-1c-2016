@@ -22,12 +22,13 @@
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
-int conectarPuertoDeEscucha(char* puerto);
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
-void hacerAlgoCPU(char*, int socket);
-void hacerAlgoProg(char* paquete, int socket);
+void procesoMensajeRecibidoConsola(char* paquete, int socket);
+void hacerAlgoCPU(int codigoMensaje, int fd);
+void hacerAlgoProg(int codigoMensaje, int fd);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
+void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void enviarPaqueteACPU(char* package, int socket);
 
 t_config* config;
@@ -37,6 +38,18 @@ int socket_CPU = 0;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
+
+typedef struct{
+	int pid;
+	int PC;			//program counter
+	int stack_pos;
+	int source_pos;
+	int consola_fd;
+}t_pcb;
+
+//Var globales
+t_config* config;
+int umc_fd;
 
 int main(int argc, char *argv[]) {
 
@@ -141,15 +154,13 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 	bool a = true;
 	int i;
-	char package[PACKAGESIZE]; //Aca van a llegar los mensajes
+	int codigoMensaje; //Aca van a llegar los mensajes
 
 	//Setteo la estructura time
 	//TODO: Cambiarlo para que tome valores de archivo de configuracion
 	struct timeval time;
 	time.tv_sec = 10;
 	time.tv_usec = 0;
-
-	int nuevo_fd;
 
 	fd_set readyListen, cpu_fd_set, prog_fd_set; //En estos sets van los descriptores que estan listos para lectura/escritura
 
@@ -174,42 +185,40 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 			if (FD_ISSET(i, &readyListen)) {
 				if (i == prog_fd) {
 					//Agrego la nueva conexion
+					agregarConsola(i, max_fd, listen, &prog_fd_set);
+				}
 
-					agregarConexion(i, max_fd, listen, &prog_fd_set, 2000);
-				}else if (i == cpu_fd) {
+				if (i == cpu_fd) {
 
 					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
 
 				}
 
 				//No es puerto escucha, recibo el paquete.
-
+				char package[PACKAGESIZE];
 				memset(package, '\0', PACKAGESIZE);
-
-				if (recv(i, package, PACKAGESIZE, 0) <= 0) {
+/*				if (recv(i, &codigoMensaje, sizeof(int), 0) == 0) {
 					//El cliente corto la conexion. Cierro el socket y remuevo de la lista
-					/*comento para prueba envio mensaje
-					close(i);
-					printf("Se ha desconectado\n");
-					FD_CLR(i, listen);
-					FD_CLR(i, &cpu_fd_set);
-					FD_CLR(i, &prog_fd_set);
+*/
+					if (recv(i, package, PACKAGESIZE, 0) <= 0) {
+						close(i);
+						printf("Se ha desconectado\n");
+						FD_CLR(i, listen);
+						FD_CLR(i, &cpu_fd_set);
+						FD_CLR(i, &prog_fd_set);
+					}else{
 
-					sleep(1);
-					printf("recv dio igual a cero del socket: %d\n", i);
-fin coment*/
-				}else{
+						if(FD_ISSET(i, &cpu_fd_set)){
+							hacerAlgoCPU(codigoMensaje, i);
+						}
 
+						if(FD_ISSET(i, &prog_fd_set)){
+							procesoMensajeRecibidoConsola(package, socket_CPU);
+							printf("socket CPU: %d,msj %s \n",socket_CPU,package);
+							hacerAlgoProg(codigoMensaje, i);
+						}
 
-					if(FD_ISSET(i, &cpu_fd_set)){
-						hacerAlgoCPU(package, socket_Con);
 					}
-
-					if(FD_ISSET(i, &prog_fd_set)){
-						hacerAlgoProg(package, socket_CPU);
-						printf("socket CPU: %d,msj %s \n",socket_CPU,package);
-					}
-				}
 
 			} else {
 				//Envio info.
@@ -218,6 +227,38 @@ fin coment*/
 			}
 		}				//Busqueda de todos los File Descriptor
 	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
+//	}
+}
+
+
+void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
+
+	int soy_nucleo = 1000;
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado un nueva consola.\n");
+
+	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
+
+	if(msj_recibido == 2000){
+
+		if (nuevo_fd > *max_fd) {
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd, listen);
+		FD_SET(nuevo_fd, consolas);
+	}else{
+		printf("No se verifico la autenticidad de la consola, cerrando la conexion. \n");
+		close(nuevo_fd);
+	}
+
 }
 
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
@@ -263,11 +304,41 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 }
 
-void hacerAlgoCPU(char *package, int socket){
-	printf("Mensaje CPU: %s\n",package);
+void hacerAlgoCPU(int codigoMensaje, int fd){
+	//printf("Mensaje CPU: %s\n",package);
 }
 
-void hacerAlgoProg(char *package, int socket){
+void hacerAlgoProg(int codigoMensaje, int fd){
+
+	int msj_recibido;
+	int source_size;
+	int aux;
+	int cant_recibida;
+	char *buffer;
+
+	switch(codigoMensaje){
+
+	case 2001 :
+		source_size = recv(fd, &msj_recibido, sizeof(int), 0);
+
+		buffer = malloc(source_size + 1);
+
+		while(cant_recibida < source_size){
+
+			aux = recv(fd, buffer, source_size, 0);
+			if (aux == -1){
+				printf("Error al recibir archivo");
+				exit(1);
+			}
+
+			cant_recibida += aux;
+		}
+
+		buffer[source_size] = '\0';
+	}
+}
+
+void procesoMensajeRecibidoConsola(char *package, int socket){
 	printf("Mensaje recibido Consola: %s\n",package);
 	//send a CPU
 	if (strlen(package) >0){
@@ -278,9 +349,6 @@ void hacerAlgoProg(char *package, int socket){
 			printf("no hay CPU conectada");
 		}
 	}
-
-
-
 }
 
 void enviarPaqueteACPU(char* package, int socket){
@@ -295,76 +363,6 @@ void enviarPaqueteACPU(char* package, int socket){
 		printf ("Archivo enviado a CPU.\n");
 		printf ("mensaje enviado a CPU: %s\n", package);
 	}
-
 }
 
-int conectarPuertoDeEscucha(char* puerto) {
 
-	struct addrinfo hints, *serverInfo;
-	int result_getaddrinfo;
-
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC; 		// AF_INET or AF_INET6 to force version
-	hints.ai_flags = AI_PASSIVE; // Asigna el address del localhost: 127.0.0.1
-	hints.ai_socktype = SOCK_STREAM;	// Indica que usaremos el protocolo TCP
-
-	getaddrinfo(NULL, puerto, &hints, &serverInfo);
-
-	if ((result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo))
-			!= 0) {
-		fprintf(stderr, "error: getaddrinfo: %s\n",
-				gai_strerror(result_getaddrinfo));
-		return 2;
-	}
-
-	//Obtengo un socket para que escuche las conexiones entrantes
-	int listeningSocket;
-	listeningSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype,
-			serverInfo->ai_protocol);
-
-	printf("Asocio al listennigSocket al puerto: %s.\n", puerto);
-
-	//Asocio al socket con el puerto para escuchar las conexiones en dicho puerto
-	bind(listeningSocket, serverInfo->ai_addr, serverInfo->ai_addrlen);
-	freeaddrinfo(serverInfo); // Libero serverInfo
-
-	printf("Listening....\n");
-
-	//Le digo al socket que se quede escuchando
-	//TODO: Ver de donde sacamos el Backlog
-	listen(listeningSocket, BACKLOG);// IMPORTANTE: listen() es una syscall BLOQUEANTE.
-
-	//Si hay una conexion entrante, la acepta y crea un nuevo socket mediante el cual nos podamos comunicar con el cliente
-	//El listennigSocket lo seguimos usando para escuchar las conexiones entrantes.
-	//Nota TODO: Para que el listenningSocket vuelva a esperar conexiones, necesitariamos volver a decirle que escuche, con listen();
-
-	struct sockaddr_in addr; // addr contien los datos de la conexion del cliente.
-	socklen_t addrlen = sizeof(addr);
-
-	int socketCliente = accept(listeningSocket, (struct sockaddr *) &addr,
-			&addrlen);
-
-	//Ya estamos listos para recibir paquetes de nuestro cliente...
-	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
-
-	char package[PACKAGESIZE];
-	int status = 1;		// Estructura que maneja el status de los recieve.
-
-	printf("Cliente conectado. Esperando mensajes:\n");
-/*
-	//Cuando el cliente cierra la conexion, recv() devolvera 0.
-	while (status != 0) {
-		memset(package, '\0', PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
-		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
-		if (status != 0)
-			printf("%s", package);
-	}
-*/
-	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
-
-	//Al terminar el intercambio de paquetes, cerramos todas las conexiones.
-	close(socketCliente);
-	close(listeningSocket);
-
-	return 0;
-}
