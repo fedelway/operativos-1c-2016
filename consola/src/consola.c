@@ -8,29 +8,12 @@
  ============================================================================
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <fcntl.h> //Para manejar archivos con fd, no se si lo vayamos a usar, pero lo use y lo cambie
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <unistd.h> // for close conection
-#include "commons/config.h"
+#include "consola.h"
 
 t_config* config;
+t_log* logger;
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
-
-void crearConfiguracion(char* config_path);
-bool validarParametrosDeConfiguracion();
-int conectarseA(char* ip, char* puerto);
-void validarNucleo(int nucleo_fd);
-FILE *abrirSource(char *path, int *source_size);
-void enviar_source(int nucleo_fd, FILE *source, int source_size);
 
 int main(int argc,char *argv[]) {
 
@@ -40,8 +23,10 @@ int main(int argc,char *argv[]) {
 	int nucleo_fd;
 	FILE *source;
 
+	logger = log_create("consola.log", "PARSER",true, LOG_LEVEL_INFO);
+
 	if(argc != 3){
-		fprintf(stderr,"uso: consola config_path ansisop_source_path\n");
+		fprintf(stderr,"Comando invalido. Usar: consola config_path ansisop_source_path\n");
 		return 1;
 	}
 
@@ -75,7 +60,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		aux = fread(archivo + cant_leida, sizeof(char), source_size - cant_leida, source);
 
 		if (aux == -1){
-			printf("Error de lectura.\ņ");
+		    log_error(logger, "Error de lectura.");
+		    log_destroy(logger);
 			exit(1);
 		}
 		cant_leida += aux;
@@ -92,7 +78,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 
 		aux = send(nucleo_fd, archivo + cant_enviada, source_size - cant_enviada, 0);
 		if(aux == -1){
-			printf("Error al enviar archivo.\n");
+		    log_error(logger, "Error al enviar archivo.");
+		    log_destroy(logger);
 			exit(1);
 		}
 		cant_enviada += aux;
@@ -111,18 +98,19 @@ FILE *abrirSource(char *path, int *source_size){
 	source = fopen(path, "r");
 
 	if (source == NULL){
-		printf("Error al abrir el archivo fuente.\n");
+	    log_error(logger, "Error al abrir el archivo fuente.");
+	    log_destroy(logger);
 		exit(0);
 	}
 
 	if( stat(path, &file_info) == -1){
-		printf("Error con stat.\n");
+	    log_error(logger, "Error con stat.");
+	    log_destroy(logger);
 	}
 
 	//Me fijo el tamanio del archivo en bytes.
 	*source_size = file_info.st_size;
-	printf("Tamanio archivo(bytes): %i\n", *source_size);
-
+	log_info(logger, "Tamanio archivo(bytes): %i", *source_size);
 	return source;
 }
 
@@ -131,9 +119,10 @@ void crearConfiguracion(char* config_path){
 	config = config_create(config_path);
 
 	if(validarParametrosDeConfiguracion()){
-		printf("El archivo de configuracion tiene todos los parametros requeridos.\n\n");
+		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 	}else{
-		printf("Configuracion no valida");
+		log_error(logger, "Configuracion invalida");
+	    log_destroy(logger);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -164,7 +153,7 @@ int conectarseA(char* ip, char* puerto){
 	socket_conexion = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
 	if( connect(socket_conexion, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
-		printf("Fallo al conectar\n");
+	    log_error_y_cerrar_logger(logger, "Fallo al conectar.");
 		exit(1);
 	}
 
@@ -194,10 +183,11 @@ void validarNucleo(int nucleo_fd){
 	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == 1000){
-		printf("Nucleo validado.\n");
+		log_info(logger, "Nucleo validado.");
 		send(nucleo_fd, &soy_consola, sizeof(int), 0);
 	}else{
-		printf("El nucleo no pudo ser validado.\n");
+		log_error(logger, "El nucleo no pudo ser validado.");
+	    log_destroy(logger);
 		exit(0);
 	}
 
