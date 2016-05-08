@@ -25,14 +25,24 @@ bool validarParametrosDeConfiguracion();
 int conectarPuertoDeEscucha(char* puerto);
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
-void hacerAlgoCPU(char*);
-void hacerAlgoProg(char*);
+void hacerAlgoCPU(int codigoMensaje, int fd);
+void hacerAlgoProg(int codigoMensaje, int fd);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
-
-t_config* config;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
+
+typedef struct{
+	int pid;
+	int PC;			//program counter
+	int stack_pos;
+	int source_pos;
+	int consola_fd;
+}t_pcb;
+
+//Var globales
+t_config* config;
+int umc_fd;
 
 int main(int argc, char *argv[]) {
 
@@ -137,15 +147,13 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 	bool a = true;
 	int i;
-	char package[PACKAGESIZE]; //Aca van a llegar los mensajes
+	int codigoMensaje; //Aca van a llegar los mensajes
 
 	//Setteo la estructura time
 	//TODO: Cambiarlo para que tome valores de archivo de configuracion
 	struct timeval time;
 	time.tv_sec = 10;
 	time.tv_usec = 0;
-
-	int nuevo_fd;
 
 	fd_set readyListen, cpu_fd_set, prog_fd_set; //En estos sets van los descriptores que estan listos para lectura/escritura
 
@@ -168,7 +176,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				if (i == prog_fd) {
 					//Agrego la nueva conexion
 
-					agregarConexion(i, max_fd, listen, &prog_fd_set, 2000);
+					agregarConsola(i, max_fd, listen, &prog_fd_set);
 				}
 
 				if (i == cpu_fd) {
@@ -177,8 +185,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				}
 
 				//No es puerto escucha, recibo el paquete.
-				memset(package, '\0', PACKAGESIZE);
-				if (recv(i, package, PACKAGESIZE, 0) == 0) {
+				if (recv(i, &codigoMensaje, sizeof(int), 0) == 0) {
 					//El cliente corto la conexion. Cierro el socket y remuevo de la lista
 
 					close(i);
@@ -189,11 +196,11 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				}else{
 
 					if(FD_ISSET(i, &cpu_fd_set)){
-						hacerAlgoCPU(package);
+						hacerAlgoCPU(codigoMensaje, i);
 					}
 
 					if(FD_ISSET(i, &prog_fd_set)){
-						hacerAlgoProg(package);
+						hacerAlgoProg(codigoMensaje, i);
 					}
 				}
 
@@ -204,6 +211,36 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 			}
 		}				//Busqueda de todos los File Descriptor
 	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
+}
+
+void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
+
+	int soy_nucleo = 1000;
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado un nueva consola.\n");
+
+	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
+
+	if(msj_recibido == 2000){
+
+		if (nuevo_fd > *max_fd) {
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd, listen);
+		FD_SET(nuevo_fd, consolas);
+	}else{
+		printf("No se verifico la autenticidad de la consola, cerrando la conexion. \n");
+		close(nuevo_fd);
+	}
+
 }
 
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
@@ -244,12 +281,38 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 }
 
-void hacerAlgoCPU(char *package){
-	printf("Mensaje CPU: %s\n",package);
+void hacerAlgoCPU(int codigoMensaje, int fd){
+	//printf("Mensaje CPU: %s\n",package);
 }
 
-void hacerAlgoProg(char *package){
-	printf("Mensaje Consola: %s\n",package);
+void hacerAlgoProg(int codigoMensaje, int fd){
+
+	int msj_recibido;
+	int source_size;
+	int aux;
+	int cant_recibida;
+	char *buffer;
+
+	switch(codigoMensaje){
+
+	case 2001 :
+		source_size = recv(fd, &msj_recibido, sizeof(int), 0);
+
+		buffer = malloc(source_size + 1);
+
+		while(cant_recibida < source_size){
+
+			aux = recv(fd, buffer, source_size, 0);
+			if (aux == -1){
+				printf("Error al recibir archivo");
+				exit(1);
+			}
+
+			cant_recibida += aux;
+		}
+
+		buffer[source_size] = '\0';
+	}
 }
 
 int conectarPuertoDeEscucha(char* puerto) {
