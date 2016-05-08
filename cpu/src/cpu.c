@@ -12,6 +12,7 @@
 
 t_config* config;
 t_log* logger;
+int socket_umc;
 
 int main(int argc,char *argv[]) {
 
@@ -39,6 +40,9 @@ int main(int argc,char *argv[]) {
 	log_info(logger, "Conectando al nucleo. IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
 	socket_nucleo = conectarseA(nucleo_ip, nucleo_puerto);
 	log_info(logger, "Conexion establecida con el nucleo. (Socket: %d)",socket_nucleo);
+	validarNucleo(socket_nucleo);
+
+
 
 	//Conexión al umc
 
@@ -46,11 +50,20 @@ int main(int argc,char *argv[]) {
 	socket_umc = conectarseA(umc_ip, umc_puerto);
 	log_info(logger, "Conexion establecida con la umc. (Socket: %d)",socket_umc);
 
+
+	char message[PACKAGESIZE];
+	memset (message,'\0',PACKAGESIZE);
+	recibirMensajeNucleo(&message, socket_nucleo);
+	printf("recibido del nucleo: %s\n", message);
+
+	//Reenviar el msj recibido del nucleo a la UMC
+	enviarPaqueteAUMC(message, socket_umc);
+
+
 	int enviar = 1;
 	int status = 1;
-	char message[PACKAGESIZE];
 
-	while(enviar && status !=0){
+	/*while(enviar && status !=0){
 	 	fgets(message, PACKAGESIZE, stdin);
 		if (!strcmp(message,"exit\n")) enviar = 0;
 		if (enviar) send(socket_umc, message, strlen(message) + 1, 0);
@@ -59,7 +72,9 @@ int main(int argc,char *argv[]) {
 		memset (message,'\0',PACKAGESIZE);
 		status = recv(socket_umc, (void*) message, PACKAGESIZE, 0);
 		if (status != 0) printf("%s", message);
-	}
+	}*/
+
+
 
 	log_info(logger, "Cierro conexiones.",socket_nucleo);
 	cerrarConexionSocket(socket_nucleo);
@@ -68,6 +83,39 @@ int main(int argc,char *argv[]) {
 	log_destroy(logger);
 
 	return EXIT_SUCCESS;
+}
+
+void recibirMensajeNucleo(char* message, int socket_nucleo){
+
+	printf("voy a recibir mensaje de %d\n", socket_nucleo);
+	int status = 0;
+	//while(status == 0){
+	status = recv(socket_nucleo, message, PACKAGESIZE, 0);
+		if (status != 0){
+			printf("recibo mensaje de nucleo %d\n", status);
+			printf("recibi este mensaje: %s\n", message);
+			status = 0;
+		}else{
+			sleep(1);
+			printf(".\n");
+		}
+
+	//}
+}
+
+void enviarPaqueteAUMC(char* message, int socket){
+	//Envio el archivo entero
+
+
+	int resultSend = send(socket, message, PACKAGESIZE, 0);
+	printf("resultado send %d, a socket %d \n",resultSend, socket);
+	if(resultSend == -1){
+		printf ("Error al enviar archivo a UMC.\n");
+		exit(1);
+	}else {
+		printf ("Archivo enviado a UMC.\n");
+		printf ("mensaje: %s\n", message);
+	}
 }
 
 
@@ -92,4 +140,22 @@ bool validarParametrosDeConfiguracion(){
 			&&  config_has_property(config, "NUCLEO_PUERTO")
 			&& 	config_has_property(config, "UMC_IP")
 			&& 	config_has_property(config, "UMC_PUERTO"));
+}
+
+void validarNucleo(int nucleo_fd){
+
+	int msj_recibido;
+	int soy_cpu = 3000;
+
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+
+	if(msj_recibido == 1000){
+		log_info(logger, "Nucleo validado.");
+		send(nucleo_fd, &soy_cpu, sizeof(int), 0);
+	}else{
+		log_error(logger, "El nucleo no pudo ser validado.");
+	    log_destroy(logger);
+		exit(0);
+	}
+
 }

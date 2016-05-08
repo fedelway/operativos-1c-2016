@@ -51,6 +51,21 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	int aux;
 	int mandoArchivo = 2001;
 
+//prueba envio mensaje simple a nucleo
+/*
+	//char* mensaje = "Hello\0";
+	if (mensaje[0] != '\0'){
+		aux = send(nucleo_fd, mensaje, 7, 0);
+		printf("msj a enviar %s",mensaje);
+		if(aux == -1){
+			log_error(logger, "Error al enviar archivo.");
+			log_destroy(logger);
+			exit(1);
+		}
+
+	}*/
+
+
 	cant_leida = fread(archivo, sizeof(char), source_size, source);
 
 	//leo hasta que termine completamente
@@ -68,13 +83,14 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	}
 
 	//ya tengo todo el texto en *archivo. Le digo al nucleo que le voy a mandar el archivo.
-	send(nucleo_fd, &mandoArchivo, sizeof(int), 0);
-	send(nucleo_fd, &source_size, sizeof(int), 0);
+	//send(nucleo_fd, &mandoArchivo, sizeof(int), 0);
+	//send(nucleo_fd, &source_size, sizeof(int), 0);
 
 	cant_enviada = send(nucleo_fd, archivo, source_size, 0);
+	printf("archivo enviado: %s",archivo);
 
 	//Envio el archivo entero
-	while(cant_enviada < source_size){
+/*	while(cant_enviada < source_size){
 
 		aux = send(nucleo_fd, archivo + cant_enviada, source_size - cant_enviada, 0);
 		if(aux == -1){
@@ -84,7 +100,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		}
 		cant_enviada += aux;
 	}
-
+*/
 	//ya tengo todo el archivo enviado
 }
 
@@ -179,10 +195,12 @@ void validarNucleo(int nucleo_fd){
 	int soy_consola = 2000;
 
 	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+	printf("socket: %d, mensaje %d", nucleo_fd,msj_recibido);
 
 	if(msj_recibido == 1000){
 		log_info(logger, "Nucleo validado.");
 		send(nucleo_fd, &soy_consola, sizeof(int), 0);
+		printf("send socket: %d, mensaje %d", nucleo_fd,soy_consola);
 	}else{
 		log_error(logger, "El nucleo no pudo ser validado.");
 	    log_destroy(logger);

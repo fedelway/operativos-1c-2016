@@ -1,8 +1,6 @@
 #include "socketCliente.h"
 
 
-t_config *config;
-
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
 
@@ -25,16 +23,52 @@ int conectarseA(char* ip, char* puerto){
 
 	socket_conexion = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
-	if( connect(socket_conexion, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
-		printf("Fallo al conectar\n");
-		exit(1);
-	}
+	if (socket_conexion ==-1){
+			printf("Error al crear el socket \n");
+		}else{
+			if(connect(socket_conexion, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
+				printf("Fallo al conectar\n");
+				exit(1);
+			}else{
+				printf("Socket cliente conectado\n");
+			}
+		}
+		freeaddrinfo(serverInfo);
+		return socket_conexion;
 
-	return socket_conexion;
 }
 
+int socketEnviarMensaje(int socket_conexion, char * mensaje, int longitud_mensaje){
+	int cantbytes;
+	if ((cantbytes = send(socket_conexion,mensaje,longitud_mensaje, 0)) <= 0){
+		printf("Error al enviar mensaje");
+
+		if (cantbytes == 0) {
+			printf("Socket servidor desconectado\n");
+		} else {
+			printf("Error envio socket servidor");
+		}
+	}
+	return cantbytes;
+}
+
+int socketRecibirMensaje(int socket_conexion, char * mensaje, int longitud_mensaje){
+	int cantbytes;
+	if ((cantbytes = recv(socket_conexion , mensaje, longitud_mensaje, 0)) <= 0){
+
+		printf("Error al recibir mensaje");
+		if (cantbytes == 0) {
+			printf("Socket servidor desconectado\n");
+		} else {
+			printf("Error recepcion socket servidor");
+		}
+	}
+	return cantbytes;
+}
 
 int cerrarConexionSocket(int socket){
-	close(socket);
+	if (close(socket) ==-1){
+			printf("Error al cerrar el socket servidor");
+	}
 	return 0;
 }

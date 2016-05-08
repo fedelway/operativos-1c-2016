@@ -27,5 +27,8 @@
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
+void recibirMensajeNucleo(char* message, int socket_nucleo);
+void validarNucleo(int nucleo_fd);
+void enviarPaqueteAUMC(char* package, int socket);
 
 #endif /* CPU_H_ */

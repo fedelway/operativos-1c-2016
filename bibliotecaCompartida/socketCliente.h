@@ -12,7 +12,11 @@
 #include <commons/config.h>
 
 
+t_config *config;
+
 int conectarseA(char* ip, char* puerto);
+int socketRecibirMensaje(int socket_conexion, char * mensaje, int longitud_mensaje);
+int socketEnviarMensaje(int socket_conexion, char * mensaje, int longitud_mensaje);
 int cerrarConexionSocket(int socket);
 
 #endif /* SOCKETCLIENTE_H_ */

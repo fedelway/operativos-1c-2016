@@ -13,11 +13,14 @@
 #include "commons/config.h"
 
 #include "socketCliente.h"
+#include "socketServidor.h"
 
 
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
+void recibirMensajeCPU(char* message, int socket_CPU);
+void enviarPaqueteASwap(char* message, int socket);
 
 
 

@@ -56,6 +56,10 @@ int conectarPuertoDeEscucha(char* puerto){
 
 	printf("Cliente conectado. Esperando mensajes:\n");
 
+	return socketCliente;
+}
+
+/*
 	//Cuando el cliente cierra la conexion, recv() devolvera 0.
 	while (status != 0){
 	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
@@ -71,3 +75,4 @@ int conectarPuertoDeEscucha(char* puerto){
 
 	return 0;
 }
+*/

@@ -18,7 +18,7 @@
 
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
-
+void recibirMensajeUMC(char* message, int socket_umc);
 
 
 #endif /* SWAP_H_ */

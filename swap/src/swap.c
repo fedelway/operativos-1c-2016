@@ -25,6 +25,9 @@ int main(int argc,char *argv[]) {
 
 	char* puerto_escucha;
 
+	char message[PACKAGESIZE];
+	memset (message,'\0',PACKAGESIZE);
+
 	logger = log_create("swap.log", "SWAP",true, LOG_LEVEL_INFO);
 	log_info(logger, "Proyecto para SWAP..");
 
@@ -34,9 +37,35 @@ int main(int argc,char *argv[]) {
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
 	conectarPuertoDeEscucha2(puerto_escucha);
 
+	//conexion a umc
+	char* umc_puerto;
+	umc_puerto = config_get_string_value(config,"PUERTO");
+	printf("Mi puerto escucha es: %s", umc_puerto);
+	int socket_umc = conectarPuertoDeEscucha(umc_puerto);
+	recibirMensajeUMC(message,socket_umc);
+
+
 	log_destroy(logger);
 
     return EXIT_SUCCESS;
+}
+
+void recibirMensajeUMC(char* message, int socket_umc){
+
+	printf("voy a recibir mensaje de %d\n", socket_umc);
+	int status = 0;
+	//while(status == 0){
+	status = recv(socket_umc, message, PACKAGESIZE, 0);
+		if (status != 0){
+			printf("recibo mensaje de UMC %d\n", status);
+			printf("recibi este mensaje: %s\n", message);
+			status = 0;
+		}else{
+			sleep(1);
+			printf(".\n");
+		}
+
+	//}
 }
 
 void crearConfiguracion(char *config_path){

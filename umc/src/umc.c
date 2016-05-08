@@ -32,7 +32,20 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
-	conectarseA(swap_ip, swap_puerto);
+ 	int socket_swap = conectarseA(swap_ip, swap_puerto);
+
+	//conexion a cpu
+	char* cpu_puerto;
+	cpu_puerto = config_get_string_value(config,"PUERTO");
+	printf("Mi puerto escucha es: %s", cpu_puerto);
+	int socket_CPU = conectarPuertoDeEscucha(cpu_puerto);
+
+
+
+	char message[PACKAGESIZE];
+	recibirMensajeCPU(&message, socket_CPU);
+
+	enviarPaqueteASwap(message, socket_swap);
 
 	return EXIT_SUCCESS;
 }
@@ -60,7 +73,7 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "RETARDO");
 }
 
-int conectarseA(char* ip, char* puerto){
+/*int conectarseA(char* ip, char* puerto){
 
     struct addrinfo hints, *serverInfo;
 	int result_getaddrinfo;
@@ -104,5 +117,36 @@ int conectarseA(char* ip, char* puerto){
 	close(socket_conexion);
 
 	return 0;
+}*/
+
+void recibirMensajeCPU(char* message, int socket_CPU){
+
+	printf("voy a recibir mensaje de %d\n", socket_CPU);
+	int status = 0;
+	//while(status == 0){
+	status = recv(socket_CPU, message, PACKAGESIZE, 0);
+		if (status != 0){
+			printf("recibo mensaje de CPU %d\n", status);
+			printf("mensje recibido: %s\n", message);
+			status = 0;
+		}else{
+			sleep(1);
+			printf(".\n");
+		}
+	//}
 }
 
+void enviarPaqueteASwap(char* message, int socket){
+	//Envio el archivo entero
+
+
+	int resultSend = send(socket, message, PACKAGESIZE, 0);
+	printf("resultado send %d, a socket %d \n",resultSend, socket);
+	if(resultSend == -1){
+		printf ("Error al enviar archivo a SWAP.\n");
+		exit(1);
+	}else {
+		printf ("Archivo enviado a SWAP.\n");
+		printf ("mensaje: %s\n", message);
+	}
+}
