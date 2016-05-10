@@ -215,6 +215,7 @@ void handshakeServidor(int socketCliente){
 			    	printf("No se admite la conexión con éste socket");
 	     break;
 
+
 		}
 	}
 }
