@@ -182,6 +182,19 @@ void conectarUmc(){
 		exit(1);
 	}
 
+	//Hago la validacion con UMC
+	int mensaje = 1000;
+	send(socket_umc, &mensaje, sizeof(int), 0);
+
+	recv(socket_umc, &mensaje, sizeof(int), 0);
+
+	if(mensaje == 4000){
+		printf("Conectado a UMC.\n");
+		return;
+	}else{
+		printf("Error de autentificacion con UMC.\n");
+		exit(1);
+	}
 }
 
 //TODO: Todas las validaciones de errores
