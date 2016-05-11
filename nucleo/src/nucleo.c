@@ -30,11 +30,14 @@ void hacerAlgoProg(int codigoMensaje, int fd);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void enviarPaqueteACPU(char* package, int socket);
+void iniciarNuevaConsola(int fd);
+void conectarUmc();
 
 t_config* config;
 //agregamos sockets provisorios para cpu y consola
 int socket_Con = 0;
 int socket_CPU = 0;
+int socket_umc;
 int max_pid = 0;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
@@ -77,6 +80,8 @@ int main(int argc, char *argv[]) {
 
 	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
 	printf("Esperando conexiones de CPUs.. (PUERTO: %s)\n", puerto_cpu);
+
+	conectarUmc();
 
 	printf("trabajarConexiones\n");
 	trabajarConexiones(&listen, &max_fd, cpu_fd, prog_fd);
@@ -149,6 +154,34 @@ int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd) {
 	FD_SET(socket_escucha, setEscucha);
 
 	return socket_escucha;
+}
+
+void conectarUmc(){
+
+	char *ip, *puerto;
+	struct addrinfo hints, *serverInfo;
+	int socket_umc;
+
+	puerto = config_get_string_value(config, "PUERTO_UMC");
+	ip = config_get_string_value(config, "IP_UMC");
+
+	memset(&hints, '\0', sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_socktype = SOCK_STREAM;
+
+	if(getaddrinfo(ip, puerto, &hints, &serverInfo) != 0){
+		printf("Error al conectar a la UMC\n");
+		exit(1);
+	}
+
+	socket_umc = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+
+	if( connect(socket_umc, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
+		printf("Error al conectar a la UMC\n");
+		exit(1);
+	}
+
 }
 
 //TODO: Todas las validaciones de errores
@@ -317,6 +350,7 @@ void iniciarNuevaConsola (int fd){
 	int cant_recibida = 0;
 	int source_size;
 	char *buffer;
+	int mensaje;
 	int aux;
 
 	recv(fd, &source_size, sizeof(int), 0);
@@ -348,7 +382,22 @@ void iniciarNuevaConsola (int fd){
 	pcb.pid = max_pid + 1;
 	max_pid++;
 
+	//Pido paginas para almacenar el codigo y el stack
+	mensaje = 4010;
+	buffer = malloc(2*sizeof(int));
+
+	memcpy(buffer, &mensaje, sizeof(int));
+	memcpy(buffer + sizeof(int), &source_size, sizeof(int));
+
+	send(socket_umc, buffer, 2*sizeof(int), 0);
+
+	mensaje = config_get_int_value(config, "CANT_PAGINAS");
+	memcpy(buffer + sizeof(int), &mensaje, sizeof(int));
+
+	send(socket_umc, buffer, 2*sizeof(int), 0);
+
 }
+
 void procesoMensajeRecibidoConsola(char *package, int socket){
 	printf("Mensaje recibido Consola: %s\n",package);
 	//send a CPU
