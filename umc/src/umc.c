@@ -127,7 +127,7 @@ void recibirMensajeCPU(char* message, int socket_CPU){
 	status = recv(socket_CPU, message, PACKAGESIZE, 0);
 		if (status != 0){
 			printf("recibo mensaje de CPU %d\n", status);
-			printf("mensje recibido: %s\n", message);
+			printf("mensaje recibido: %s\n", message);
 			status = 0;
 		}else{
 			sleep(1);
@@ -150,3 +150,53 @@ void enviarPaqueteASwap(char* message, int socket){
 		printf ("mensaje: %s\n", message);
 	}
 }
+
+void socketClienteHandshake(int socketServidor){
+
+	//Estructura para crear el header + piload
+	struct t_header{
+		int id;
+		int tamanio;
+	};
+
+	struct package{
+	  struct t_header header;
+	  char* paiload;
+	};
+
+	//seteo el mensaje que le envío a la umc para que ésta reciba el header.id=2 y haga desde su proceso el handshake
+	struct package mensaje;
+	mensaje.header.id = 2;
+	mensaje.header.tamanio = 0;
+	mensaje.paiload = "\0";
+
+	switch(mensaje.header.id){
+
+				 case 1:
+					 // Procesa ok
+					 printf("OK\n");
+				 break;
+
+				 case 2:
+					   //Handshake cliente
+						while ( !(strcmp(mensaje.paiload , "SWAP")) ){
+							if(mensaje.header.tamanio != 1){
+								//TODO:Falta implementar serialización para recibir el mensaje
+								memset(mensaje.paiload,'\0', mensaje.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
+								recv(socketServidor, mensaje.paiload, 8, 0);
+							}
+
+							enviarPaqueteASwap(mensaje.paiload, socketServidor);
+						}
+
+						 printf("No se admite conexión con éste sockets\n");
+				 break;
+
+				 case 3:
+					 //Handshake cliente
+					 printf("No hace nada porque está reservado para el cliente\n");
+				 break;
+
+	}
+ }
+
