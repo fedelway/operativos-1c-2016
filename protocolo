@@ -6,7 +6,7 @@
 ----------------------------------------------------------------------------------
 2000 - 2999 : Mensajes que envia la consola.
 
-2001 -> Envio del archivo fuente. Serian 2 send, 1 con el tamaño, otro con el archivo en si.
+2001 -> Envio del archivo fuente.
 
 ----------------------------------------------------------------------------------
 3000-3999 : Mensajes que envia la cpu.

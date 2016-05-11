@@ -35,6 +35,7 @@ t_config* config;
 //agregamos sockets provisorios para cpu y consola
 int socket_Con = 0;
 int socket_CPU = 0;
+int max_pid = 0;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
@@ -45,6 +46,7 @@ typedef struct{
 	int stack_pos;
 	int source_pos;
 	int consola_fd;
+	char *source;
 }t_pcb;
 
 //Var globales
@@ -195,12 +197,8 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				}
 
 				//No es puerto escucha, recibo el paquete.
-				char package[PACKAGESIZE];
-				memset(package, '\0', PACKAGESIZE);
-/*				if (recv(i, &codigoMensaje, sizeof(int), 0) == 0) {
-					//El cliente corto la conexion. Cierro el socket y remuevo de la lista
-*/
-					if (recv(i, package, PACKAGESIZE, 0) <= 0) {
+					if (recv(i, &codigoMensaje, sizeof(int), 0) <= 0) {
+						//recibio 0 bytes, hubo desconexion
 						close(i);
 						printf("Se ha desconectado\n");
 						FD_CLR(i, listen);
@@ -213,8 +211,6 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 						}
 
 						if(FD_ISSET(i, &prog_fd_set)){
-							procesoMensajeRecibidoConsola(package, socket_CPU);
-							printf("socket CPU: %d,msj %s \n",socket_CPU,package);
 							hacerAlgoProg(codigoMensaje, i);
 						}
 
@@ -310,34 +306,49 @@ void hacerAlgoCPU(int codigoMensaje, int fd){
 
 void hacerAlgoProg(int codigoMensaje, int fd){
 
-	int msj_recibido;
-	int source_size;
-	int aux;
-	int cant_recibida;
-	char *buffer;
-
 	switch(codigoMensaje){
 
 	case 2001 :
-		source_size = recv(fd, &msj_recibido, sizeof(int), 0);
-
-		buffer = malloc(source_size + 1);
-
-		while(cant_recibida < source_size){
-
-			aux = recv(fd, buffer, source_size, 0);
-			if (aux == -1){
-				printf("Error al recibir archivo");
-				exit(1);
-			}
-
-			cant_recibida += aux;
-		}
-
-		buffer[source_size] = '\0';
+		iniciarNuevaConsola(fd);
 	}
 }
 
+void iniciarNuevaConsola (int fd){
+	int cant_recibida = 0;
+	int source_size;
+	char *buffer;
+	int aux;
+
+	recv(fd, &source_size, sizeof(int), 0);
+
+	buffer = malloc(source_size + 1);
+
+	while(cant_recibida < source_size){
+
+		aux = recv(fd, buffer, source_size, 0);
+		if (aux == -1){
+			printf("Error al recibir archivo");
+			exit(1);
+		}
+
+		cant_recibida += aux;
+	}
+	//Ya tengo el archivo recibido en buffer. Le agrego un \0 al final.
+	buffer[source_size] = '\0';
+
+	printf("%s\n", buffer);
+
+
+	//Creo el PCB
+	t_pcb pcb;
+
+	pcb.source = buffer;
+	pcb.PC = 0;
+	pcb.consola_fd = fd;
+	pcb.pid = max_pid + 1;
+	max_pid++;
+
+}
 void procesoMensajeRecibidoConsola(char *package, int socket){
 	printf("Mensaje recibido Consola: %s\n",package);
 	//send a CPU

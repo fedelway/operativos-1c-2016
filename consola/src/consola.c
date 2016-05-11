@@ -47,7 +47,10 @@ int main(int argc,char *argv[]) {
 void enviar_source(int nucleo_fd, FILE *source, int source_size){
 
 	char *archivo = malloc(source_size);
-	int cant_leida, cant_enviada;
+	char *buffer;
+	int buffer_size = source_size + 2*sizeof(int);
+	int cant_leida;
+	int cant_enviada = 0;
 	int aux;
 	int mandoArchivo = 2001;
 
@@ -80,30 +83,29 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 			exit(1);
 		}
 		cant_leida += aux;
-	}
+	}//ya tengo todo el texto en *archivo.
 
-	//ya tengo todo el texto en *archivo. Le digo al nucleo que le voy a mandar el archivo.
-	//send(nucleo_fd, &mandoArchivo, sizeof(int), 0);
-	//send(nucleo_fd, &source_size, sizeof(int), 0);
+	//Creo el paquete con toda la info: cod op, tam archivo, archivo
+	buffer = malloc(source_size + 2*sizeof(int));
 
-	cant_enviada = send(nucleo_fd, archivo, source_size, 0);
-	printf("archivo enviado: %s",archivo);
+	memcpy(buffer, &source_size, sizeof(int));
+	memcpy(buffer + sizeof(int), &mandoArchivo, sizeof(int));
+	memcpy(buffer + 2*sizeof(int), archivo, source_size);
 
-	//Envio el archivo entero
-/*	while(cant_enviada < source_size){
+	//Ahora envio el archivo
+	cant_enviada = send(nucleo_fd, buffer, buffer_size, 0);
 
-		aux = send(nucleo_fd, archivo + cant_enviada, source_size - cant_enviada, 0);
-		if(aux == -1){
-		    log_error(logger, "Error al enviar archivo.");
-		    log_destroy(logger);
-			exit(1);
-		}
+	while(cant_enviada < buffer_size){
+
+		aux = send(nucleo_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
+
 		cant_enviada += aux;
 	}
-*/
+
 	//ya tengo todo el archivo enviado
 
 	free(archivo);
+	free(buffer);
 }
 
 FILE *abrirSource(char *path, int *source_size){
