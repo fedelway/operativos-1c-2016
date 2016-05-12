@@ -19,6 +19,8 @@
 #include <netinet/in.h>
 #include <unistd.h> // for close conections
 #include "commons/config.h"
+#include "commons/collections/queue.h"
+#include "commons/collections/list.h"
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
@@ -55,6 +57,11 @@ typedef struct{
 //Var globales
 t_config* config;
 int umc_fd;
+
+//Las colas con los dif estados de los pcb
+t_queue ready, running, blocked, finished;
+t_list new;
+
 
 int main(int argc, char *argv[]) {
 
@@ -387,12 +394,14 @@ void iniciarNuevaConsola (int fd){
 
 
 	//Creo el PCB
-	t_pcb pcb;
+	t_pcb *pcb;
 
-	pcb.source = buffer;
-	pcb.PC = 0;
-	pcb.consola_fd = fd;
-	pcb.pid = max_pid + 1;
+	pcb = malloc(sizeof(pcb));
+
+	pcb->source = buffer;
+	pcb->PC = 0;
+	pcb->consola_fd = fd;
+	pcb->pid = max_pid + 1;
 	max_pid++;
 
 	//Pido paginas para almacenar el codigo y el stack
@@ -409,6 +418,8 @@ void iniciarNuevaConsola (int fd){
 
 	send(socket_umc, buffer, 2*sizeof(int), 0);
 
+	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de listos.
+	list_add(&new, pcb);
 }
 
 void procesoMensajeRecibidoConsola(char *package, int socket){
