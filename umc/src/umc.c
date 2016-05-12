@@ -13,14 +13,18 @@
 #include "umc.h"
 
 t_config *config;
+int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
+int nucleo_fd;
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
+void trabajarConexiones(int cpu_fd, int *max_fd);
 
 int main(int argc,char *argv[]) {
 
-	char* swap_ip;
-	char* swap_puerto;
+	char *swap_ip;
+	char *swap_puerto;
+	int max_fd = 0;
 
 	if(argc != 2){
 		fprintf(stderr,"uso: umc config_path\n");
@@ -32,22 +36,61 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
- 	int socket_swap = conectarseA(swap_ip, swap_puerto);
+ 	swap_fd = conectarseA(swap_ip, swap_puerto);
 
 	//conexion a cpu
 	char* cpu_puerto;
-	cpu_puerto = config_get_string_value(config,"PUERTO");
+	cpu_puerto = config_get_string_value(config,"PUERTO_CPU");
 	printf("Mi puerto escucha es: %s", cpu_puerto);
 	int socket_CPU = conectarPuertoDeEscucha(cpu_puerto);
 
+	char* nucleo_puerto;
+	nucleo_puerto = config_get_string_value(config,"PUERTO_NUCLEO");
+	printf("Mi puerto escucha es: %s", nucleo_puerto);
+	nucleo_fd = conectarPuertoDeEscucha(nucleo_puerto);
+	//TODO: Aca deberia ir el accept del nucleo el funcionamiento del sistema depende de que esten activos nucleo y umc.
 
+	//Ciclo principal
+	trabajarConexiones(socket_CPU, &max_fd);
 
 	char message[PACKAGESIZE];
 	recibirMensajeCPU(&message, socket_CPU);
 
-	enviarPaqueteASwap(message, socket_swap);
+	enviarPaqueteASwap(message, swap_fd);
 
 	return EXIT_SUCCESS;
+}
+
+//Esta funcion va a ser el ciclo principal. Va a estar aceptando nuevas conexiones y creando hilos con cada nueva conexion
+void trabajarConexiones(int cpu_fd, int *max_fd){
+
+	//Creo el fd_set principal
+	fd_set listen, readyListen;
+	FD_ZERO(&listen);
+	FD_ZERO(&readyListen);
+	FD_SET(cpu_fd, &listen);
+	FD_SET(swap_fd, &listen);
+
+	int i;
+
+	for(;;){
+		readyListen = listen;
+
+		select( (*max_fd + 1), &readyListen, NULL, NULL, NULL);
+
+		for(i=0; i <= *max_fd; i++){
+
+			if(FD_ISSET(i, &readyListen)){
+
+				if( i == cpu_fd){
+					//TODO: Lanzo un hilo que maneje la conexion
+
+				}
+			}
+		}
+
+	}
+
 }
 
 void crearConfiguracion(char* config_path){
@@ -63,14 +106,15 @@ void crearConfiguracion(char* config_path){
 }
 
 bool validarParametrosDeConfiguracion(){
-	return 	config_has_property(config, "PUERTO")
+	return 	config_has_property(config, "PUERTO_CPU")
 		&& 	config_has_property(config, "IP_SWAP")
 		&& 	config_has_property(config, "PUERTO_SWAP")
 		&& 	config_has_property(config, "MARCOS")
 		&& 	config_has_property(config, "MARCO_SIZE")
 		&& 	config_has_property(config, "MARCO_X_PROC")
 		&& 	config_has_property(config, "ENTRADAS_TLB")
-		&& 	config_has_property(config, "RETARDO");
+		&& 	config_has_property(config, "RETARDO")
+		&&  config_has_property(config, "PUERTO_NUCLEO");
 }
 
 /*int conectarseA(char* ip, char* puerto){
