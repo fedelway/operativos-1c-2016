@@ -167,53 +167,58 @@ int conectarPuertoDeEscucha2(char* puerto){
 
 
 //Acá implementamos el handshake del lado del servidor
-void handshakeServidor(int socketCliente){
+void handshakeServidor(int socket_umc){
 
 		//Estructura para crear el header + piload
-		struct t_header{
+		typedef struct{
 			int id;
 			int tamanio;
-		};
+		}t_header;
 
-		struct package{
-		  struct t_header header;
+		typedef struct{
+		  t_header header;
 		  char* paiload;
-		};
+		}package;
 
-		int socketClienteHandshake = accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
+	   socket_umc= accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
 
 		//seteo el mensaje que le envío a la umc para que ésta reciba el header.id=2 y haga desde su proceso el handshake
-		struct package mensaje;
-		mensaje.header.id = 2;
-		mensaje.header.tamanio = 1;
-		mensaje.paiload = "\0";
+		package mensajeAEnviar;
+		mensajeAEnviar.header.id = 5020 ;
+		mensajeAEnviar.header.tamanio = 0;
+		mensajeAEnviar.paiload = "\0";
 
-		send(socketClienteHandshake, mensaje.paiload, (mensaje.header.tamanio), 0);
+		package mensajeARecibir;
+		mensajeARecibir.header.id = 4020;
+		mensajeARecibir.header.tamanio = 0;
+		mensajeARecibir.paiload = "\0";
+        //Falta revisar si el segundo parámetro coincide con el tipo de la funcion send()
+		send(socket_umc, &mensajeAEnviar, sizeof(mensajeAEnviar), 0);
+		recv(socket_umc, &mensajeARecibir, sizeof(mensajeARecibir), 0);
 
         // Acá hay que ver si cambiamos el nombre del mensaje por package, tengo la duda de si toma el mensaje seteado del send() anterior
-		switch(mensaje.header.id){
+		switch(mensajeARecibir.header.id){
 
-		 case 1:
+		 case 1000:
 			 // Procesa ok
 			 printf("OK\n");
 		 break;
 
-		 case 2:
+		 case 4020:
+			 //Respuesta de Handshake servidor
+			 	printf("Conectado a UMC.\n");
+			 	memset(mensajeARecibir.paiload,'\0', mensajeARecibir.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
+			    recv(socketCliente, mensajeARecibir.paiload, mensajeARecibir.header.tamanio , 0);
+	     break;
+
+		 case 5020:
 			 //Handshake cliente
 			 printf("No hace nada porque está reservado para el cliente\n");
 		 break;
 
-		 case 3:
-			 //Respuesta de Handshake servidor
-			    memset(mensaje.paiload,'\0', mensaje.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
-			    recv(socketCliente, mensaje.paiload, 8, 0);
-
-			    //Hasta ahora solo imprimo por pantalla si acepté o no la conexión, faltaría implementar lo que le enviamos si rechazo o acepto....
-			    if( !(strcmp(mensaje.paiload , "UMC"))){
-			    	printf("Admito conexión con la UMC");
-			    }else
-			    	printf("No se admite la conexión con éste socket");
-	     break;
+		 default:
+			 printf("No se admite la conexión con éste socket");
+		 break;
 		}
 	}
 }

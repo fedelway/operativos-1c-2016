@@ -16,9 +16,10 @@
 
 4010 -> Pido paginas para almacenar X bytes
 
+4020 -> Mensaje que le envia la umc a la swap con su nombre
 ----------------------------------------------------------------------------------
 5000-5999 : Mensajes que envia la swap.
 
-
+5020 -> Mensaje que le envia la swap a la umc con su nombre
 ----------------------------------------------------------------------------------
 Los mensajes x000 deberian ser de verificacion del handshake.

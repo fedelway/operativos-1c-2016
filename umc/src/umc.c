@@ -151,52 +151,57 @@ void enviarPaqueteASwap(char* message, int socket){
 	}
 }
 
-void socketClienteHandshake(int socketServidor){
+void handshakeServidor(int socket_swap){
 
-	//Estructura para crear el header + piload
-	struct t_header{
-		int id;
-		int tamanio;
-	};
+		//Estructura para crear el header + piload
+		typedef struct{
+			int id;
+			int tamanio;
+		}t_header;
 
-	struct package{
-	  struct t_header header;
-	  char* paiload;
-	};
+		typedef struct{
+		  t_header header;
+		  char* paiload;
+		}package;
 
-	//seteo el mensaje que le envío a la umc para que ésta reciba el header.id=2 y haga desde su proceso el handshake
-	struct package mensaje;
-	mensaje.header.id = 2;
-	mensaje.header.tamanio = 0;
-	mensaje.paiload = "\0";
 
-	switch(mensaje.header.id){
+		//seteo el mensaje que le envío a la swap para que ésta reciba el header.id=2 y haga desde su proceso el handshake
+		package mensajeAEnviar;
+		mensajeAEnviar.header.id = 5020 ;
+		mensajeAEnviar.header.tamanio = 0;
+		mensajeAEnviar.paiload = "\0";
 
-				 case 1:
-					 // Procesa ok
-					 printf("OK\n");
-				 break;
+		package mensajeARecibir;
+		mensajeARecibir.header.id = 4020;
+		mensajeARecibir.header.tamanio = 0;
+		mensajeARecibir.paiload = "\0";
 
-				 case 2:
-					   //Handshake cliente
-						while ( !(strcmp(mensaje.paiload , "SWAP")) ){
-							if(mensaje.header.tamanio != 1){
-								//TODO:Falta implementar serialización para recibir el mensaje
-								memset(mensaje.paiload,'\0', mensaje.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
-								recv(socketServidor, mensaje.paiload, 8, 0);
-							}
+		recv(socket_swap, &mensajeARecibir, sizeof(mensajeARecibir) , 0);
 
-							enviarPaqueteASwap(mensaje.paiload, socketServidor);
-						}
+		switch(mensajeARecibir.header.id){
 
-						 printf("No se admite conexión con éste sockets\n");
-				 break;
+		 case 1000:
+			 // Procesa ok
+			 printf("OK\n");
+		 break;
 
-				 case 3:
-					 //Handshake cliente
-					 printf("No hace nada porque está reservado para el cliente\n");
-				 break;
+		 case 4020:
+			 //Handshake servidor
+			 printf("No hace nada porque está reservado para el servidor\n");
+	     break;
 
-	}
- }
+		 case 5020:
+			 //Envio de Handshake Cliente
+			printf("Conectado a swap.\n");
+			memset(mensajeAEnviar.paiload,'\0', mensajeAEnviar.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
+			recv(socket_swap, mensajeARecibir.paiload, mensajeARecibir.header.tamanio , 0);
+
+			send(socket_swap, &mensajeAEnviar, sizeof(mensajeAEnviar), 0);
+		 break;
+
+		 default:
+			 printf("No se admite la conexión con éste socket");
+		 break;
+		}
+}
 
