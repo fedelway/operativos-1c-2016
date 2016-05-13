@@ -17,6 +17,8 @@ t_config *config;
 int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
 int nucleo_fd;
 
+char *memoria; //Esta seria el area de memoria.
+
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
 void recibirConexiones(int cpu_fd, int max_fd);
@@ -28,6 +30,9 @@ int main(int argc,char *argv[]) {
 	char *swap_ip;
 	char *swap_puerto;
 	int max_fd = 0;
+	int cant_frames;
+	int frame_size;
+
 
 	if(argc != 2){
 		fprintf(stderr,"uso: umc config_path\n");
@@ -55,9 +60,22 @@ int main(int argc,char *argv[]) {
 	if(socket_CPU > nucleo_fd){
 		max_fd = socket_CPU;
 	}else max_fd = nucleo_fd;
-	//TODO: Aca deberia ir el accept del nucleo el funcionamiento del sistema depende de que esten activos nucleo y umc.
 
 	aceptarNucleo();
+
+	//Ya tengo el nucleo aceptado, pido espacio para la memoria.
+
+	cant_frames = config_get_int_value(config, "MARCOS");
+	frame_size = config_get_int_value(config, "MARCO_SIZE");
+
+	memoria = malloc(cant_frames * frame_size);
+
+	if(memoria == NULL){
+		printf("Errpr de malloc, no hay memoria.\n");
+		exit(1);
+	}
+
+
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
 
@@ -92,7 +110,13 @@ void recibirConexiones(int cpu_fd, int max_fd){
 			if(FD_ISSET(i, &readyListen)){
 
 				if( i == cpu_fd){
-					//TODO: Lanzo un hilo que maneje la conexion
+					pthread_t thread;
+					pthread_attr_t atributos;
+
+					pthread_attr_init(&atributos);
+					pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
+
+					pthread_create(&thread, &atributos, (void *)trabajarCpu, NULL);
 
 				}
 			}
@@ -293,5 +317,19 @@ void aceptarNucleo(){
 }
 
 void trabajarNucleo(){
-	//Aca se va a hacer todo lo de nucleo
+	//Recibo mensajes de nucleo y hago el switch
+
+	int msj_recibido;
+
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+
+	switch(msj_recibido){
+
+	case 2001:
+		//Reservo las paginas que me piden.
+	}
+}
+
+void trabajarCpu(){
+
 }
