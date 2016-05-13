@@ -48,10 +48,14 @@ int main(int argc,char *argv[]) {
 	nucleo_puerto = config_get_string_value(config,"PUERTO_NUCLEO");
 	printf("Mi puerto escucha es: %s", nucleo_puerto);
 	nucleo_fd = conectarPuertoDeEscucha(nucleo_puerto);
+
+	if(socket_CPU > nucleo_fd){
+		max_fd = socket_CPU;
+	}else max_fd = nucleo_fd;
 	//TODO: Aca deberia ir el accept del nucleo el funcionamiento del sistema depende de que esten activos nucleo y umc.
 
 	//Ciclo principal
-	trabajarConexiones(socket_CPU, &max_fd);
+	trabajarConexiones(socket_CPU, max_fd);
 
 	char message[PACKAGESIZE];
 	recibirMensajeCPU(&message, socket_CPU);
@@ -62,7 +66,7 @@ int main(int argc,char *argv[]) {
 }
 
 //Esta funcion va a ser el ciclo principal. Va a estar aceptando nuevas conexiones y creando hilos con cada nueva conexion
-void trabajarConexiones(int cpu_fd, int *max_fd){
+void trabajarConexiones(int cpu_fd, int max_fd){
 
 	//Creo el fd_set principal
 	fd_set listen, readyListen;
@@ -76,9 +80,9 @@ void trabajarConexiones(int cpu_fd, int *max_fd){
 	for(;;){
 		readyListen = listen;
 
-		select( (*max_fd + 1), &readyListen, NULL, NULL, NULL);
+		select( (max_fd + 1), &readyListen, NULL, NULL, NULL);
 
-		for(i=0; i <= *max_fd; i++){
+		for(i=0; i <= max_fd; i++){
 
 			if(FD_ISSET(i, &readyListen)){
 
