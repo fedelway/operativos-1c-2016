@@ -11,6 +11,7 @@
 
 
 #include "umc.h"
+#include <pthread.h>
 
 t_config *config;
 int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
@@ -18,7 +19,9 @@ int nucleo_fd;
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
-void trabajarConexiones(int cpu_fd, int *max_fd);
+void recibirConexiones(int cpu_fd, int max_fd);
+void aceptarNucleo();
+void trabajarNucleo();
 
 int main(int argc,char *argv[]) {
 
@@ -54,19 +57,21 @@ int main(int argc,char *argv[]) {
 	}else max_fd = nucleo_fd;
 	//TODO: Aca deberia ir el accept del nucleo el funcionamiento del sistema depende de que esten activos nucleo y umc.
 
+	aceptarNucleo();
 	//Ciclo principal
-	trabajarConexiones(socket_CPU, max_fd);
+	recibirConexiones(socket_CPU, max_fd);
 
-	char message[PACKAGESIZE];
+/*	char message[PACKAGESIZE];
 	recibirMensajeCPU(&message, socket_CPU);
 
 	enviarPaqueteASwap(message, swap_fd);
+*/
 
 	return EXIT_SUCCESS;
 }
 
 //Esta funcion va a ser el ciclo principal. Va a estar aceptando nuevas conexiones y creando hilos con cada nueva conexion
-void trabajarConexiones(int cpu_fd, int max_fd){
+void recibirConexiones(int cpu_fd, int max_fd){
 
 	//Creo el fd_set principal
 	fd_set listen, readyListen;
@@ -253,3 +258,40 @@ void handshakeServidor(int socket_swap){
 		}
 }
 
+void aceptarNucleo(){
+
+	int soy_consola = 2000;
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado el nucleo.\n");
+
+	send(nuevo_fd, &soy_consola, sizeof(int),0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
+
+	//Verifico que se haya conectado el nucleo
+	if (msj_recibido == 1000){
+		printf("Se verifico la autenticidad del nucleo.\n");
+
+		//Lanzo el hilo que maneja el nucleo
+		pthread_t thread;
+		pthread_attr_t atributos;
+
+		pthread_attr_init(&atributos);
+		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
+
+		pthread_create(&thread, &atributos, (void *)trabajarNucleo, NULL);
+	}else{
+		printf("No se pudo verificar la autenticidad del nucleo.\nCerrando...\n");
+		close(nucleo_fd);
+		exit(1);
+	}
+}
+
+void trabajarNucleo(){
+	//Aca se va a hacer todo lo de nucleo
+}
