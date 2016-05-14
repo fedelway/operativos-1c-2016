@@ -46,7 +46,7 @@ int conectarPuertoDeEscucha(char* puerto){
 	struct sockaddr_in addr; // addr contien los datos de la conexion del cliente.
 	socklen_t addrlen = sizeof(addr);
 
-	int socketCliente = accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
+	//int socketCliente = accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
 
 	//Ya estamos listos para recibir paquetes de nuestro cliente...
 	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
@@ -56,7 +56,7 @@ int conectarPuertoDeEscucha(char* puerto){
 
 	printf("Cliente conectado. Esperando mensajes:\n");
 
-	return socketCliente;
+	return listeningSocket;
 }
 
 /*

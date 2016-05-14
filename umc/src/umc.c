@@ -66,12 +66,12 @@ int main(int argc,char *argv[]) {
 	//conexion a cpu
 	char* cpu_puerto;
 	cpu_puerto = config_get_string_value(config,"PUERTO_CPU");
-	printf("Mi puerto escucha es: %s", cpu_puerto);
+	printf("Mi puerto escucha es: %s\n", cpu_puerto);
 	int socket_CPU = conectarPuertoDeEscucha(cpu_puerto);
 
 	char* nucleo_puerto;
 	nucleo_puerto = config_get_string_value(config,"PUERTO_NUCLEO");
-	printf("Mi puerto escucha es: %s", nucleo_puerto);
+	printf("Mi puerto escucha es: %s\n", nucleo_puerto);
 	nucleo_fd = conectarPuertoDeEscucha(nucleo_puerto);
 
 	if(socket_CPU > nucleo_fd){
@@ -292,17 +292,19 @@ void handshakeServidor(int socket_swap){
 
 void aceptarNucleo(){
 
-	int soy_consola = 2000;
+	int soy_umc = 4000;
 	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
 	socklen_t addrlen = sizeof(addr);
 
+	printf("Esperando conexion del nucleo.\n");
+
 	nuevo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
 
 	printf("Se ha conectado el nucleo.\n");
 
-	send(nuevo_fd, &soy_consola, sizeof(int),0);
+	send(nuevo_fd, &soy_umc, sizeof(int),0);
 	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
 
 	//Verifico que se haya conectado el nucleo
@@ -310,6 +312,7 @@ void aceptarNucleo(){
 		printf("Se verifico la autenticidad del nucleo.\n");
 
 		//Lanzo el hilo que maneja el nucleo
+/*
 		pthread_t thread;
 		pthread_attr_t atributos;
 
@@ -317,6 +320,9 @@ void aceptarNucleo(){
 		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
 
 		pthread_create(&thread, &atributos, (void *)trabajarNucleo, NULL);
+*/
+		trabajarNucleo();
+		return;
 	}else{
 		printf("No se pudo verificar la autenticidad del nucleo.\nCerrando...\n");
 		close(nucleo_fd);
@@ -339,9 +345,11 @@ void inicializarMemoria(){
 	//inicializo listas
 	programas = list_create();
 
+	printf("Memoria inicializada.\n");
 }
 
 void trabajarNucleo(){
+	printf("TrabajarNucleo");
 	int mensaje;
 	int msj_recibido;
 
@@ -349,8 +357,11 @@ void trabajarNucleo(){
 	mensaje = config_get_int_value(config, "MARCO_SIZE");
 	send(nucleo_fd, &mensaje, sizeof(int), 0);
 
+	printf("pase por aca\n");
+
 	//Ciclo infinito
 	for(;;){
+		printf("dentro del for(;;)\n");
 		//Recibo mensajes de nucleo y hago el switch
 		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 

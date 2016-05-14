@@ -226,6 +226,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 	fd_set readyListen, cpu_fd_set, prog_fd_set; //En estos sets van los descriptores que estan listos para lectura/escritura
 
 	FD_ZERO(&readyListen);
+	FD_SET(umc_fd,listen);//Agrego el fd de umc que faltaba
 
 	for (;;) {
 		readyListen = *listen; //pongo todos los sockets en la lista para que los seleccione
