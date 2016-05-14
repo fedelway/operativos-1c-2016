@@ -11,13 +11,18 @@
 
 
 #include "umc.h"
+#include "commons/collections/list.h"
 #include <pthread.h>
 
 typedef struct{
-	int pid;
 	int n_pag;
 	int frame;
 }t_pag;
+
+typedef struct{
+	int pid;
+	t_pag *paginas;
+}t_prog;
 
 //Variables globales
 t_config *config;
@@ -26,6 +31,8 @@ int nucleo_fd;
 int cant_frames;
 int frame_size;
 int fpp; //Frames por programa
+
+t_list *programas;
 
 char *memoria; //Esta seria el area de memoria.
 
@@ -54,7 +61,7 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
- 	swap_fd = conectarseA(swap_ip, swap_puerto);
+ 	//swap_fd = conectarseA(swap_ip, swap_puerto);
 
 	//conexion a cpu
 	char* cpu_puerto;
@@ -329,6 +336,9 @@ void inicializarMemoria(){
 		exit(1);
 	}
 
+	//inicializo listas
+	programas = list_create();
+
 }
 
 void trabajarNucleo(){
@@ -380,13 +390,22 @@ void inicializarPrograma(){
 		cant_recibida += aux;
 	}
 
-	//Creo las estructuras para administrar memoria
-	t_pag paginas_prog[fpp];
-	for(aux = 0; aux <= fpp; aux++){
-		paginas_prog[aux].n_pag = aux;
-		paginas_prog[aux].frame = -1;
-		paginas_prog[aux].pid = pid;
+	//Creo las paginas que a las que va a poder acceder el programa
+	t_pag *paginas;
+
+	paginas = malloc(sizeof(t_pag) * fpp);
+	for(aux=0; aux < fpp; aux++){
+		paginas[aux].n_pag = aux;
+		paginas[aux].frame = -1; //Le setteo -1 como una forma de decirle que no tiene nada asignado
 	}
+
+	t_prog *programa;
+
+	programa = malloc(sizeof(t_prog));
+	programa->pid= pid;
+	programa->paginas = paginas;
+
+	list_add(programas, programa);
 
 }
 

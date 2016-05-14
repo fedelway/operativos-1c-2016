@@ -113,6 +113,8 @@ bool validarParametrosDeConfiguracion() {
 
 	return (config_has_property(config, "PUERTO_PROG")
 			&& config_has_property(config, "PUERTO_CPU")
+			&& config_has_property(config, "IP_UMC")
+			&& config_has_property(config, "PUERTO_UMC")
 			&& config_has_property(config, "QUANTUM")
 			&& config_has_property(config, "QUANTUM_SLEEP")
 			&& config_has_property(config, "SEM_IDS")
