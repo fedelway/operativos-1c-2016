@@ -35,12 +35,10 @@ void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
 void conectarUmc();
 
-t_config* config;
 //agregamos sockets provisorios para cpu y consola
 int socket_Con = 0;
 int socket_CPU = 0;
 int socket_umc;
-int max_pid = 0;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
@@ -51,12 +49,13 @@ typedef struct{
 	int stack_pos;
 	int source_pos;
 	int consola_fd;
-	char *source;
 }t_pcb;
 
 //Var globales
 t_config* config;
 int umc_fd;
+int pag_size;
+int max_pid = 0;
 
 //Las colas con los dif estados de los pcb
 t_queue ready, running, blocked, finished;
@@ -197,11 +196,16 @@ void conectarUmc(){
 
 	if(mensaje == 4000){
 		printf("Conectado a UMC.\n");
+
+		//Recibo el tamaño de pagina
+		recv(socket_umc, &mensaje, sizeof(int), 0);
+		pag_size = mensaje;
 		return;
 	}else{
 		printf("Error de autentificacion con UMC.\n");
 		exit(1);
 	}
+
 }
 
 //TODO: Todas las validaciones de errores
@@ -278,7 +282,6 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
 //	}
 }
-
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
@@ -368,8 +371,9 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 
 void iniciarNuevaConsola (int fd){
 	int cant_recibida = 0;
+	int cant_enviada = 0;
 	int source_size;
-	char *buffer;
+	char *buffer, *source;
 	int mensaje;
 	int aux;
 
@@ -389,8 +393,9 @@ void iniciarNuevaConsola (int fd){
 	}
 	//Ya tengo el archivo recibido en buffer. Le agrego un \0 al final.
 	buffer[source_size] = '\0';
+	source = buffer;
 
-	printf("%s\n", buffer);
+	printf("%s\n", source);
 
 
 	//Creo el PCB
@@ -398,7 +403,6 @@ void iniciarNuevaConsola (int fd){
 
 	pcb = malloc(sizeof(pcb));
 
-	pcb->source = buffer;
 	pcb->PC = 0;
 	pcb->consola_fd = fd;
 	pcb->pid = max_pid + 1;
@@ -406,20 +410,31 @@ void iniciarNuevaConsola (int fd){
 
 	//Pido paginas para almacenar el codigo y el stack
 	mensaje = 4010;
-	buffer = malloc(2*sizeof(int));
-
+	//Armo el paquete a enviar
+	int buffer_size = source_size + 3*sizeof(int);
+	buffer = malloc(source_size + 2*sizeof(int) );
 	memcpy(buffer, &mensaje, sizeof(int));
-	memcpy(buffer + sizeof(int), &source_size, sizeof(int));
+	memcpy(buffer + sizeof(int), &max_pid, sizeof(int));
+	memcpy(buffer + 2*sizeof(int), &source_size, sizeof(int));
+	memcpy(buffer + 3*sizeof(int), source, source_size);
 
-	send(socket_umc, buffer, 2*sizeof(int), 0);
+	while(cant_enviada <= buffer_size){
+		aux = send(umc_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 
-	mensaje = config_get_int_value(config, "CANT_PAGINAS");
-	memcpy(buffer + sizeof(int), &mensaje, sizeof(int));
+		if(aux == -1){
+			printf("Error al enviar el archivo a UMC.\n");
+			exit(1);
+		}
 
-	send(socket_umc, buffer, 2*sizeof(int), 0);
+		cant_enviada += aux;
+	}
 
-	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de listos.
+	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
 	list_add(&new, pcb);
+
+	//Libero la memoria
+	free(buffer);
+	free(source);
 }
 
 void procesoMensajeRecibidoConsola(char *package, int socket){

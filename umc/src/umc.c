@@ -13,9 +13,19 @@
 #include "umc.h"
 #include <pthread.h>
 
+typedef struct{
+	int pid;
+	int n_pag;
+	int frame;
+}t_pag;
+
+//Variables globales
 t_config *config;
 int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
 int nucleo_fd;
+int cant_frames;
+int frame_size;
+int fpp; //Frames por programa
 
 char *memoria; //Esta seria el area de memoria.
 
@@ -24,15 +34,15 @@ char *memoria; //Esta seria el area de memoria.
 void recibirConexiones(int cpu_fd, int max_fd);
 void aceptarNucleo();
 void trabajarNucleo();
+void trabajarCpu();
+void inicializarMemoria();
+void inicializarPrograma();
 
 int main(int argc,char *argv[]) {
 
 	char *swap_ip;
 	char *swap_puerto;
 	int max_fd = 0;
-	int cant_frames;
-	int frame_size;
-
 
 	if(argc != 2){
 		fprintf(stderr,"uso: umc config_path\n");
@@ -65,16 +75,7 @@ int main(int argc,char *argv[]) {
 
 	//Ya tengo el nucleo aceptado, pido espacio para la memoria.
 
-	cant_frames = config_get_int_value(config, "MARCOS");
-	frame_size = config_get_int_value(config, "MARCO_SIZE");
-
-	memoria = malloc(cant_frames * frame_size);
-
-	if(memoria == NULL){
-		printf("Errpr de malloc, no hay memoria.\n");
-		exit(1);
-	}
-
+	inicializarMemoria();
 
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
@@ -316,18 +317,77 @@ void aceptarNucleo(){
 	}
 }
 
-void trabajarNucleo(){
-	//Recibo mensajes de nucleo y hago el switch
+void inicializarMemoria(){
+	cant_frames = config_get_int_value(config, "MARCOS");
+	frame_size = config_get_int_value(config, "MARCO_SIZE");
+	fpp = config_get_int_value(config, "MARCO_X_PROG");
 
+	memoria = malloc(cant_frames * frame_size);
+
+	if(memoria == NULL){
+		printf("Error de malloc, no hay memoria.\n");
+		exit(1);
+	}
+
+}
+
+void trabajarNucleo(){
+	int mensaje;
 	int msj_recibido;
 
-	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+	//Le mando el tamaño de pagina
+	mensaje = config_get_int_value(config, "MARCO_SIZE");
+	send(nucleo_fd, &mensaje, sizeof(int), 0);
 
-	switch(msj_recibido){
+	//Ciclo infinito
+	for(;;){
+		//Recibo mensajes de nucleo y hago el switch
+		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
-	case 2001:
-		//Reservo las paginas que me piden.
+		switch(msj_recibido){
+
+		case 1010:
+			inicializarPrograma();
+		}
 	}
+
+}
+
+void inicializarPrograma(){
+	int pid;
+	int source_size;
+	int cant_recibida = 0;
+	int aux;
+	char *buffer;
+
+	//Recibo los datos
+	recv(nucleo_fd, &pid, sizeof(int), 0);
+	recv(nucleo_fd, &source_size, sizeof(int), 0);
+
+	buffer = malloc(source_size);
+
+	if(buffer == NULL){
+		printf("Error al asignar memoria.\n");
+	}
+
+	while(cant_recibida <= source_size){
+		aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
+
+		if(aux == -1){
+			printf("Error al recibir el archivo source.\n");
+		}
+
+		cant_recibida += aux;
+	}
+
+	//Creo las estructuras para administrar memoria
+	t_pag paginas_prog[fpp];
+	for(aux = 0; aux <= fpp; aux++){
+		paginas_prog[aux].n_pag = aux;
+		paginas_prog[aux].frame = -1;
+		paginas_prog[aux].pid = pid;
+	}
+
 }
 
 void trabajarCpu(){

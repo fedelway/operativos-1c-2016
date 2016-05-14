@@ -3,6 +3,9 @@
 ----------------------------------------------------------------------------------
 1000 - 1999 : Mensajes que envia el nucleo.
 
+1010 -> Inicializar Programa. Nucleo manda el codigo del programa y el pid.
+			Mensaje: int pid, int source_size, char* source
+
 ----------------------------------------------------------------------------------
 2000 - 2999 : Mensajes que envia la consola.
 
@@ -13,8 +16,6 @@
 
 ----------------------------------------------------------------------------------
 4000 - 4999 : Mensajes que envia la umc.
-
-4010 -> Pido paginas para almacenar X bytes
 
 4020 -> Mensaje que le envia la umc a la swap con su nombre
 ----------------------------------------------------------------------------------
