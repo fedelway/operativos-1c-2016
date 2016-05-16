@@ -44,6 +44,11 @@ int main(int argc,char *argv[]) {
 	return EXIT_SUCCESS;
 }
 
+/*
+ * Función: Envia código fuente del programa ansisop.
+ * Recibe: socket del nucleo, puntero al archivo, tamaño del archivo
+ * Devuelve: void
+*/
 void enviar_source(int nucleo_fd, FILE *source, int source_size){
 
 	char *archivo = malloc(source_size);
@@ -61,8 +66,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		aux = send(nucleo_fd, mensaje, 7, 0);
 		printf("msj a enviar %s",mensaje);
 		if(aux == -1){
-			log_error(logger, "Error al enviar archivo.");
-			log_destroy(logger);
+	    	log_error_y_cerrar_logger(logger, "Error al enviar archivo.");
 			exit(1);
 		}
 
@@ -78,8 +82,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		aux = fread(archivo + cant_leida, sizeof(char), source_size - cant_leida, source);
 
 		if (aux == -1){
-		    log_error(logger, "Error de lectura.");
-		    log_destroy(logger);
+		    log_error_y_cerrar_logger(logger, "Error de lectura.");
 			exit(1);
 		}
 		cant_leida += aux;
@@ -96,9 +99,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	cant_enviada = send(nucleo_fd, buffer, buffer_size, 0);
 
 	while(cant_enviada < buffer_size){
-
 		aux = send(nucleo_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
-
 		cant_enviada += aux;
 	}
 
@@ -108,6 +109,11 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	free(buffer);
 }
 
+/*
+ * Función: Abre el archivo del programa ansisop
+ * Recibe: path del archivo, puntero en donde se almacenará el tamaño del archivo
+ * Devuelve: puntero a FILE
+*/
 FILE *abrirSource(char *path, int *source_size){
 
 	FILE *source;
@@ -116,14 +122,13 @@ FILE *abrirSource(char *path, int *source_size){
 	source = fopen(path, "r");
 
 	if (source == NULL){
-	    log_error(logger, "Error al abrir el archivo fuente.");
-	    log_destroy(logger);
+	    log_error_y_cerrar_logger(logger, "Error al abrir el archivo fuente.");
 		exit(0);
 	}
 
 	if( stat(path, &file_info) == -1){
-	    log_error(logger, "Error con stat.");
-	    log_destroy(logger);
+	    log_error_y_cerrar_logger(logger, "Error con stat.");
+	    exit(0);
 	}
 
 	//Me fijo el tamanio del archivo en bytes.
@@ -132,6 +137,11 @@ FILE *abrirSource(char *path, int *source_size){
 	return source;
 }
 
+/*
+ * Función: Carga la estructura de configuración a partir del archivo de configuración. Valida parametros obtenidos.
+ * Recibe: path del archivo de configuración
+ * Devuelve: void
+*/
 void crearConfiguracion(char* config_path){
 
 	config = config_create(config_path);
@@ -139,12 +149,16 @@ void crearConfiguracion(char* config_path){
 	if(validarParametrosDeConfiguracion()){
 		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 	}else{
-		log_error(logger, "Configuracion invalida");
-	    log_destroy(logger);
+	    log_error_y_cerrar_logger(logger, "Configuracion invalida.");
 		exit(EXIT_SUCCESS);
 	}
 }
 
+/*
+ * Función: Valida parámetros de configuración necesarios para el proceso Consola
+ * Recibe: void
+ * Devuelve: bool
+*/
 bool validarParametrosDeConfiguracion(){
 	return 	config_has_property(config, "PROGRAMA_ANSISOP")
 		&& 	config_has_property(config, "NUCLEO_IP")
@@ -206,8 +220,7 @@ void validarNucleo(int nucleo_fd){
 		send(nucleo_fd, &soy_consola, sizeof(int), 0);
 		printf("send socket: %d, mensaje %d", nucleo_fd,soy_consola);
 	}else{
-		log_error(logger, "El nucleo no pudo ser validado.");
-	    log_destroy(logger);
+	    log_error_y_cerrar_logger(logger, "El nucleo no pudo ser validado.");
 		exit(0);
 	}
 
