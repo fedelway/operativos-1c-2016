@@ -22,3 +22,10 @@ void recibirMensajeUMC(char* message, int socket_umc);
 
 
 #endif /* SWAP_H_ */
+
+//parámetros de configuración
+    char* puerto_escucha;
+	char* nombre_swap;
+	int cantidad_paginas;
+	int tamanio_paginas;
+	int retardo_compactacion;

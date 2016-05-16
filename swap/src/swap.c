@@ -19,11 +19,9 @@ t_log* logger;
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 int conectarPuertoDeEscucha2(char* puerto);
-
+void crearParticionSwap();
 
 int main(int argc,char *argv[]) {
-
-	char* puerto_escucha;
 
 	char message[PACKAGESIZE];
 	memset (message,'\0',PACKAGESIZE);
@@ -32,6 +30,7 @@ int main(int argc,char *argv[]) {
 	log_info(logger, "Proyecto para SWAP..");
 
 	crearConfiguracion(argv[1]);
+	crearParticionSwap();
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -48,7 +47,9 @@ int main(int argc,char *argv[]) {
 	log_destroy(logger);
 
     return EXIT_SUCCESS;
+
 }
+
 
 void recibirMensajeUMC(char* message, int socket_umc){
 
@@ -165,9 +166,10 @@ int conectarPuertoDeEscucha2(char* puerto){
 
 	return 0;
 
+///////// ver funcion handshake, parámetros addr y listeningSocket, ahora tiene una resolucion errónea//////////////////
 
 //Acá implementamos el handshake del lado del servidor
-void handshakeServidor(int socket_umc){
+  void handshakeServidor(int socket_umc){
 
 		//Estructura para crear el header + piload
 		typedef struct{
@@ -220,6 +222,19 @@ void handshakeServidor(int socket_umc){
 			 printf("No se admite la conexión con éste socket");
 		 break;
 		}
-	}
+  }
 }
+// CREAR ALMACENAMIENTO SWAP
+ void crearParticionSwap(){
+
+	 FILE *archivoSwap;
+	 archivoSwap = fopen("swap.data", "w+");
+	 int i;
+
+	 for(i = 0; i < cantidad_paginas * tamanio_paginas; i++){
+		 putc('\0', archivoSwap);
+	 }
+	 fclose(archivoSwap);
+}
+
 
