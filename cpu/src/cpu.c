@@ -33,16 +33,11 @@ int main(int argc,char *argv[]) {
 	umc_ip = config_get_string_value(config, "UMC_IP");
 	umc_puerto = config_get_string_value(config, "UMC_PUERTO");
 
-	log_info(logger, "IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
-	log_info(logger, "IP y puerto de la umc: %s - %s", umc_ip, umc_puerto);
-
 	//Conexión al nucleo
 	log_info(logger, "Conectando al nucleo. IP y puerto del núcleo: %s - %s", nucleo_ip, nucleo_puerto);
 	socket_nucleo = conectarseA(nucleo_ip, nucleo_puerto);
 	log_info(logger, "Conexion establecida con el nucleo. (Socket: %d)",socket_nucleo);
 	validarNucleo(socket_nucleo);
-
-
 
 	//Conexión al umc
 

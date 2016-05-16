@@ -22,6 +22,7 @@
 #include "commons/log.h"
 #include "commons/string.h"
 #include "socketCliente.h"
+#include "primitivasAnsisop.h"
 
 #define PACKAGESIZE 1024
 
