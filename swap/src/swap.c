@@ -228,7 +228,7 @@ int conectarPuertoDeEscucha2(char* puerto){
  void crearParticionSwap(){
 
 	 FILE *archivoSwap;
-	 archivoSwap = fopen("swap.data", "w+");
+	 archivoSwap = fopen(nombre_swap, "wb+");
 	 int i;
 
 	 for(i = 0; i < cantidad_paginas * tamanio_paginas; i++){
