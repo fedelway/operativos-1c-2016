@@ -31,6 +31,8 @@ int main(int argc,char *argv[]) {
 
 	crearConfiguracion(argv[1]);
 	crearParticionSwap();
+	listaProcesos = list_create();
+	listaEnEspera = list_create();
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -227,14 +229,38 @@ int conectarPuertoDeEscucha2(char* puerto){
 // CREAR ALMACENAMIENTO SWAP
  void crearParticionSwap(){
 
+	 //FILE *archivoSwap;
+	// dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
+
 	 FILE *archivoSwap;
 	 archivoSwap = fopen(nombre_swap, "wb+");
 	 int i;
 
-	 for(i = 0; i < cantidad_paginas * tamanio_paginas; i++){
+	 for(i = 0; i < cantidad_paginas*tamanio_paginas; i++){
 		 putc('\0', archivoSwap);
 	 }
 	 fclose(archivoSwap);
+
 }
+//Creo BitMap usando bitarray
+ void inicializarBitMap(){
+
+	  bitMap *t_bitarray_create(char *bitarray, size_t (cantidad_paginas*tamanio_pagina));
+ }
+
+ void crearNodoProceso(int pid, int cantidad_paginas, int posSwap){
+
+		 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
+		 proceso->pid = pid;
+		 proceso->cantidad_paginas = cantidad_paginas;
+ }
+
+ void crearNodoEnEspera(int pid, int cantidad_paginas){
+
+		 nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
+		 enEspera->pid = pid;
+		 enEspera->cantidad_paginas = cantidad_paginas;
+ }
+
 
 
