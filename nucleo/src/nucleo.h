@@ -29,6 +29,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
 void procesoMensajeRecibidoConsola(char* paquete, int socket);
 void hacerAlgoCPU(int codigoMensaje, int fd);
 void hacerAlgoProg(int codigoMensaje, int fd);
+void hacerAlgoUmc(int codigoMensaje);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void enviarPaqueteACPU(char* package, int socket);

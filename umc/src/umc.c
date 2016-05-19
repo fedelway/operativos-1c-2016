@@ -141,7 +141,7 @@ void crearConfiguracion(char* config_path){
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
 	}else{
-		printf("configuracion no valida");
+		printf("configuracion no valida\n");
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -293,19 +293,18 @@ void handshakeServidor(int socket_swap){
 void aceptarNucleo(){
 
 	int soy_umc = 4000;
-	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
 	socklen_t addrlen = sizeof(addr);
 
 	printf("Esperando conexion del nucleo.\n");
 
-	nuevo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+	nucleo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
 
 	printf("Se ha conectado el nucleo.\n");
 
-	send(nuevo_fd, &soy_umc, sizeof(int),0);
-	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
+	send(nucleo_fd, &soy_umc, sizeof(int),0);
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
 	//Verifico que se haya conectado el nucleo
 	if (msj_recibido == 1000){
@@ -349,7 +348,7 @@ void inicializarMemoria(){
 }
 
 void trabajarNucleo(){
-	printf("TrabajarNucleo");
+	printf("TrabajarNucleo\n");
 	int mensaje;
 	int msj_recibido;
 
@@ -357,15 +356,16 @@ void trabajarNucleo(){
 	mensaje = config_get_int_value(config, "MARCO_SIZE");
 	send(nucleo_fd, &mensaje, sizeof(int), 0);
 
-	printf("pase por aca\n");
-
 	//Ciclo infinito
 	for(;;){
-		printf("dentro del for(;;)\n");
 		//Recibo mensajes de nucleo y hago el switch
 		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
 		switch(msj_recibido){
+
+		case 0:
+			printf("Desconexion del nucleo. Terminando...\n");
+			exit(1);
 
 		case 1010:
 			inicializarPrograma();

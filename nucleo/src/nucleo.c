@@ -177,7 +177,8 @@ void conectarUmc(){
 		//Recibo el tamaño de pagina
 		recv(socket_umc, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
-		return;
+
+		printf("Page_size = %d\n",pag_size);
 	}else{
 		printf("Error de autentificacion con UMC.\n");
 		exit(1);
@@ -232,29 +233,41 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				}
 
 				//No es puerto escucha, recibo el paquete.
-					if (recv(i, &codigoMensaje, sizeof(int), 0) <= 0) {
-						//recibio 0 bytes, hubo desconexion
+				if(FD_ISSET(i, &cpu_fd_set)){
+					recv(i,&codigoMensaje,sizeof(int),0);
+
+					if(codigoMensaje <= 0){
+						//Hubo desconexion
 						close(i);
-						printf("Se ha desconectado\n");
+						printf("Se ha desconectado una cpu\n");
 						FD_CLR(i, listen);
 						FD_CLR(i, &cpu_fd_set);
-						FD_CLR(i, &prog_fd_set);
 					}else{
-
-						if(FD_ISSET(i, &cpu_fd_set)){
-							hacerAlgoCPU(codigoMensaje, i);
-						}
-
-						if(FD_ISSET(i, &prog_fd_set)){
-							hacerAlgoProg(codigoMensaje, i);
-						}
-
+						//Hay un mensaje de verdad
+						hacerAlgoProg(codigoMensaje, i);
 					}
+				}else if(FD_ISSET(i, &prog_fd_set)){
+					recv(i,&codigoMensaje,sizeof(int),0);
 
-			} else {
-				//Envio info.
-				//Supongo que esto lo haremos con una funcion que se vaya encargando de ir laburando con los procesos y eso
-				//Igual no estoy seguro de que lo vayamos a usar
+					if (codigoMensaje <= 0){
+						close(i);
+						printf("Se ha desconectado una consola.\n");
+						FD_CLR(i, listen);
+						FD_CLR(i, &cpu_fd_set);
+					}else{
+						hacerAlgoCPU(codigoMensaje, i);
+					}
+				}else if(i == umc_fd){
+					recv(i, &codigoMensaje, sizeof(int), 0);
+
+					if(codigoMensaje <= 0){
+						close(i);
+						printf("Se ha desconectado la umc. Terminando...\n");
+						exit(1);
+					}else{
+						hacerAlgoUmc(codigoMensaje);
+					}
+				}
 			}
 		}				//Busqueda de todos los File Descriptor
 	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
@@ -345,6 +358,10 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 	case 2001 :
 		iniciarNuevaConsola(fd);
 	}
+}
+
+void hacerAlgoUmc(int codigoMensaje){
+
 }
 
 void iniciarNuevaConsola (int fd){
