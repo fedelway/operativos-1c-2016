@@ -90,8 +90,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	//Creo el paquete con toda la info: cod op, tam archivo, archivo
 	buffer = malloc(source_size + 2*sizeof(int));
 
-	memcpy(buffer, &source_size, sizeof(int));
-	memcpy(buffer + sizeof(int), &mandoArchivo, sizeof(int));
+	memcpy(buffer, &mandoArchivo, sizeof(int));
+	memcpy(buffer + sizeof(int), &source_size, sizeof(int));
 	memcpy(buffer + 2*sizeof(int), archivo, source_size);
 
 	//Ahora envio el archivo
@@ -101,6 +101,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		aux = send(nucleo_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 		cant_enviada += aux;
 	}
+
+	printf("Archivo enviado satisfactoriamente.\n");
 
 	//ya tengo todo el archivo enviado
 	free(archivo);

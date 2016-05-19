@@ -31,6 +31,7 @@ int nucleo_fd;
 int cant_frames;
 int frame_size;
 int fpp; //Frames por programa
+int stack_size;
 
 t_list *programas;
 
@@ -78,11 +79,9 @@ int main(int argc,char *argv[]) {
 		max_fd = socket_CPU;
 	}else max_fd = nucleo_fd;
 
-	aceptarNucleo();
-
-	//Ya tengo el nucleo aceptado, pido espacio para la memoria.
-
 	inicializarMemoria();
+
+	aceptarNucleo();
 
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
@@ -303,12 +302,20 @@ void aceptarNucleo(){
 
 	printf("Se ha conectado el nucleo.\n");
 
-	send(nucleo_fd, &soy_umc, sizeof(int),0);
-	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+	//Armo paquete
+	int buffer[2];
+	buffer[0] = soy_umc;
+	buffer[1] = frame_size;
 
+	send(nucleo_fd, &buffer, 2*sizeof(int),0); //Envio codMensaje y tamaño de pagina
+
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 	//Verifico que se haya conectado el nucleo
 	if (msj_recibido == 1000){
 		printf("Se verifico la autenticidad del nucleo.\n");
+
+		//Recibo Tamaño del stack
+		recv(nucleo_fd, &stack_size,sizeof(int),0);
 
 		//Lanzo el hilo que maneja el nucleo
 /*
@@ -332,7 +339,7 @@ void aceptarNucleo(){
 void inicializarMemoria(){
 	cant_frames = config_get_int_value(config, "MARCOS");
 	frame_size = config_get_int_value(config, "MARCO_SIZE");
-	fpp = config_get_int_value(config, "MARCO_X_PROG");
+	fpp = config_get_int_value(config, "MARCO_X_PROC");
 
 	memoria = malloc(cant_frames * frame_size);
 
@@ -349,23 +356,19 @@ void inicializarMemoria(){
 
 void trabajarNucleo(){
 	printf("TrabajarNucleo\n");
-	int mensaje;
 	int msj_recibido;
-
-	//Le mando el tamaño de pagina
-	mensaje = config_get_int_value(config, "MARCO_SIZE");
-	send(nucleo_fd, &mensaje, sizeof(int), 0);
 
 	//Ciclo infinito
 	for(;;){
 		//Recibo mensajes de nucleo y hago el switch
 		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
-		switch(msj_recibido){
-
-		case 0:
+		if(msj_recibido <= 0){
 			printf("Desconexion del nucleo. Terminando...\n");
 			exit(1);
+		}
+
+		switch(msj_recibido){
 
 		case 1010:
 			inicializarPrograma();

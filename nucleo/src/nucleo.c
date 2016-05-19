@@ -30,6 +30,7 @@ int socket_umc;
 t_config* config;
 int umc_fd;
 int pag_size;
+int stack_size;
 int max_pid = 0;
 
 //Las colas con los dif estados de los pcb
@@ -52,6 +53,8 @@ int main(int argc, char *argv[]) {
 	FD_ZERO(&listen);
 
 	crearConfiguracion(argv[1]);
+
+	stack_size = config_get_int_value(config, "STACK_SIZE");
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
@@ -96,7 +99,8 @@ bool validarParametrosDeConfiguracion() {
 			&& config_has_property(config, "SEM_INIT")
 			&& config_has_property(config, "IO_IDS")
 			&& config_has_property(config, "IO_SLEEP")
-			&& config_has_property(config, "SHARED_VARS"));
+			&& config_has_property(config, "SHARED_VARS")
+			&& config_has_property(config, "STACK_SIZE"));
 }
 
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd) {
@@ -167,20 +171,30 @@ void conectarUmc(){
 
 	//Hago la validacion con UMC
 	int mensaje = 1000;
-	send(socket_umc, &mensaje, sizeof(int), 0);
+	int buffer[2];
+	//char *buffer;
+	//buffer = malloc(2*sizeof(int));
+
+	//memcpy(buffer,&mensaje,sizeof(int));
+	//memcpy(buffer + sizeof(int),&stack_size,sizeof(int));
+
+	buffer[0] = mensaje;
+	buffer[1] = stack_size;
+
+	send(socket_umc, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
 	recv(socket_umc, &mensaje, sizeof(int), 0);
-
 	if(mensaje == 4000){
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
 		recv(socket_umc, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
-
 		printf("Page_size = %d\n",pag_size);
+
 	}else{
 		printf("Error de autentificacion con UMC.\n");
+		close(socket_umc);
 		exit(1);
 	}
 
@@ -392,7 +406,6 @@ void iniciarNuevaConsola (int fd){
 
 	printf("%s\n", source);
 
-
 	//Creo el PCB
 	t_pcb *pcb;
 
@@ -404,7 +417,7 @@ void iniciarNuevaConsola (int fd){
 	max_pid++;
 
 	//Pido paginas para almacenar el codigo y el stack
-	mensaje = 4010;
+	mensaje = 1010;
 	//Armo el paquete a enviar
 	int buffer_size = source_size + 3*sizeof(int);
 	buffer = malloc(source_size + 2*sizeof(int) );
