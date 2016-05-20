@@ -21,7 +21,7 @@ typedef struct{
 
 typedef struct{
 	int pid;
-	int pos;
+	int pos; //Para saber cuanto ya hay escrito
 	t_pag *paginas;
 }t_prog;
 
@@ -423,8 +423,11 @@ void inicializarPrograma(){
 
 	if(cant_paginas_cod > fpp){
 		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
-		int mensaje = 4010;
-		send(nucleo_fd, &mensaje,sizeof(int),0);
+		int bufferInt[2];
+
+		bufferInt[0] = 4010;
+		bufferInt[1] = pid;
+		send(nucleo_fd,&bufferInt,2*sizeof(int),0);
 	}
 
 	if(cant_paginas_cod > framesDisponibles() ){

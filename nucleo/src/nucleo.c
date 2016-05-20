@@ -368,7 +368,11 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 }
 
 void hacerAlgoUmc(int codigoMensaje){
-	printf("hacer algo umc.%d\n",codigoMensaje);
+
+	switch(codigoMensaje){
+
+	case 4010:
+	}
 }
 
 void iniciarNuevaConsola (int fd){

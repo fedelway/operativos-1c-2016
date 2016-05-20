@@ -18,6 +18,7 @@
 4000 - 4999 : Mensajes que envia la umc.
 
 4010 -> Rechazada la inicializacion del programa
+			Mensaje: int pid.
 
 4020 -> Mensaje que le envia la umc a la swap con su nombre
 ----------------------------------------------------------------------------------
