@@ -32,6 +32,7 @@ int umc_fd;
 int pag_size;
 int stack_size;
 int max_pid = 0;
+int quantum;
 
 //Las colas con los dif estados de los pcb
 t_queue ready, running, blocked, finished;
@@ -54,6 +55,8 @@ int main(int argc, char *argv[]) {
 	crearConfiguracion(argv[1]);
 
 	stack_size = config_get_int_value(config, "STACK_SIZE");
+
+	quantum = config_get_int_value(config, "QUANTUM");
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
@@ -279,7 +282,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 		}//Termine de buscar en todos los fd
 
 		//Limpio los pcb en finished
-		limpiarFinished();
+		limpiarTerminados();
 	}
 }
 
@@ -311,6 +314,39 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 		close(nuevo_fd);
 	}
 
+}
+
+void agregarNucleo(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
+
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado una nueva CPU.\n");
+
+	int buffer[2];
+
+	buffer[0] = 1000;
+	buffer[1] = quantum;
+
+	send(nuevo_fd, &buffer, 2*sizeof(int),0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
+
+	if(msj_recibido == 3000){
+
+		if(nuevo_fd > *max_fd){
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd,listen);
+		FD_SET(nuevo_fd,cpus);
+	}else{
+		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
+		close(nuevo_fd);
+	}
 }
 
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
@@ -376,7 +412,6 @@ void hacerAlgoUmc(int codigoMensaje){
 	switch(codigoMensaje){
 
 	case 4010:
-
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
 
 		bool igualPid(t_pcb *elemento){
@@ -388,11 +423,23 @@ void hacerAlgoUmc(int codigoMensaje){
 		queue_push(&finished, pcb_a_eliminar);
 
 		list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
-	}
-}
+		break;
 
-bool ordenarSegunPid(t_pcb *pcb, t_pcb *pcb2){
-	return pcb->pid < pcb2->pid;
+	case 4011:
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+
+		bool igualPid(t_pcb *elemento){
+			return elemento->pid == msj_recibido;
+		}
+
+		t_pcb *pcb_a_ready = list_find(&new, (void*)igualPid);
+
+		queue_push(&ready, pcb_a_ready);
+
+		list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
+		break;
+
+	}
 }
 
 void iniciarNuevaConsola (int fd){

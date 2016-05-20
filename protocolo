@@ -20,6 +20,9 @@
 4010 -> Rechazada la inicializacion del programa
 			Mensaje: int pid.
 
+4011 -> Se logró inicializar el programa correctamente
+			Mensaje: int pid.
+
 4020 -> Mensaje que le envia la umc a la swap con su nombre
 ----------------------------------------------------------------------------------
 5000-5999 : Mensajes que envia la swap.
