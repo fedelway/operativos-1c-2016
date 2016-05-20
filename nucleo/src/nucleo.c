@@ -147,7 +147,6 @@ void conectarUmc(){
 
 	char *ip, *puerto;
 	struct addrinfo hints, *serverInfo;
-	int socket_umc;
 
 	puerto = config_get_string_value(config, "PUERTO_UMC");
 	ip = config_get_string_value(config, "IP_UMC");
@@ -162,9 +161,9 @@ void conectarUmc(){
 		exit(1);
 	}
 
-	socket_umc = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+	umc_fd = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
-	if( connect(socket_umc, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
+	if( connect(umc_fd, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
 		printf("Error al conectar a la UMC\n");
 		exit(1);
 	}
@@ -172,29 +171,24 @@ void conectarUmc(){
 	//Hago la validacion con UMC
 	int mensaje = 1000;
 	int buffer[2];
-	//char *buffer;
-	//buffer = malloc(2*sizeof(int));
-
-	//memcpy(buffer,&mensaje,sizeof(int));
-	//memcpy(buffer + sizeof(int),&stack_size,sizeof(int));
 
 	buffer[0] = mensaje;
 	buffer[1] = stack_size;
 
-	send(socket_umc, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
+	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
-	recv(socket_umc, &mensaje, sizeof(int), 0);
+	recv(umc_fd, &mensaje, sizeof(int), 0);
 	if(mensaje == 4000){
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
-		recv(socket_umc, &mensaje, sizeof(int), 0);
+		recv(umc_fd, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
 		printf("Page_size = %d\n",pag_size);
 
 	}else{
 		printf("Error de autentificacion con UMC.\n");
-		close(socket_umc);
+		close(umc_fd);
 		exit(1);
 	}
 
@@ -246,7 +240,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 				}
 
-				//No es puerto escucha, recibo el paquete.
+				//No es puerto escucha, llego un paquete, miro quien lo envio y decido que hacer
 				if(FD_ISSET(i, &cpu_fd_set)){
 					recv(i,&codigoMensaje,sizeof(int),0);
 
@@ -257,7 +251,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 						FD_CLR(i, listen);
 						FD_CLR(i, &cpu_fd_set);
 					}else{
-						//Hay un mensaje de verdad
+						//Hay un mensaje de verdad, hago algo
 						hacerAlgoProg(codigoMensaje, i);
 					}
 				}else if(FD_ISSET(i, &prog_fd_set)){
@@ -283,9 +277,8 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 					}
 				}
 			}
-		}				//Busqueda de todos los File Descriptor
-	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
-//	}
+		}//Busqueda de todos los File Descriptor
+	}
 }
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
@@ -362,7 +355,7 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 }
 
 void hacerAlgoCPU(int codigoMensaje, int fd){
-	//printf("Mensaje CPU: %s\n",package);
+	printf("hacerAlgoCPU.%d\n",codigoMensaje);
 }
 
 void hacerAlgoProg(int codigoMensaje, int fd){
@@ -375,7 +368,7 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 }
 
 void hacerAlgoUmc(int codigoMensaje){
-
+	printf("hacer algo umc.%d\n",codigoMensaje);
 }
 
 void iniciarNuevaConsola (int fd){
@@ -419,14 +412,21 @@ void iniciarNuevaConsola (int fd){
 	//Pido paginas para almacenar el codigo y el stack
 	mensaje = 1010;
 	//Armo el paquete a enviar
-	int buffer_size = source_size + 3*sizeof(int);
-	buffer = malloc(source_size + 2*sizeof(int) );
+	int buffer_size = source_size + 4*sizeof(int);
+	buffer = malloc(source_size + 4*sizeof(int) );
+
+	int cant_paginas_requeridas = source_size / pag_size;
+
+	if(source_size % pag_size > 0)
+		cant_paginas_requeridas++;
+
 	memcpy(buffer, &mensaje, sizeof(int));
 	memcpy(buffer + sizeof(int), &max_pid, sizeof(int));
-	memcpy(buffer + 2*sizeof(int), &source_size, sizeof(int));
-	memcpy(buffer + 3*sizeof(int), source, source_size);
+	memcpy(buffer + 2*sizeof(int), &cant_paginas_requeridas, sizeof(int));
+	memcpy(buffer + 3*sizeof(int), &source_size, sizeof(int));
+	memcpy(buffer + 4*sizeof(int), source, source_size);
 
-	while(cant_enviada <= buffer_size){
+	while(cant_enviada < buffer_size){
 		aux = send(umc_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 
 		if(aux == -1){
@@ -436,6 +436,7 @@ void iniciarNuevaConsola (int fd){
 
 		cant_enviada += aux;
 	}
+	printf("Archivo enviado satisfactoriamente.\n");
 
 	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
 	list_add(&new, pcb);

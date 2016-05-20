@@ -4,7 +4,7 @@
 1000 - 1999 : Mensajes que envia el nucleo.
 
 1010 -> Inicializar Programa. Nucleo manda el codigo del programa y el pid.
-			Mensaje: int pid, int source_size, char* source
+			Mensaje: int pid, int cant_paginas_requeridas, int source_size, char* source
 
 ----------------------------------------------------------------------------------
 2000 - 2999 : Mensajes que envia la consola.

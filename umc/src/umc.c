@@ -21,13 +21,20 @@ typedef struct{
 
 typedef struct{
 	int pid;
+	int pos;
 	t_pag *paginas;
 }t_prog;
+
+typedef struct{
+	int posicion;
+	bool libre;
+}t_frame;
 
 //Variables globales
 t_config *config;
 int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
 int nucleo_fd;
+t_frame *frames;//El array con todos los frames en memoria
 int cant_frames;
 int frame_size;
 int fpp; //Frames por programa
@@ -45,6 +52,7 @@ void trabajarNucleo();
 void trabajarCpu();
 void inicializarMemoria();
 void inicializarPrograma();
+void escribirEnMemoria(char *src, int size, t_prog programa);
 
 int main(int argc,char *argv[]) {
 
@@ -289,6 +297,46 @@ void handshakeServidor(int socket_swap){
 		}
 }
 
+void inicializarMemoria(){
+	cant_frames = config_get_int_value(config, "MARCOS");
+	frame_size = config_get_int_value(config, "MARCO_SIZE");
+	fpp = config_get_int_value(config, "MARCO_X_PROC");
+
+	memoria = malloc(cant_frames * frame_size);
+
+	if(memoria == NULL){
+		printf("Error de malloc, no hay memoria.\n");
+		exit(1);
+	}
+
+	memset(memoria,0b11111111,cant_frames*frame_size);
+
+	//inicializo listas
+	programas = list_create();
+
+	//Creo el array de frames
+	frames = malloc(cant_frames * sizeof(t_frame));
+	int i;
+	for(i = 0; i < cant_frames; i++){
+		frames[i].libre = true;
+		frames[i].posicion = i;
+	}
+
+	printf("Memoria inicializada.\n");
+}
+
+int framesDisponibles(){
+
+	int cant_disp;
+	int i;
+	for(i=0 ; i < cant_frames; i++){
+		if(frames[i].libre)
+			cant_disp++;
+	}
+
+	return cant_disp;
+}
+
 void aceptarNucleo(){
 
 	int soy_umc = 4000;
@@ -336,23 +384,6 @@ void aceptarNucleo(){
 	}
 }
 
-void inicializarMemoria(){
-	cant_frames = config_get_int_value(config, "MARCOS");
-	frame_size = config_get_int_value(config, "MARCO_SIZE");
-	fpp = config_get_int_value(config, "MARCO_X_PROC");
-
-	memoria = malloc(cant_frames * frame_size);
-
-	if(memoria == NULL){
-		printf("Error de malloc, no hay memoria.\n");
-		exit(1);
-	}
-
-	//inicializo listas
-	programas = list_create();
-
-	printf("Memoria inicializada.\n");
-}
 
 void trabajarNucleo(){
 	printf("TrabajarNucleo\n");
@@ -381,20 +412,31 @@ void inicializarPrograma(){
 	int pid;
 	int source_size;
 	int cant_recibida = 0;
+	int cant_paginas_cod;
 	int aux;
-	char *buffer;
+	char *buffer, *source;
 
 	//Recibo los datos
 	recv(nucleo_fd, &pid, sizeof(int), 0);
 	recv(nucleo_fd, &source_size, sizeof(int), 0);
+	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
 
+	if(cant_paginas_cod > fpp){
+		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
+		int mensaje = 4010;
+		send(nucleo_fd, &mensaje,sizeof(int),0);
+	}
+
+	if(cant_paginas_cod > framesDisponibles() ){
+		//Habria que hacer algo con swap
+	}
+
+	//All ok, recibo el archivo
 	buffer = malloc(source_size);
-
 	if(buffer == NULL){
 		printf("Error al asignar memoria.\n");
 	}
-
-	while(cant_recibida <= source_size){
+	while(cant_recibida < source_size){
 		aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
 
 		if(aux == -1){
@@ -403,6 +445,9 @@ void inicializarPrograma(){
 
 		cant_recibida += aux;
 	}
+	printf("Archivo recibido satisfactoriamente.\n");
+
+	source = buffer;
 
 	//Creo las paginas que a las que va a poder acceder el programa
 	t_pag *paginas;
@@ -418,9 +463,25 @@ void inicializarPrograma(){
 	programa = malloc(sizeof(t_prog));
 	programa->pid= pid;
 	programa->paginas = paginas;
+	programa->pos = 0;
 
 	list_add(programas, programa);
 
+	//Escribo el programa en memoria
+	escribirEnMemoria(source, source_size, *programa);
+
+	//Libero la memoria
+	free(programa);
+	free(buffer);
+}
+
+void escribirEnMemoria(char* src, int size, t_prog programa){
+
+	int cant_escrita = 0;
+
+	while(cant_escrita < size){
+
+	}
 }
 
 void trabajarCpu(){

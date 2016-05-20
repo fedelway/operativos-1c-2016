@@ -21,7 +21,7 @@ void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 void recibirMensajeCPU(char* message, int socket_CPU);
 void enviarPaqueteASwap(char* message, int socket);
-
+int framesDisponibles();
 
 
 #endif /* UMC_H_ */
