@@ -38,5 +38,6 @@ void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
 void conectarUmc();
 void limpiarTerminados();
+void moverDeNewA(int pid, t_queue *destino);
 
 #endif /* NUCLEO_H_ */

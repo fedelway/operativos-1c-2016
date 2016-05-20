@@ -413,33 +413,28 @@ void hacerAlgoUmc(int codigoMensaje){
 
 	case 4010:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
-
-		bool igualPid(t_pcb *elemento){
-			return elemento->pid == msj_recibido;
-		}
-
-		t_pcb *pcb_a_eliminar = list_find(&new, (void*)igualPid);
-
-		queue_push(&finished, pcb_a_eliminar);
-
-		list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
+		moverDeNewA(msj_recibido,&finished);
 		break;
 
 	case 4011:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
-
-		bool igualPid(t_pcb *elemento){
-			return elemento->pid == msj_recibido;
-		}
-
-		t_pcb *pcb_a_ready = list_find(&new, (void*)igualPid);
-
-		queue_push(&ready, pcb_a_ready);
-
-		list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
+		moverDeNewA(msj_recibido,&ready);
 		break;
 
 	}
+}
+
+void moverDeNewA(int pid, t_queue *destino){
+
+	bool igualPid(t_pcb *elemento){
+		return elemento->pid == pid;
+	}
+
+	t_pcb *pcb_a_mover = list_find(&new, (void*)igualPid);
+
+	queue_push(destino, pcb_a_mover);
+
+	list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
 }
 
 void iniciarNuevaConsola (int fd){
