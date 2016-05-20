@@ -33,11 +33,12 @@ void hacerAlgoProg(int codigoMensaje, int fd);
 void hacerAlgoUmc(int codigoMensaje);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
-void agregarNucleo(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
+void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
 void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
 void conectarUmc();
 void limpiarTerminados();
+void planificar();
 void moverDeNewA(int pid, t_queue *destino);
 
 #endif /* NUCLEO_H_ */

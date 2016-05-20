@@ -21,6 +21,12 @@ typedef struct{
 	int consola_fd;
 }t_pcb;
 
+typedef struct{
+	int num;
+	int fd;
+	bool libre;
+}t_cpu;
+
 //agregamos sockets provisorios para cpu y consola
 int socket_Con = 0;
 int socket_CPU = 0;
@@ -32,7 +38,10 @@ int umc_fd;
 int pag_size;
 int stack_size;
 int max_pid = 0;
+int max_cpu;
 int quantum;
+int cant_cpus;
+t_cpu *listaCpu;
 
 //Las colas con los dif estados de los pcb
 t_queue ready, running, blocked, finished;
@@ -53,6 +62,9 @@ int main(int argc, char *argv[]) {
 	FD_ZERO(&listen);
 
 	crearConfiguracion(argv[1]);
+
+	cant_cpus = 0;
+	max_cpu = 0;
 
 	stack_size = config_get_int_value(config, "STACK_SIZE");
 
@@ -238,7 +250,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 				if (i == cpu_fd) {
 
-					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
+					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 
 				}
 
@@ -283,6 +295,8 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 		//Limpio los pcb en finished
 		limpiarTerminados();
+
+		planificar();
 	}
 }
 
@@ -316,7 +330,7 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
 }
 
-void agregarNucleo(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
+void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 	int nuevo_fd;
 	int msj_recibido;
@@ -343,6 +357,20 @@ void agregarNucleo(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 		FD_SET(nuevo_fd,listen);
 		FD_SET(nuevo_fd,cpus);
+
+		//Agrego la cpu a la lista de cpus
+		t_cpu cpu_nueva;
+
+		cpu_nueva.fd = nuevo_fd;
+		cpu_nueva.libre = true;
+		cpu_nueva.num = max_cpu;
+		max_cpu++;
+
+		cant_cpus++;
+		//Necesito un array con 1 cpu mas de espacio
+		listaCpu = realloc(listaCpu, cant_cpus * sizeof(t_cpu));
+
+		listaCpu[cant_cpus - 1] = cpu_nueva;
 	}else{
 		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
 		close(nuevo_fd);
@@ -551,4 +579,23 @@ void limpiarTerminados(){
 
 		free(pcb_terminado);
 	}
+}
+
+void planificar(){
+
+	int i;
+
+	//Miro que no este vacia la lista de ready
+	if(queue_is_empty(&ready)){
+
+		for(i=0; i<cant_cpus; i++){
+
+			if(listaCpu[i].libre){
+				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola
+
+			}
+		}
+	}
+
+
 }
