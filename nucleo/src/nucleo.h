@@ -35,5 +35,6 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
 void conectarUmc();
+void limpiarTerminados();
 
 #endif /* NUCLEO_H_ */

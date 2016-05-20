@@ -37,7 +37,6 @@ int max_pid = 0;
 t_queue ready, running, blocked, finished;
 t_list new;
 
-
 int main(int argc, char *argv[]) {
 
 	char *puerto_prog, *puerto_cpu;
@@ -277,7 +276,10 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 					}
 				}
 			}
-		}//Busqueda de todos los File Descriptor
+		}//Termine de buscar en todos los fd
+
+		//Limpio los pcb en finished
+		limpiarFinished();
 	}
 }
 
@@ -369,10 +371,28 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 
 void hacerAlgoUmc(int codigoMensaje){
 
+	int msj_recibido;
+
 	switch(codigoMensaje){
 
 	case 4010:
+
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+
+		bool igualPid(t_pcb *elemento){
+			return elemento->pid == msj_recibido;
+		}
+
+		t_pcb *pcb_a_eliminar = list_find(&new, (void*)igualPid);
+
+		queue_push(&finished, pcb_a_eliminar);
+
+		list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
 	}
+}
+
+bool ordenarSegunPid(t_pcb *pcb, t_pcb *pcb2){
+	return pcb->pid < pcb2->pid;
 }
 
 void iniciarNuevaConsola (int fd){
@@ -477,4 +497,16 @@ void enviarPaqueteACPU(char* package, int socket){
 	}
 }
 
+void limpiarTerminados(){
 
+	t_pcb *pcb_terminado;
+
+	while(!queue_is_empty(&finished)){
+
+		pcb_terminado = queue_pop(&finished);
+
+		close( pcb_terminado->consola_fd );
+
+		free(pcb_terminado);
+	}
+}
