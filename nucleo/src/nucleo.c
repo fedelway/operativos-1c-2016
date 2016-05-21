@@ -21,6 +21,12 @@ typedef struct{
 	int consola_fd;
 }t_pcb;
 
+typedef struct{
+	int num;
+	int fd;
+	bool libre;
+}t_cpu;
+
 //agregamos sockets provisorios para cpu y consola
 int socket_Con = 0;
 int socket_CPU = 0;
@@ -30,12 +36,16 @@ int socket_umc;
 t_config* config;
 int umc_fd;
 int pag_size;
+int stack_size;
 int max_pid = 0;
+int max_cpu;
+int quantum;
+int cant_cpus;
+t_cpu *listaCpu;
 
 //Las colas con los dif estados de los pcb
 t_queue ready, running, blocked, finished;
 t_list new;
-
 
 int main(int argc, char *argv[]) {
 
@@ -52,6 +62,13 @@ int main(int argc, char *argv[]) {
 	FD_ZERO(&listen);
 
 	crearConfiguracion(argv[1]);
+
+	cant_cpus = 0;
+	max_cpu = 0;
+
+	stack_size = config_get_int_value(config, "STACK_SIZE");
+
+	quantum = config_get_int_value(config, "QUANTUM");
 
 	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
@@ -96,7 +113,8 @@ bool validarParametrosDeConfiguracion() {
 			&& config_has_property(config, "SEM_INIT")
 			&& config_has_property(config, "IO_IDS")
 			&& config_has_property(config, "IO_SLEEP")
-			&& config_has_property(config, "SHARED_VARS"));
+			&& config_has_property(config, "SHARED_VARS")
+			&& config_has_property(config, "STACK_SIZE"));
 }
 
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd) {
@@ -143,7 +161,6 @@ void conectarUmc(){
 
 	char *ip, *puerto;
 	struct addrinfo hints, *serverInfo;
-	int socket_umc;
 
 	puerto = config_get_string_value(config, "PUERTO_UMC");
 	ip = config_get_string_value(config, "IP_UMC");
@@ -158,28 +175,34 @@ void conectarUmc(){
 		exit(1);
 	}
 
-	socket_umc = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+	umc_fd = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
-	if( connect(socket_umc, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
+	if( connect(umc_fd, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
 		printf("Error al conectar a la UMC\n");
 		exit(1);
 	}
 
 	//Hago la validacion con UMC
 	int mensaje = 1000;
-	send(socket_umc, &mensaje, sizeof(int), 0);
+	int buffer[2];
 
-	recv(socket_umc, &mensaje, sizeof(int), 0);
+	buffer[0] = mensaje;
+	buffer[1] = stack_size;
 
+	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
+
+	recv(umc_fd, &mensaje, sizeof(int), 0);
 	if(mensaje == 4000){
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
-		recv(socket_umc, &mensaje, sizeof(int), 0);
+		recv(umc_fd, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
-		return;
+		printf("Page_size = %d\n",pag_size);
+
 	}else{
 		printf("Error de autentificacion con UMC.\n");
+		close(umc_fd);
 		exit(1);
 	}
 
@@ -227,38 +250,54 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 				if (i == cpu_fd) {
 
-					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
+					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 
 				}
 
-				//No es puerto escucha, recibo el paquete.
-					if (recv(i, &codigoMensaje, sizeof(int), 0) <= 0) {
-						//recibio 0 bytes, hubo desconexion
+				//No es puerto escucha, llego un paquete, miro quien lo envio y decido que hacer
+				if(FD_ISSET(i, &cpu_fd_set)){
+					recv(i,&codigoMensaje,sizeof(int),0);
+
+					if(codigoMensaje <= 0){
+						//Hubo desconexion
 						close(i);
-						printf("Se ha desconectado\n");
+						printf("Se ha desconectado una cpu\n");
 						FD_CLR(i, listen);
 						FD_CLR(i, &cpu_fd_set);
-						FD_CLR(i, &prog_fd_set);
 					}else{
-
-						if(FD_ISSET(i, &cpu_fd_set)){
-							hacerAlgoCPU(codigoMensaje, i);
-						}
-
-						if(FD_ISSET(i, &prog_fd_set)){
-							hacerAlgoProg(codigoMensaje, i);
-						}
-
+						//Hay un mensaje de verdad, hago algo
+						hacerAlgoProg(codigoMensaje, i);
 					}
+				}else if(FD_ISSET(i, &prog_fd_set)){
+					recv(i,&codigoMensaje,sizeof(int),0);
 
-			} else {
-				//Envio info.
-				//Supongo que esto lo haremos con una funcion que se vaya encargando de ir laburando con los procesos y eso
-				//Igual no estoy seguro de que lo vayamos a usar
+					if (codigoMensaje <= 0){
+						close(i);
+						printf("Se ha desconectado una consola.\n");
+						FD_CLR(i, listen);
+						FD_CLR(i, &cpu_fd_set);
+					}else{
+						hacerAlgoCPU(codigoMensaje, i);
+					}
+				}else if(i == umc_fd){
+					recv(i, &codigoMensaje, sizeof(int), 0);
+
+					if(codigoMensaje <= 0){
+						close(i);
+						printf("Se ha desconectado la umc. Terminando...\n");
+						exit(1);
+					}else{
+						hacerAlgoUmc(codigoMensaje);
+					}
+				}
 			}
-		}				//Busqueda de todos los File Descriptor
-	} //Ciclo principal: Le saco el ciclo infinito porque al correr con eclipse muere.
-//	}
+		}//Termine de buscar en todos los fd
+
+		//Limpio los pcb en finished
+		limpiarTerminados();
+
+		planificar();
+	}
 }
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
@@ -289,6 +328,53 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 		close(nuevo_fd);
 	}
 
+}
+
+void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
+
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado una nueva CPU.\n");
+
+	int buffer[2];
+
+	buffer[0] = 1000;
+	buffer[1] = quantum;
+
+	send(nuevo_fd, &buffer, 2*sizeof(int),0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
+
+	if(msj_recibido == 3000){
+
+		if(nuevo_fd > *max_fd){
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd,listen);
+		FD_SET(nuevo_fd,cpus);
+
+		//Agrego la cpu a la lista de cpus
+		t_cpu cpu_nueva;
+
+		cpu_nueva.fd = nuevo_fd;
+		cpu_nueva.libre = true;
+		cpu_nueva.num = max_cpu;
+		max_cpu++;
+
+		cant_cpus++;
+		//Necesito un array con 1 cpu mas de espacio
+		listaCpu = realloc(listaCpu, cant_cpus * sizeof(t_cpu));
+
+		listaCpu[cant_cpus - 1] = cpu_nueva;
+	}else{
+		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
+		close(nuevo_fd);
+	}
 }
 
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
@@ -335,7 +421,7 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 }
 
 void hacerAlgoCPU(int codigoMensaje, int fd){
-	//printf("Mensaje CPU: %s\n",package);
+	printf("hacerAlgoCPU.%d\n",codigoMensaje);
 }
 
 void hacerAlgoProg(int codigoMensaje, int fd){
@@ -345,6 +431,38 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 	case 2001 :
 		iniciarNuevaConsola(fd);
 	}
+}
+
+void hacerAlgoUmc(int codigoMensaje){
+
+	int msj_recibido;
+
+	switch(codigoMensaje){
+
+	case 4010:
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+		moverDeNewA(msj_recibido,&finished);
+		break;
+
+	case 4011:
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+		moverDeNewA(msj_recibido,&ready);
+		break;
+
+	}
+}
+
+void moverDeNewA(int pid, t_queue *destino){
+
+	bool igualPid(t_pcb *elemento){
+		return elemento->pid == pid;
+	}
+
+	t_pcb *pcb_a_mover = list_find(&new, (void*)igualPid);
+
+	queue_push(destino, pcb_a_mover);
+
+	list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
 }
 
 void iniciarNuevaConsola (int fd){
@@ -375,7 +493,6 @@ void iniciarNuevaConsola (int fd){
 
 	printf("%s\n", source);
 
-
 	//Creo el PCB
 	t_pcb *pcb;
 
@@ -387,16 +504,23 @@ void iniciarNuevaConsola (int fd){
 	max_pid++;
 
 	//Pido paginas para almacenar el codigo y el stack
-	mensaje = 4010;
+	mensaje = 1010;
 	//Armo el paquete a enviar
-	int buffer_size = source_size + 3*sizeof(int);
-	buffer = malloc(source_size + 2*sizeof(int) );
+	int buffer_size = source_size + 4*sizeof(int);
+	buffer = malloc(source_size + 4*sizeof(int) );
+
+	int cant_paginas_requeridas = source_size / pag_size;
+
+	if(source_size % pag_size > 0)
+		cant_paginas_requeridas++;
+
 	memcpy(buffer, &mensaje, sizeof(int));
 	memcpy(buffer + sizeof(int), &max_pid, sizeof(int));
-	memcpy(buffer + 2*sizeof(int), &source_size, sizeof(int));
-	memcpy(buffer + 3*sizeof(int), source, source_size);
+	memcpy(buffer + 2*sizeof(int), &cant_paginas_requeridas, sizeof(int));
+	memcpy(buffer + 3*sizeof(int), &source_size, sizeof(int));
+	memcpy(buffer + 4*sizeof(int), source, source_size);
 
-	while(cant_enviada <= buffer_size){
+	while(cant_enviada < buffer_size){
 		aux = send(umc_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 
 		if(aux == -1){
@@ -406,6 +530,7 @@ void iniciarNuevaConsola (int fd){
 
 		cant_enviada += aux;
 	}
+	printf("Archivo enviado satisfactoriamente.\n");
 
 	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
 	list_add(&new, pcb);
@@ -442,4 +567,35 @@ void enviarPaqueteACPU(char* package, int socket){
 	}
 }
 
+void limpiarTerminados(){
 
+	t_pcb *pcb_terminado;
+
+	while(!queue_is_empty(&finished)){
+
+		pcb_terminado = queue_pop(&finished);
+
+		close( pcb_terminado->consola_fd );
+
+		free(pcb_terminado);
+	}
+}
+
+void planificar(){
+
+	int i;
+
+	//Miro que no este vacia la lista de ready
+	if(queue_is_empty(&ready)){
+
+		for(i=0; i<cant_cpus; i++){
+
+			if(listaCpu[i].libre){
+				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola
+
+			}
+		}
+	}
+
+
+}
