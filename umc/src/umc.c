@@ -11,39 +11,6 @@
 
 
 #include "umc.h"
-#include "commons/collections/list.h"
-#include <pthread.h>
-
-typedef struct{
-	int frame;
-	bool presencia;
-	bool modificado;
-}t_pag;
-
-typedef struct{
-	int pid;
-	int pos; //Para saber cuanto ya hay escrito
-	t_pag *paginas;
-}t_prog;
-
-typedef struct{
-	int posicion;
-	bool libre;
-}t_frame;
-
-//Variables globales
-t_config *config;
-int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
-int nucleo_fd;
-t_frame *frames;//El array con todos los frames en memoria
-int cant_frames;
-int frame_size;
-int fpp; //Frames por programa
-int stack_size;
-
-t_list *programas;
-
-char *memoria; //Esta seria el area de memoria.
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
@@ -414,39 +381,14 @@ void inicializarPrograma(){
 	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
 	recv(nucleo_fd, &source_size, sizeof(int), 0);
 
-	if(cant_paginas_cod > fpp){
-		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
-		int bufferInt[2];
-
-		bufferInt[0] = 4010;
-		bufferInt[1] = pid;
-		send(nucleo_fd,&bufferInt,2*sizeof(int),0);
-
-		//Recibo el archivo para que no quede basura en las proximas llamadas
-		buffer = malloc(source_size);
-		if(buffer == NULL){
-			printf("Error al asignar memoria.\n");
-		}
-		while(cant_recibida < source_size){
-			aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
-
-			if(aux == -1){
-				printf("Error al recibir el archivo source.\n");
-			}
-
-			cant_recibida += aux;
-		}
-
-		//Lo libero porque no me va a servir
-		free(buffer);
-		return;
-	}
-
-	//All ok, recibo el archivo
+	//Recibo el archivo
 	buffer = malloc(source_size);
 	if(buffer == NULL){
 		printf("Error al asignar memoria.\n");
+		//aviso a nucleo que termine programa.
+		terminarPrograma(pid);
 	}
+
 	while(cant_recibida < source_size){
 		aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
 
@@ -457,8 +399,17 @@ void inicializarPrograma(){
 		cant_recibida += aux;
 	}
 	printf("Archivo recibido satisfactoriamente.\n");
+	source = buffer; //Me guardo el archivo en el puntero source
 
-	source = buffer;
+	if(cant_paginas_cod > fpp){
+		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
+		terminarPrograma(pid);
+
+		//Libero el archivo
+		free(buffer);
+		free(source);
+		return;
+	}
 
 	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
 	t_pag *paginas;
@@ -480,7 +431,8 @@ void inicializarPrograma(){
 
 	//Le mando a swap el archivo para que lo guarde
 	if( enviarCodigoASwap(source,source_size) == -1 ){
-		//Error en envio de archivo, termino programa.
+		//Error en envio de archivo, aviso a nucleo que termine el programa.
+		terminarPrograma(pid);
 	}
 
 	//Libero la memoria
@@ -492,7 +444,7 @@ void inicializarPrograma(){
 int enviarCodigoASwap(char *source, int source_size){
 
 	int cant_enviada_total = 0;
-	int cant_enviada_parcial = 0;
+	int cant_enviada_parcial;
 	int mensaje = 4030;
 	int aux;
 	char *buffer;
@@ -528,6 +480,14 @@ int enviarCodigoASwap(char *source, int source_size){
 
 	//Codigo enviado correctamente, devuelvo 0
 	return 0;
+}
+
+void terminarPrograma(int pid){
+	int bufferInt[2];
+
+	bufferInt[0] = 4010;
+	bufferInt[1] = pid;
+	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
 }
 
 void escribirEnMemoria(char* src, int size, t_prog programa){
