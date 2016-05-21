@@ -15,8 +15,9 @@
 #include <pthread.h>
 
 typedef struct{
-	int n_pag;
 	int frame;
+	bool presencia;
+	bool modificado;
 }t_pag;
 
 typedef struct{
@@ -45,14 +46,6 @@ t_list *programas;
 char *memoria; //Esta seria el area de memoria.
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
-
-void recibirConexiones(int cpu_fd, int max_fd);
-void aceptarNucleo();
-void trabajarNucleo();
-void trabajarCpu();
-void inicializarMemoria();
-void inicializarPrograma();
-void escribirEnMemoria(char *src, int size, t_prog programa);
 
 int main(int argc,char *argv[]) {
 
@@ -366,7 +359,6 @@ void aceptarNucleo(){
 		recv(nucleo_fd, &stack_size,sizeof(int),0);
 
 		//Lanzo el hilo que maneja el nucleo
-/*
 		pthread_t thread;
 		pthread_attr_t atributos;
 
@@ -374,8 +366,8 @@ void aceptarNucleo(){
 		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
 
 		pthread_create(&thread, &atributos, (void *)trabajarNucleo, NULL);
-*/
-		trabajarNucleo();
+
+		//trabajarNucleo();
 		return;
 	}else{
 		printf("No se pudo verificar la autenticidad del nucleo.\nCerrando...\n");
@@ -394,6 +386,7 @@ void trabajarNucleo(){
 		//Recibo mensajes de nucleo y hago el switch
 		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
+		//Chequeo que no haya una desconexion
 		if(msj_recibido <= 0){
 			printf("Desconexion del nucleo. Terminando...\n");
 			exit(1);
@@ -418,8 +411,8 @@ void inicializarPrograma(){
 
 	//Recibo los datos
 	recv(nucleo_fd, &pid, sizeof(int), 0);
-	recv(nucleo_fd, &source_size, sizeof(int), 0);
 	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
+	recv(nucleo_fd, &source_size, sizeof(int), 0);
 
 	if(cant_paginas_cod > fpp){
 		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
@@ -428,10 +421,25 @@ void inicializarPrograma(){
 		bufferInt[0] = 4010;
 		bufferInt[1] = pid;
 		send(nucleo_fd,&bufferInt,2*sizeof(int),0);
-	}
 
-	if(cant_paginas_cod > framesDisponibles() ){
-		//Habria que hacer algo con swap
+		//Recibo el archivo para que no quede basura en las proximas llamadas
+		buffer = malloc(source_size);
+		if(buffer == NULL){
+			printf("Error al asignar memoria.\n");
+		}
+		while(cant_recibida < source_size){
+			aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
+
+			if(aux == -1){
+				printf("Error al recibir el archivo source.\n");
+			}
+
+			cant_recibida += aux;
+		}
+
+		//Lo libero porque no me va a servir
+		free(buffer);
+		return;
 	}
 
 	//All ok, recibo el archivo
@@ -452,13 +460,13 @@ void inicializarPrograma(){
 
 	source = buffer;
 
-	//Creo las paginas que a las que va a poder acceder el programa
+	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
 	t_pag *paginas;
 
 	paginas = malloc(sizeof(t_pag) * fpp);
 	for(aux=0; aux < fpp; aux++){
-		paginas[aux].n_pag = aux;
-		paginas[aux].frame = -1; //Le setteo -1 como una forma de decirle que no tiene nada asignado
+		paginas[aux].presencia = false;
+		paginas[aux].modificado = false;
 	}
 
 	t_prog *programa;
@@ -470,12 +478,55 @@ void inicializarPrograma(){
 
 	list_add(programas, programa);
 
-	//Escribo el programa en memoria
-	escribirEnMemoria(source, source_size, *programa);
+	//Le mando a swap el archivo para que lo guarde
+	if( enviarCodigoASwap(source,source_size) == -1 ){
+		//Error en envio de archivo, termino programa.
+	}
 
 	//Libero la memoria
 	free(programa);
 	free(buffer);
+}
+
+int enviarCodigoASwap(char *source, int source_size){
+
+	int cant_enviada_total = 0;
+	int cant_enviada_parcial = 0;
+	int mensaje = 4030;
+	int aux;
+	char *buffer;
+
+	buffer = malloc(sizeof(int) + frame_size);
+
+	if(buffer == NULL){
+		printf("Error de malloc.\n");
+	}
+
+	//Armo el paquete
+	memcpy(buffer,&mensaje,sizeof(int));
+
+	while(cant_enviada_total < source_size){
+		cant_enviada_parcial = 0;
+
+		memcpy(buffer+sizeof(int),source,frame_size);
+
+		//Ya tengo el paquete armado, lo envio
+		while(cant_enviada_parcial < frame_size){
+			aux = send(swap_fd,buffer,sizeof(int) + frame_size,0);
+
+			if(aux <= 0){
+				printf("Error en el envio del archivo");
+				return -1;//Error de swap, le digo a nucleo que mande el proceso a finished
+			}
+
+			cant_enviada_parcial += aux;
+		}
+		//Ya envie una pagina, la cant enviada total es la anterior + una pagina
+		cant_enviada_total += frame_size;
+	}
+
+	//Codigo enviado correctamente, devuelvo 0
+	return 0;
 }
 
 void escribirEnMemoria(char* src, int size, t_prog programa){

@@ -491,6 +491,8 @@ void iniciarNuevaConsola (int fd){
 	buffer[source_size] = '\0';
 	source = buffer;
 
+	source_size++;//Porque le agregue el \0
+
 	printf("%s\n", source);
 
 	//Creo el PCB
@@ -570,10 +572,14 @@ void enviarPaqueteACPU(char* package, int socket){
 void limpiarTerminados(){
 
 	t_pcb *pcb_terminado;
+	int mensaje = 1020;
 
 	while(!queue_is_empty(&finished)){
 
 		pcb_terminado = queue_pop(&finished);
+
+		//Le aviso a consola que termino la ejecucion del programa
+		send(pcb_terminado->consola_fd,&mensaje,sizeof(int),0);
 
 		close( pcb_terminado->consola_fd );
 
@@ -591,7 +597,7 @@ void planificar(){
 		for(i=0; i<cant_cpus; i++){
 
 			if(listaCpu[i].libre){
-				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola
+				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola(queue_pop)
 
 			}
 		}
