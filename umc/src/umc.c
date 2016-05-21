@@ -486,6 +486,7 @@ void inicializarPrograma(){
 	//Libero la memoria
 	free(programa);
 	free(buffer);
+	free(source);
 }
 
 int enviarCodigoASwap(char *source, int source_size){

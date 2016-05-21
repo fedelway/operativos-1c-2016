@@ -22,6 +22,13 @@ bool validarParametrosDeConfiguracion();
 void recibirMensajeCPU(char* message, int socket_CPU);
 void enviarPaqueteASwap(char* message, int socket);
 int framesDisponibles();
+void recibirConexiones(int cpu_fd, int max_fd);
+void aceptarNucleo();
+void trabajarNucleo();
+void trabajarCpu();
+void inicializarMemoria();
+void inicializarPrograma();
+void escribirEnMemoria(char *src, int size, t_prog programa);
 
 
 #endif /* UMC_H_ */
