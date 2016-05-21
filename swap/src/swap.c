@@ -31,6 +31,7 @@ int main(int argc,char *argv[]) {
 
 	crearConfiguracion(argv[1]);
 	crearParticionSwap();
+	crearBitMap();
 	listaProcesos = list_create();
 	listaEnEspera = list_create();
 
@@ -167,12 +168,12 @@ int conectarPuertoDeEscucha2(char* puerto){
 	close(listeningSocket);
 
 	return 0;
-
+}
 ///////// ver funcion handshake, parámetros addr y listeningSocket, ahora tiene una resolucion errónea//////////////////
 
 //Acá implementamos el handshake del lado del servidor
   void handshakeServidor(int socket_umc){
-
+/*
 		//Estructura para crear el header + piload
 		typedef struct{
 			int id;
@@ -224,43 +225,120 @@ int conectarPuertoDeEscucha2(char* puerto){
 			 printf("No se admite la conexión con éste socket");
 		 break;
 		}
+		*/
   }
-}
+
 // CREAR ALMACENAMIENTO SWAP
  void crearParticionSwap(){
 
+	 //COMO CREAR ARCHIVO CON dd
 	 //FILE *archivoSwap;
-	// dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
+	 // dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
 
 	 FILE *archivoSwap;
 	 archivoSwap = fopen(nombre_swap, "wb+");
 	 int i;
 
-	 for(i = 0; i < cantidad_paginas*tamanio_paginas; i++){
+	 for(i = 0; i < cantidad_paginas*tamanio_pagina; i++){
 		 putc('\0', archivoSwap);
 	 }
 	 fclose(archivoSwap);
-
-}
-//Creo BitMap usando bitarray
- void inicializarBitMap(){
-
-	  bitMap *t_bitarray_create(char *bitarray, size_t (cantidad_paginas*tamanio_pagina));
  }
+ //Creo BitMap usando bitarray
+void crearBitMap(){
+	bitMap = bitarray_create(bitarray, sizeof(bitarray));
+}
 
- void crearNodoProceso(int pid, int cantidad_paginas, int posSwap){
+      /*
+ void inicializarBitMap(){
+      bitMap_create(char *bitarray, size_t 2048);
+      char bitMap[tamanio_pagina*cantidad_paginas];
+      int i;
+      for(i = 1; i < tamanio_pagina*cantidad_paginas; i++){
+    	  bitMap[i] = '\0';
+      }
+      */
 
-		 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
+
+ static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap){
+	 	 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
 		 proceso->pid = pid;
 		 proceso->cantidad_paginas = cantidad_paginas;
+		 proceso->posSwap = posSwap;
+	return proceso;
  }
 
- void crearNodoEnEspera(int pid, int cantidad_paginas){
-
-		 nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
+ static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
+	 	 nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
 		 enEspera->pid = pid;
 		 enEspera->cantidad_paginas = cantidad_paginas;
+	return enEspera;
+ }
+
+ bool hayEspacioContiguo(int pagina, int tamanio){
+	 int i;
+	 //la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
+	 for(i = pagina; i < pagina+tamanio ;i++){
+		 if(bitarray_test_bit(bitMap, i) == 1){//== 0 libre == 1 ocupado
+			 return 0;
+		 }
+	 }
+	 return 1; // retorna v, hay espacio disponible
+ }
+
+ int paginaDisponible(int pid,int tamanio){
+	 int i;
+	 //Recorro todo el bitMap buscando espacios contiguos y devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
+
+	 for(i = 0; i < tamanio_pagina*cantidad_paginas; i++ ){
+		 if(bitarray_test_bit(bitMap, i) == 1){// VER 0 FALSO
+			 if(hayEspacioContiguo(i,tamanio)){
+				 return i;
+			 }
+		 }
+	 }
+	  return -1;
+ }
+
+ //Recorrer la lista de procesos en swap y devolver (int) la ubicación
+ int  ubicacionEnArchivo(int pid, int tamanio){
+ 	  return 3;//return pagina; TODO
  }
 
 
+ void leerArchivo(int pid,int tamanio){
+	 int ubicacion = ubicacionEnArchivo(pid,tamanio);
+
+    char cadenaLeida[tamanio];
+	FILE* archivoSwap = fopen("archivoSwap.bin","r+");
+    if(fseek(archivoSwap, tamanio, ubicacion) == 0){
+    fread(cadenaLeida, tamanio,1,archivoSwap); //TODO validación
+    }
+    fclose(archivoSwap);
+}
+
+
+void escribirArchivo(int pid,int tamanio,char* contenido){
+        int ubicacion = ubicacionEnArchivo(pid,tamanio);
+        FILE* archivoSwap = fopen("archivoSwap.bin","r+");
+	    if(fseek(archivoSwap, tamanio, ubicacion) == 0){
+	    	fwrite(contenido, tamanio,1,archivoSwap);// TODO validacion
+	    }
+	    fclose(archivoSwap);
+
+}
+
+void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
+    int pagina = paginaDisponible(pid,tamanio);
+
+    if(pagina != 0){
+//VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
+	    //reservarEspacioParaPrograma(pid, tamanio, );
+	    list_add(listaProcesos, crearNodoDeProceso(pid, tamanio, pagina));
+		resultadoCreacion = "Se ha creado correctamente el programa";
+	}else{ //En este caso no tenemos paginas disponibles para crear el programa
+		resultadoCreacion = "Inicializacion Cancelada";
+	}
+
+}
 

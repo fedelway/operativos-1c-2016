@@ -30,11 +30,15 @@ void crearNodo(int pid, int cantidad_paginas, int posSwap);
     char* puerto_escucha;
 	char* nombre_swap;
 	int cantidad_paginas;
-	int tamanio_paginas;
+	int tamanio_pagina;
 	int retardo_compactacion;
 
 //bitMap
-	t_bitarray bitMap;
+	//Configuro el tamaño del BITMAP con los valores de configuración convertidos a bit
+
+	char bitarray[512];
+	t_bitarray *bitMap;
+
 
 //nodo lista de procesos
 	 typedef struct {
