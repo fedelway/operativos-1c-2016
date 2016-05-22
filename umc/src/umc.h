@@ -47,7 +47,8 @@ int stack_size;
 
 t_list *programas;
 
-char *memoria; //Esta seria el area de memoria.
+//Esta seria el area de memoria.
+char *memoria;
 
 
 
@@ -62,9 +63,10 @@ void trabajarNucleo();
 void trabajarCpu();
 void inicializarMemoria();
 void inicializarPrograma();
-void escribirEnMemoria(char *src, int size, t_prog programa);
+void escribirEnMemoria(char *src, int pag, int offset, int size, t_prog programa);
 void terminarPrograma(int pid);
 int enviarCodigoASwap(char *source, int source_size);
+int min(int a, int b);
 
 
 #endif /* UMC_H_ */

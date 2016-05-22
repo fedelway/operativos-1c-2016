@@ -490,13 +490,50 @@ void terminarPrograma(int pid){
 	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
 }
 
-void escribirEnMemoria(char* src, int size, t_prog programa){
+int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa){
 
 	int cant_escrita = 0;
+	int pos_a_escribir;
+	int cant_a_escribir;
+
+	if(offset > frame_size){
+		printf("Error: offset mayor que tamaño de marco.\n");
+		return -1;
+	}
+
+	if(size/frame_size > fpp - pag){
+		printf("No hay espacio para escribir esto en memoria.\n");
+		return 1;
+	}
 
 	while(cant_escrita < size){
 
+		//Obtengo la posicion en memoria donde debo escribir
+		pos_a_escribir = frames[programa.paginas[pag].frame].posicion;
+		pos_a_escribir += offset;
+
+		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
+		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
+
+		memcpy(memoria + pos_a_escribir, src, cant_a_escribir);
+
+		//Actualizo la cant_escrita
+		cant_escrita += cant_a_escribir;
+
+		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
+		pag++;
+		offset = 0;
 	}
+
+	//Copiado satisfactoriamente
+	return 0;
+}
+
+int min(int a, int b){
+
+	if(a>=b){
+		return a;
+	}else return b;
 }
 
 void trabajarCpu(){
