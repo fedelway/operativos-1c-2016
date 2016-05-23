@@ -28,7 +28,7 @@
 4020 -> Mensaje que le envia la umc a la swap con su nombre
 
 4030->Guardame en memoria las paginas que envio
-			Mensaje: Solo envio los datos, ya esta implicito que tiene que guardar la pagina
+			Mensaje: int nro_pagina, char *datos
 ------------------------------------------------------------------------------------------------------------------------------------------------
 5000-5999 : Mensajes que envia la swap.
 

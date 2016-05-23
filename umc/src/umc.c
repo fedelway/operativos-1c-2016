@@ -447,9 +447,10 @@ int enviarCodigoASwap(char *source, int source_size){
 	int cant_enviada_parcial;
 	int mensaje = 4030;
 	int aux;
+	int pag = 0;//El codigo va siempre en las primeras n paginas.
 	char *buffer;
 
-	buffer = malloc(sizeof(int) + frame_size);
+	buffer = malloc(2*sizeof(int) + frame_size);
 
 	if(buffer == NULL){
 		printf("Error de malloc.\n");
@@ -461,11 +462,12 @@ int enviarCodigoASwap(char *source, int source_size){
 	while(cant_enviada_total < source_size){
 		cant_enviada_parcial = 0;
 
-		memcpy(buffer+sizeof(int),source,frame_size);
+		memcpy(buffer + sizeof(int),&pag,sizeof(int));
+		memcpy(buffer+2*sizeof(int),source + cant_enviada_total,frame_size);
 
 		//Ya tengo el paquete armado, lo envio
 		while(cant_enviada_parcial < frame_size){
-			aux = send(swap_fd,buffer,sizeof(int) + frame_size,0);
+			aux = send(swap_fd,buffer,2*sizeof(int) + frame_size,0);
 
 			if(aux <= 0){
 				printf("Error en el envio del archivo");
@@ -476,6 +478,8 @@ int enviarCodigoASwap(char *source, int source_size){
 		}
 		//Ya envie una pagina, la cant enviada total es la anterior + una pagina
 		cant_enviada_total += frame_size;
+
+		pag++;//Para que swap sepa que es otra pagina
 	}
 
 	//Codigo enviado correctamente, devuelvo 0
@@ -483,13 +487,14 @@ int enviarCodigoASwap(char *source, int source_size){
 }
 
 void terminarPrograma(int pid){
+	//Le aviso al nucleo que termine con la ejecucion del programa
 	int bufferInt[2];
-
 	bufferInt[0] = 4010;
 	bufferInt[1] = pid;
 	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
 }
 
+//TODO: falta checkear el bit de presencia
 int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa){
 
 	int cant_escrita = 0;
@@ -502,7 +507,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa)
 	}
 
 	if(size/frame_size > fpp - pag){
-		printf("No hay espacio para escribir esto en memoria.\n");
+		printf("No hay espacio para escribir esto en memoria.\n");//Habria que pasar cosas a swap.
 		return 1;
 	}
 
@@ -520,6 +525,9 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa)
 		//Actualizo la cant_escrita
 		cant_escrita += cant_a_escribir;
 
+		//Marco la pagina como modificada
+		programa.paginas[pag].modificado = true;
+
 		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
 		pag++;
 		offset = 0;
@@ -529,13 +537,51 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa)
 	return 0;
 }
 
-int min(int a, int b){
+int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog programa){
 
-	if(a>=b){
-		return a;
-	}else return b;
+	int cant_leida = 0;
+	int pos_a_leer;
+	int cant_a_leer;
+
+	if(offset > frame_size){
+		printf("Error: offset mayor que tamaño de marco.\n");
+		return -1;
+	}
+
+	if(size/frame_size > fpp-pag){
+		printf("La cantidad de marcos por programa no alcanza para leer esta cantidad de info.\n");
+		return 1;
+	}
+
+	resultado = malloc(size);
+
+	while(cant_leida < size){
+
+		//Obtengo posicion de memoria
+		pos_a_leer = frames[programa.paginas[pag].frame].posicion;
+		pos_a_leer += offset;
+
+		//Para no pasarme de largo y leer otros frames
+		cant_a_leer = min(size - cant_leida, frame_size - offset);
+
+		memcpy(resultado, memoria + pos_a_leer, cant_a_leer);
+
+		cant_leida += cant_a_leer;
+
+		//En la proxima iteracion leo la prox pagina, desde le byte 0
+		pag++;
+		offset = 0;
+	}
+
+	return 0;
 }
 
 void trabajarCpu(){
 
+}
+
+int min(int a, int b){
+	if(a>=b){
+		return a;
+	}else return b;
 }
