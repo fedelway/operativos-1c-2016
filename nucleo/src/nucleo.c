@@ -183,16 +183,16 @@ void conectarUmc(){
 	}
 
 	//Hago la validacion con UMC
-	int mensaje = 1000;
+	int mensaje;
 	int buffer[2];
 
-	buffer[0] = mensaje;
+	buffer[0] = SOY_NUCLEO;
 	buffer[1] = stack_size;
 
 	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
 	recv(umc_fd, &mensaje, sizeof(int), 0);
-	if(mensaje == 4000){
+	if(mensaje == SOY_UMC){
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
@@ -255,25 +255,25 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 				}
 
 				//No es puerto escucha, llego un paquete, miro quien lo envio y decido que hacer
-				if(FD_ISSET(i, &cpu_fd_set)){
+				if(FD_ISSET(i, &prog_fd_set)){
 					recv(i,&codigoMensaje,sizeof(int),0);
 
 					if(codigoMensaje <= 0){
 						//Hubo desconexion
 						close(i);
-						printf("Se ha desconectado una cpu\n");
+						printf("Se ha desconectado una consola.\n");
 						FD_CLR(i, listen);
-						FD_CLR(i, &cpu_fd_set);
+						FD_CLR(i, &prog_fd_set);
 					}else{
 						//Hay un mensaje de verdad, hago algo
 						hacerAlgoProg(codigoMensaje, i);
 					}
-				}else if(FD_ISSET(i, &prog_fd_set)){
+				}else if(FD_ISSET(i, &cpu_fd_set)){
 					recv(i,&codigoMensaje,sizeof(int),0);
 
 					if (codigoMensaje <= 0){
 						close(i);
-						printf("Se ha desconectado una consola.\n");
+						printf("Se ha desconectado una cpu.\n");
 						FD_CLR(i, listen);
 						FD_CLR(i, &cpu_fd_set);
 					}else{
@@ -302,7 +302,7 @@ void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
-	int soy_nucleo = 1000;
+	int soy_nucleo = SOY_NUCLEO;
 	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -315,7 +315,7 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
 	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
 
-	if(msj_recibido == 2000){
+	if(msj_recibido == SOY_CONSOLA){
 
 		if (nuevo_fd > *max_fd) {
 			*max_fd = nuevo_fd;
@@ -343,13 +343,13 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 	int buffer[2];
 
-	buffer[0] = 1000;
+	buffer[0] = SOY_NUCLEO;
 	buffer[1] = quantum;
 
 	send(nuevo_fd, &buffer, 2*sizeof(int),0);
 	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
 
-	if(msj_recibido == 3000){
+	if(msj_recibido == SOY_CPU){
 
 		if(nuevo_fd > *max_fd){
 			*max_fd = nuevo_fd;
@@ -380,7 +380,7 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
 	//msj Es el mensaje de autentificacion.
 
-	int soy_nucleo = 1000;
+	int soy_nucleo = SOY_NUCLEO;
 	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -400,12 +400,12 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 			*max_fd = nuevo_fd;
 		}
 
-		if(msj == 2000){
+		if(msj == SOY_CONSOLA){
 			socket_Con = nuevo_fd;
 			printf("El nuevo usuario es una consola, socket %d\n", socket_Con);
 
 
-		}else if(msj == 3000){
+		}else if(msj == SOY_CPU){
 			socket_CPU = nuevo_fd;
 			printf("El nuevo usuario es una cpu, socket %d\n", socket_CPU);
 		}
@@ -428,7 +428,7 @@ void hacerAlgoProg(int codigoMensaje, int fd){
 
 	switch(codigoMensaje){
 
-	case 2001 :
+	case ENVIO_FUENTE:
 		iniciarNuevaConsola(fd);
 	}
 }
@@ -439,12 +439,12 @@ void hacerAlgoUmc(int codigoMensaje){
 
 	switch(codigoMensaje){
 
-	case 4010:
+	case RECHAZO_PROGRAMA:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
 		moverDeNewA(msj_recibido,&finished);
 		break;
 
-	case 4011:
+	case ACEPTO_PROGRAMA:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
 		moverDeNewA(msj_recibido,&ready);
 		break;
@@ -506,7 +506,7 @@ void iniciarNuevaConsola (int fd){
 	max_pid++;
 
 	//Pido paginas para almacenar el codigo y el stack
-	mensaje = 1010;
+	mensaje = INICIALIZAR_PROGRAMA;
 	//Armo el paquete a enviar
 	int buffer_size = source_size + 4*sizeof(int);
 	buffer = malloc(source_size + 4*sizeof(int) );
@@ -572,7 +572,7 @@ void enviarPaqueteACPU(char* package, int socket){
 void limpiarTerminados(){
 
 	t_pcb *pcb_terminado;
-	int mensaje = 1020;
+	int mensaje = FIN_PROGRAMA;
 
 	while(!queue_is_empty(&finished)){
 

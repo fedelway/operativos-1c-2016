@@ -22,6 +22,7 @@
 #include "commons/config.h"
 #include "commons/collections/queue.h"
 #include "commons/collections/list.h"
+#include "protocolo.h"
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();

@@ -3,6 +3,7 @@
 	<name>nucleo</name>
 	<comment></comment>
 	<projects>
+		<project>bibliotecaCompartida</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

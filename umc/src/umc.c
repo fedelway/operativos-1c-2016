@@ -91,7 +91,7 @@ void recibirConexiones(int cpu_fd, int max_fd){
 					pthread_attr_init(&atributos);
 					pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
 
-					pthread_create(&thread, &atributos, (void *)trabajarCpu, NULL);
+					pthread_create(&thread, &atributos, (void *)trabajarCpu, (void*)cpu_fd);
 
 				}
 			}
@@ -299,7 +299,6 @@ int framesDisponibles(){
 
 void aceptarNucleo(){
 
-	int soy_umc = 4000;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
 	socklen_t addrlen = sizeof(addr);
@@ -312,14 +311,14 @@ void aceptarNucleo(){
 
 	//Armo paquete
 	int buffer[2];
-	buffer[0] = soy_umc;
+	buffer[0] = SOY_UMC;
 	buffer[1] = frame_size;
 
 	send(nucleo_fd, &buffer, 2*sizeof(int),0); //Envio codMensaje y tamaño de pagina
 
 	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 	//Verifico que se haya conectado el nucleo
-	if (msj_recibido == 1000){
+	if (msj_recibido == SOY_NUCLEO){
 		printf("Se verifico la autenticidad del nucleo.\n");
 
 		//Recibo Tamaño del stack
@@ -361,7 +360,7 @@ void trabajarNucleo(){
 
 		switch(msj_recibido){
 
-		case 1010:
+		case INICIALIZAR_PROGRAMA :
 			inicializarPrograma();
 		}
 	}
@@ -445,7 +444,7 @@ int enviarCodigoASwap(char *source, int source_size){
 
 	int cant_enviada_total = 0;
 	int cant_enviada_parcial;
-	int mensaje = 4030;
+	int mensaje = GUARDA_PAGINA;
 	int aux;
 	int pag = 0;//El codigo va siempre en las primeras n paginas.
 	char *buffer;
@@ -489,7 +488,7 @@ int enviarCodigoASwap(char *source, int source_size){
 void terminarPrograma(int pid){
 	//Le aviso al nucleo que termine con la ejecucion del programa
 	int bufferInt[2];
-	bufferInt[0] = 4010;
+	bufferInt[0] = RECHAZO_PROGRAMA;
 	bufferInt[1] = pid;
 	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
 }
@@ -576,8 +575,59 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog program
 	return 0;
 }
 
-void trabajarCpu(){
+void trabajarCpu(int cpu_listen_fd){
 
+	int cpu_fd;
+	int cpu_num;
+	cpu_fd = aceptarCpu(cpu_listen_fd, &cpu_num);
+
+	if(cpu_fd == -1){
+		return;
+	}
+
+	//Ciclo infinito para recibir mensajes
+	int msj_recibido;
+
+	for(;;){
+		recv(cpu_fd, &msj_recibido,sizeof(int),0);
+
+		if(msj_recibido <= 0){
+			printf("Desconexion de la cpu");
+			close(cpu_fd);
+			return;
+		}
+
+		switch(msj_recibido){
+
+		}
+	}
+
+}
+
+int aceptarCpu(int cpu_listen_fd, int *cpu_num){
+
+	int soy_umc = SOY_UMC;
+	int cpu_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	cpu_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado una nueva cpu.\n");
+
+	//Hago el handshake
+	send(cpu_fd,&soy_umc,sizeof(int),0);
+	recv(cpu_fd,&msj_recibido,sizeof(int),0);
+	recv(cpu_fd, cpu_num,sizeof(int),0);
+
+	if(msj_recibido == SOY_CPU){
+		printf("Se ha verificado la autenticidad de la cpu n° %d.\n",*cpu_num);
+		return cpu_fd;
+	}else{
+		printf("No se ha podido verificar la autenticidad de la cpu.\n");
+		return -1;
+	}
 }
 
 int min(int a, int b){

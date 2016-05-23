@@ -13,9 +13,9 @@
 #include "commons/config.h"
 #include "commons/collections/list.h"
 #include <pthread.h>
-
 #include "socketCliente.h"
 #include "socketServidor.h"
+#include "protocolo.h"
 
 //Definicion de estructuras
 typedef struct{
@@ -61,6 +61,7 @@ void recibirConexiones(int cpu_fd, int max_fd);
 void aceptarNucleo();
 void trabajarNucleo();
 void trabajarCpu();
+int aceptarCpu(int cpu_fd_listen, int *cpu_num);
 void inicializarMemoria();
 void inicializarPrograma();
 int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog programa);
