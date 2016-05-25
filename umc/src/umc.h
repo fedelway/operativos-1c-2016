@@ -27,6 +27,7 @@ typedef struct{
 typedef struct{
 	int pid;
 	int pos; //Para saber cuanto ya hay escrito
+	int cant_total_pag;
 	t_pag *paginas;
 }t_prog;
 

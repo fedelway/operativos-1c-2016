@@ -400,21 +400,11 @@ void inicializarPrograma(){
 	printf("Archivo recibido satisfactoriamente.\n");
 	source = buffer; //Me guardo el archivo en el puntero source
 
-	if(cant_paginas_cod > fpp){
-		//Rechazo la solicitud. El codigo ocupa mas lugar que el limite para cada programa
-		terminarPrograma(pid);
-
-		//Libero el archivo
-		free(buffer);
-		free(source);
-		return;
-	}
-
 	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
 	t_pag *paginas;
 
-	paginas = malloc(sizeof(t_pag) * fpp);
-	for(aux=0; aux < fpp; aux++){
+	paginas = malloc(sizeof(t_pag) * (stack_size + cant_paginas_cod) );
+	for(aux=0; aux < stack_size + cant_paginas_cod; aux++){
 		paginas[aux].presencia = false;
 		paginas[aux].modificado = false;
 	}
@@ -424,6 +414,7 @@ void inicializarPrograma(){
 	programa = malloc(sizeof(t_prog));
 	programa->pid= pid;
 	programa->paginas = paginas;
+	programa->cant_total_pag = stack_size + cant_paginas_cod;
 	programa->pos = 0;
 
 	list_add(programas, programa);
@@ -494,7 +485,7 @@ void terminarPrograma(int pid){
 }
 
 //TODO: falta checkear el bit de presencia
-int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa){
+int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa){
 
 	int cant_escrita = 0;
 	int pos_a_escribir;
@@ -511,6 +502,12 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog programa)
 	}
 
 	while(cant_escrita < size){
+
+		//Verifico que la pagina esta en memoria
+		if(!programa.paginas[pag].presencia){
+			//La pagina no esta en memoria, la traigo de swap
+			traerPaginaDeSwap(pag,programa);
+		}
 
 		//Obtengo la posicion en memoria donde debo escribir
 		pos_a_escribir = frames[programa.paginas[pag].frame].posicion;
