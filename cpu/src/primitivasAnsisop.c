@@ -10,6 +10,8 @@
 static const int CONTENIDO_VARIABLE = 20;
 static const int POSICION_MEMORIA = 0x10;
 
+
+
 //t_posicion socketes_definirVariable(t_nombre_variable identificador_variable);
 t_puntero socketes_definirVariable(t_nombre_variable variable) {
 	printf("Definir la variable %c\n", variable);
@@ -44,16 +46,16 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 }
 
 //t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor)
-t_valor_variable socketes_adignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
+t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
 	t_valor_variable valor_variable;
 	printf("Asignar Valor Compartida\n");
 	return valor_variable;
 }
 //t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
-t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 	t_puntero_instruccion puntero_instruccion;
 	printf("Ir al Label\n");
-	return puntero_instruccion;
+	//return puntero_instruccion;
 }
 //void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar)
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
@@ -67,40 +69,43 @@ t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 }
 
 //int socketes_imprimir(t_valor_variable valor_mostrar);
-int socketes_imprimir(t_valor_variable valor_mostrar) {
+void socketes_imprimir(t_valor_variable valor_mostrar) {
 	int nro_entero = 17;
 	printf("Imprimir %d\n", valor_mostrar);
-	return nro_entero;
+//	return nro_entero;
 }
 
 //int socketes_imprimirTexto(char* texto);
-int socketes_imprimirTexto(char* texto) {
+void socketes_imprimirTexto(char* texto) {
 	int nro_entero = 17;
 	printf("ImprimirTexto: %s", texto);
-	return nro_entero;
+	//return nro_entero;
 }
 
 //TODO: Modificar funciones!!
 
 //int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo);
-int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
+void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 	int nro_entero = 17;
 	printf("Entrada Salida\n");
-	return nro_entero;
+	//return nro_entero;
 }
 
 //int socketes_wait(t_nombre_semaforo identificador_semaforo);
-int socketes_wait(t_nombre_semaforo identificador_semaforo){
+void socketes_wait(t_nombre_semaforo identificador_semaforo){
 	int nro_entero = 17;
 	printf("Wait \n");
-	return nro_entero;
+	//return nro_entero;
 }
 
 //int socketes_signal(t_nombre_semaforo identificador_semaforo);
-int socketes_signal(t_nombre_semaforo identificador_semaforo){
+void socketes_signal(t_nombre_semaforo identificador_semaforo){
 	int nro_entero = 17;
 	printf("Signal \n");
 
-	return nro_entero;
+	//return nro_entero;
 }
+
+
+
 

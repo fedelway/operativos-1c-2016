@@ -54,6 +54,31 @@ int main(int argc,char *argv[]) {
 	//Reenviar el msj recibido del nucleo a la UMC
 	enviarPaqueteAUMC(message, socket_umc);
 
+	//TODO - Ejecutar siguiente instrucción a partir del program counter del pcb
+//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
+	//TODO - Después, eliminar el metadata_desde_literal de la cpu. Tiene que obtener el pcb del nucleo.
+
+
+	//Levanto un archivo ansisop de prueba
+	char* programa_ansisop;
+
+	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend\n";
+
+	printf("Ejecutando AnalizadorLinea\n");
+	printf("================\n");
+	printf("El programa de ejemplo es \n%s\n", programa_ansisop);
+	printf("================\n\n");
+	printf("Ejecutando metadata_desde_literal\n");
+
+	t_metadata_program* metadata;
+	metadata = metadata_desde_literal(programa_ansisop);
+
+	int i;
+	for(i=0; i < metadata->instrucciones_size; i++){
+		ejecutoInstruccion(programa_ansisop, metadata, i);
+	}
+	printf("================\n\n");
+	printf("Terminé de ejecutar todas las instrucciones\n");
 
 	int enviar = 1;
 	int status = 1;
@@ -152,5 +177,20 @@ void validarNucleo(int nucleo_fd){
 	    log_destroy(logger);
 		exit(0);
 	}
-
 }
+
+void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion){
+	t_puntero_instruccion inicio;
+	int offset;
+
+	t_intructions instr = metadata->instrucciones_serializado[numeroDeInstruccion];
+	inicio = instr.start;
+	offset = instr.offset;
+	char* instruccion = malloc(offset+1);
+	//instruccion = obtener_cadena(programa_ansisop, inicio, offset);
+	memset(instruccion, '\0', offset);
+	strncpy(instruccion, &(programa_ansisop[inicio]), offset);
+	analizadorLinea(instruccion, &funciones, &funciones_kernel);
+	free(instruccion);
+}
+
