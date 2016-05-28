@@ -70,7 +70,7 @@ int aceptarCpu(int cpu_fd_listen, int *cpu_num);
 void inicializarMemoria();
 void inicializarPrograma();
 int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa);
-int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog programa);
+int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa);
 void terminarPrograma(int pid);
 int enviarCodigoASwap(char *source, int source_size);
 void traerPaginaDeSwap(int pag, t_prog *programa);

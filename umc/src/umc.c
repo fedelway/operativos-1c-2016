@@ -656,7 +656,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 	return 0;
 }
 
-int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog programa){
+int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa){
 
 	int cant_leida = 0;
 	int pos_a_leer;
@@ -667,17 +667,22 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog program
 		return -1;
 	}
 
-	if(size/frame_size > fpp-pag){
+	if(size/frame_size > fpp){
 		printf("La cantidad de marcos por programa no alcanza para leer esta cantidad de info.\n");
-		return 1;
+		return -1;
 	}
 
 	resultado = malloc(size);
 
 	while(cant_leida < size){
 
+		if(!programa->paginas[pag].presencia){
+			//La pagina no esta en memoria, la traigo de swap
+			traerPaginaDeSwap(pag, programa);
+		}
+
 		//Obtengo posicion de memoria
-		pos_a_leer = frames[programa.paginas[pag].frame].posicion;
+		pos_a_leer = frames[programa->paginas[pag].frame].posicion;
 		pos_a_leer += offset;
 
 		//Para no pasarme de largo y leer otros frames
