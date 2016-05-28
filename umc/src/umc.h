@@ -74,8 +74,9 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 void terminarPrograma(int pid);
 int enviarCodigoASwap(char *source, int source_size);
 void traerPaginaDeSwap(int pag, t_prog *programa);
-void enviarPagina(int pag, int pos_a_enviar);
-void recibirPagina(int pag, int pos_a_escribir);
+void enviarPagina(int pag, int pid, int pos_a_enviar);
+int recibirPagina(int pag, int pid); //Devuelve el frame en donde escribio la pagina
+int frameLibre();
 int min(int a, int b);
 
 

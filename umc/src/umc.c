@@ -488,7 +488,6 @@ int enviarCodigoASwap(char *source, int source_size){
 
 void traerPaginaDeSwap(int pag, t_prog *programa){
 
-	t_pag paginas_ocupadas[programa->cant_total_pag];
 	int cant_paginas_ocupadas = 0;
 	int i;
 	int pos_a_escribir;
@@ -528,13 +527,13 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
 				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
 
-				enviarPagina(pag_a_enviar, pos_a_copiar);
+				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
 			}
 
 			//Recibo la pagina y salgo del ciclo
 			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
 
-			recibirPagina(pag, pos_a_escribir);
+			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
 
 			//Avanzo el puntero
 			programa->puntero = (programa->puntero +1) & fpp;
@@ -556,48 +555,73 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 }
 
-void enviarPagina(int pag, int pos_a_enviar){
+void enviarPagina(int pag, int pid, int pos_a_enviar){
 
-	int mensaje[2];
+	int mensaje[3];
 	char *buffer;
 
 	//Armo el mensaje
 	mensaje[0] = GUARDA_PAGINA;
-	mensaje[1] = pag;
+	mensaje[1] = pid;
+	mensaje[2] = pag;
 
-	buffer = malloc(frame_size + 2*sizeof(int));
+	buffer = malloc(frame_size + 3*sizeof(int));
 
-	memcpy(buffer, &mensaje, 2*sizeof(int));
-	memcpy(buffer + 2*sizeof(int), memoria + pos_a_enviar, frame_size);
+	memcpy(buffer, &mensaje, 3*sizeof(int));
+	memcpy(buffer + 3*sizeof(int), memoria + pos_a_enviar, frame_size);
 
 	//Envio la orden de guardado
-	send(swap_fd, buffer, frame_size + 2*sizeof(int),0);
+	send(swap_fd, buffer, frame_size + 3*sizeof(int),0);
 
 	//Ya envie el mensaje para que guarde la pagina, libero la memoria reservada
 	free(buffer);
 }
 
-void recibirPagina(int pag, int pos_a_escribir){
+int recibirPagina(int pag, int pid){
 
-	int mensaje[2];
+	int mensaje[3];
 	char *buffer;
 
 	mensaje[0] = 4021;
-	mensaje[1] = pag;
+	mensaje[1] = pid;
+	mensaje[2] = pag;
 
 	buffer = malloc(frame_size);
 
 	//Envio la solicitud
-	send(swap_fd,&mensaje,2*sizeof(int),0);
+	send(swap_fd,&mensaje,3*sizeof(int),0);
 
 	//Recibo la respuesta
 	recv(swap_fd,buffer, frame_size, 0);
+
+	int frame_a_escribir = frameLibre();
+
+	if(frame_a_escribir == -1){
+		//No hay frames libres
+		return -1;
+	}
+
+	int pos_a_escribir = frames[frame_a_escribir].posicion;
 
 	memcpy(memoria + pos_a_escribir, buffer, frame_size);
 
 	//Ya tengo la pagina en memoria
 	free(buffer);
-	return;
+	return frame_a_escribir;
+}
+
+int frameLibre(){
+
+	int i;
+	for(i=0; i < cant_frames; i++){
+
+		if(frames[i].libre){
+			return i;
+		}
+	}
+
+	//Sali del for, por lo tanto no hay frames libres
+	return -1;
 }
 
 void terminarPrograma(int pid){
