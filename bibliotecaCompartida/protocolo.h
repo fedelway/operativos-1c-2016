@@ -24,7 +24,8 @@
 #define SOY_UMC 4000
 #define RECHAZO_PROGRAMA 4010
 #define ACEPTO_PROGRAMA 4011
-#define GUARDA_PAGINA 4020
+#define GUARDA_PAGINA 4020 		//(int pag, char* contenido) Pido a swap que guarde la pagina indicada
+#define SOLICITUD_PAGINA 4021 	//(int pag) Pido a swap que me de la pagina indicada
 
 //Mensajes de Swap
 #define SOY_SWAP 5000

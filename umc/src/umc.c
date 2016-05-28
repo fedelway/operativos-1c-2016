@@ -405,8 +405,17 @@ void inicializarPrograma(){
 
 	paginas = malloc(sizeof(t_pag) * (stack_size + cant_paginas_cod) );
 	for(aux=0; aux < stack_size + cant_paginas_cod; aux++){
+		paginas[aux].nro_pag = aux;
 		paginas[aux].presencia = false;
 		paginas[aux].modificado = false;
+	}
+
+	//Creo la lista de paginas ocupadas
+	int *paginas_ocupadas;
+
+	paginas_ocupadas = malloc(sizeof(int) * fpp);
+	for(aux=0; aux < fpp; aux++){
+		paginas_ocupadas[aux] = -1;
 	}
 
 	t_prog *programa;
@@ -415,7 +424,8 @@ void inicializarPrograma(){
 	programa->pid= pid;
 	programa->paginas = paginas;
 	programa->cant_total_pag = stack_size + cant_paginas_cod;
-	programa->pos = 0;
+	programa->timer = 0;
+	programa->pag_en_memoria = paginas_ocupadas;
 
 	list_add(programas, programa);
 
@@ -476,6 +486,120 @@ int enviarCodigoASwap(char *source, int source_size){
 	return 0;
 }
 
+void traerPaginaDeSwap(int pag, t_prog *programa){
+
+	t_pag paginas_ocupadas[programa->cant_total_pag];
+	int cant_paginas_ocupadas = 0;
+	int i;
+	int pos_a_escribir;
+
+	//Cuento la cantidad de paginas en memoria
+	for(i=0; i < fpp; i++){
+		if(programa->pag_en_memoria[i] != -1){
+			cant_paginas_ocupadas++;
+		}
+	}
+
+	/* Si la cantidad de paginas en memoria es menor a fpp, significa que aun no se cargaron
+	 * todas las paginas que se pueden. Entonces la cargo directamente.*/
+	if(cant_paginas_ocupadas < fpp){
+		programa->pag_en_memoria[cant_paginas_ocupadas] = pag;
+
+		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
+
+		recibirPagina(pag, pos_a_escribir);
+
+		return;
+	}
+
+	//Todas las paginas estan ocupadas, tengo que reemplazar una.
+	for(i=0; i<fpp; i++){
+
+		//Si no esta referenciada, sustituyo esa pagina
+		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
+
+			//Le cambio el bit de presencia
+			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
+
+			//Me fijo el bit de modificado
+			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
+				//Fue modificada, la envio a swap
+
+				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
+
+				enviarPagina(pag_a_enviar, pos_a_copiar);
+			}
+
+			//Recibo la pagina y salgo del ciclo
+			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
+
+			recibirPagina(pag, pos_a_escribir);
+
+			//Avanzo el puntero
+			programa->puntero = (programa->puntero +1) & fpp;
+
+			return;
+		}
+
+		//Pongo el bit de refencia en false
+		programa->paginas[ programa->pag_en_memoria[programa->puntero]].referenciado = false;
+
+		//incremento el puntero
+		programa->puntero = (programa->puntero + 1) % fpp;
+	}
+
+	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
+	//repito la operacion
+
+	traerPaginaDeSwap(pag, programa);
+
+}
+
+void enviarPagina(int pag, int pos_a_enviar){
+
+	int mensaje[2];
+	char *buffer;
+
+	//Armo el mensaje
+	mensaje[0] = GUARDA_PAGINA;
+	mensaje[1] = pag;
+
+	buffer = malloc(frame_size + 2*sizeof(int));
+
+	memcpy(buffer, &mensaje, 2*sizeof(int));
+	memcpy(buffer + 2*sizeof(int), memoria + pos_a_enviar, frame_size);
+
+	//Envio la orden de guardado
+	send(swap_fd, buffer, frame_size + 2*sizeof(int),0);
+
+	//Ya envie el mensaje para que guarde la pagina, libero la memoria reservada
+	free(buffer);
+}
+
+void recibirPagina(int pag, int pos_a_escribir){
+
+	int mensaje[2];
+	char *buffer;
+
+	mensaje[0] = 4021;
+	mensaje[1] = pag;
+
+	buffer = malloc(frame_size);
+
+	//Envio la solicitud
+	send(swap_fd,&mensaje,2*sizeof(int),0);
+
+	//Recibo la respuesta
+	recv(swap_fd,buffer, frame_size, 0);
+
+	memcpy(memoria + pos_a_escribir, buffer, frame_size);
+
+	//Ya tengo la pagina en memoria
+	free(buffer);
+	return;
+}
+
 void terminarPrograma(int pid){
 	//Le aviso al nucleo que termine con la ejecucion del programa
 	int bufferInt[2];
@@ -484,7 +608,6 @@ void terminarPrograma(int pid){
 	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
 }
 
-//TODO: falta checkear el bit de presencia
 int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa){
 
 	int cant_escrita = 0;
@@ -504,13 +627,13 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 	while(cant_escrita < size){
 
 		//Verifico que la pagina esta en memoria
-		if(!programa.paginas[pag].presencia){
+		if(!programa->paginas[pag].presencia){
 			//La pagina no esta en memoria, la traigo de swap
 			traerPaginaDeSwap(pag,programa);
 		}
 
 		//Obtengo la posicion en memoria donde debo escribir
-		pos_a_escribir = frames[programa.paginas[pag].frame].posicion;
+		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
 		pos_a_escribir += offset;
 
 		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
@@ -522,7 +645,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		cant_escrita += cant_a_escribir;
 
 		//Marco la pagina como modificada
-		programa.paginas[pag].modificado = true;
+		programa->paginas[pag].modificado = true;
 
 		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
 		pag++;

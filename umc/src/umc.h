@@ -19,16 +19,20 @@
 
 //Definicion de estructuras
 typedef struct{
+	int nro_pag;
 	int frame;
 	bool presencia;
 	bool modificado;
+	bool referenciado;
 }t_pag;
 
 typedef struct{
 	int pid;
-	int pos; //Para saber cuanto ya hay escrito
 	int cant_total_pag;
 	t_pag *paginas;
+	int *pag_en_memoria;
+	int puntero; //Para el clock, indica a que pagina estoy apuntando
+	int timer; //Para algoritmo clock. Cada vez que hay una lectura/escritura se incrementa
 }t_prog;
 
 typedef struct{
@@ -65,10 +69,13 @@ void trabajarCpu();
 int aceptarCpu(int cpu_fd_listen, int *cpu_num);
 void inicializarMemoria();
 void inicializarPrograma();
-int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog programa);
+int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa);
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog programa);
 void terminarPrograma(int pid);
 int enviarCodigoASwap(char *source, int source_size);
+void traerPaginaDeSwap(int pag, t_prog *programa);
+void enviarPagina(int pag, int pos_a_enviar);
+void recibirPagina(int pag, int pos_a_escribir);
 int min(int a, int b);
 
 
