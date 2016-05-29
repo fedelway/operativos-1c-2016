@@ -15,6 +15,8 @@
 #include "commons/collections/list.h"
 #include "socketServidor.h"
 #include "commons/bitarray.h"
+//para trabajar con el mmap()
+#include <sys/mman.h>
 
 
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config

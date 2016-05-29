@@ -235,7 +235,14 @@ int conectarPuertoDeEscucha2(char* puerto){
 	 //FILE *archivoSwap;
 	 // dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
 
-	 FILE *archivoSwap;
+	 	char comando[50];
+	    printf("creando archivo Swap: \n");
+	    sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
+	    system(comando);
+ }
+	/* ESTO SERÍA SIN HACER dd if=
+
+     FILE *archivoSwap;
 	 archivoSwap = fopen(nombre_swap, "wb+");
 	 int i;
 
@@ -244,6 +251,8 @@ int conectarPuertoDeEscucha2(char* puerto){
 	 }
 	 fclose(archivoSwap);
  }
+    */
+
  //Creo BitMap usando bitarray
 void crearBitMap(){
 	bitMap = bitarray_create(bitarray, sizeof(bitarray));
@@ -301,33 +310,51 @@ void crearBitMap(){
  }
 
  //Recorrer la lista de procesos en swap y devolver (int) la ubicación
- int  ubicacionEnArchivo(int pid, int tamanio){
- 	  return 3;//return pagina; TODO
+ int  ubicacionEnSwap(int pid, int tamanio){
+	 int i;
+	 nodo_proceso *nodo;
+	 int cantidadNodos = listaProcesos->elements_count;
+	 for(i = 0; i < cantidadNodos; i++ ){
+		 nodo = list_get(listaProcesos, i);
+		 if(nodo->pid == pid){
+			 return nodo->posSwap;
+		 }
+	 }
+	 return -1;
  }
 
+//Utilizando mmap(), falta probar..
+ char *cargarArchivo(){
 
- void leerArchivo(int pid,int tamanio){
-	 int ubicacion = ubicacionEnArchivo(pid,tamanio);
+	 char pagesize[131072]; // 512 CANT PAGINAS * 256 TAMAÑO PAGINA
+	 char* accesoAMemoria = mmap( NULL, *pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, atoi("archivoSwap.bin") , 0);
 
-    char cadenaLeida[tamanio];
-	FILE* archivoSwap = fopen("archivoSwap.bin","r+");
-    if(fseek(archivoSwap, tamanio, ubicacion) == 0){
-    fread(cadenaLeida, tamanio,1,archivoSwap); //TODO validación
-    }
-    fclose(archivoSwap);
-}
+	 return accesoAMemoria;
+ }
 
+// esto seria con fseek y fread
+	 /*if(fseek(a
+	  * rchivoSwap, tamanio, ubicacion) == 0){
+		 fread(cadenaLeida, tamanio,1,archivoSwap); //TODO validación + retorno
+		 return cadenaLeida;
+	 }
 
+	 fclose(archivoSwap);
+	 return 0;
+ } */
+/*
 void escribirArchivo(int pid,int tamanio,char* contenido){
-        int ubicacion = ubicacionEnArchivo(pid,tamanio);
+        int ubicacion = ubicacionEnSwap(pid,tamanio);
         FILE* archivoSwap = fopen("archivoSwap.bin","r+");
-	    if(fseek(archivoSwap, tamanio, ubicacion) == 0){
+
+        //ver mmap y munmap
+        if(fseek(archivoSwap, tamanio, ubicacion) == 0){
 	    	fwrite(contenido, tamanio,1,archivoSwap);// TODO validacion
 	    }
 	    fclose(archivoSwap);
 
 }
-
+*/
 void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
     int pagina = paginaDisponible(pid,tamanio);
 
@@ -339,6 +366,4 @@ void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
 	}else{ //En este caso no tenemos paginas disponibles para crear el programa
 		resultadoCreacion = "Inicializacion Cancelada";
 	}
-
 }
-
