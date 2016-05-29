@@ -75,6 +75,13 @@ void recibirMensajeUMC(char* message, int socket_umc){
 void crearConfiguracion(char *config_path){
 
 	config = config_create(config_path);
+	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
+	nombre_swap = config_get_string_value(config, "NOMBRE_SWAP");
+	cantidad_paginas = config_get_string_value(config, "CANTIDAD_PAGINAS");
+	tamanio_pagina = config_get_string_value(config, "TAMANIO_PAGINA");
+	retardo_compactacion = config_get_string_value(config, "RETARDO_COMPACTACION");
+
+
 
 	if (validarParametrosDeConfiguracion()){
 	 log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
@@ -236,7 +243,7 @@ int conectarPuertoDeEscucha2(char* puerto){
 	 // dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
 
 	 	char comando[50];
-	    printf("creando archivo Swap: \n");
+	    printf("Creando archivo Swap: \n");
 	    sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
 	    system(comando);
  }
