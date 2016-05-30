@@ -17,6 +17,7 @@
 #include "commons/bitarray.h"
 //para trabajar con el mmap()
 #include <sys/mman.h>
+#include <fcntl.h>
 
 
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
@@ -24,10 +25,11 @@ bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracio
 void recibirMensajeUMC(char* message, int socket_umc);
 void inicializarBitMap();
 void crearNodo(int pid, int cantidad_paginas, int posSwap);
-
+char* cargarArchivo();
+void inicializarArchivo(char* archivoAMemoria);
+void crearBitMap();
 
 #endif /* SWAP_H_ */
-
 //parámetros de configuración
     char* puerto_escucha;
 	char* nombre_swap;

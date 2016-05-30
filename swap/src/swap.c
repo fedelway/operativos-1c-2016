@@ -30,8 +30,11 @@ int main(int argc,char *argv[]) {
 	log_info(logger, "Proyecto para SWAP..");
 
 	crearConfiguracion(argv[1]);
-	crearParticionSwap();
+	//crearParticionSwap();
 	crearBitMap();
+	char* archivoMapeado = cargarArchivo();
+	inicializarArchivo(&archivoMapeado);
+
 	listaProcesos = list_create();
 	listaEnEspera = list_create();
 
@@ -77,9 +80,9 @@ void crearConfiguracion(char *config_path){
 	config = config_create(config_path);
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	nombre_swap = config_get_string_value(config, "NOMBRE_SWAP");
-	cantidad_paginas = config_get_string_value(config, "CANTIDAD_PAGINAS");
-	tamanio_pagina = config_get_string_value(config, "TAMANIO_PAGINA");
-	retardo_compactacion = config_get_string_value(config, "RETARDO_COMPACTACION");
+	cantidad_paginas = config_get_int_value(config, "CANTIDAD_PAGINAS");
+	tamanio_pagina = config_get_int_value(config, "TAMANIO_PAGINA");
+	retardo_compactacion = config_get_int_value(config, "RETARDO_COMPACTACION");
 
 
 
@@ -236,33 +239,54 @@ int conectarPuertoDeEscucha2(char* puerto){
   }
 
 // CREAR ALMACENAMIENTO SWAP
- void crearParticionSwap(){
+  void crearParticionSwap(){
 
-	 //COMO CREAR ARCHIVO CON dd
-	 //FILE *archivoSwap;
-	 // dd if=/dev/zero of=nombre_swap count=cantidad_paginas bs=tamanio_paginas;
+	  char comando[50];
+	  printf("Creando archivo Swap: \n");
+	  sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
+	  system(comando);
+  }
 
-	 	char comando[50];
-	    printf("Creando archivo Swap: \n");
-	    sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
-	    system(comando);
- }
-	/* ESTO SERÍA SIN HACER dd if=
+//Utilizando mmap(), falta probar..
+  char* cargarArchivo(){
+	  int fd ;
 
-     FILE *archivoSwap;
-	 archivoSwap = fopen(nombre_swap, "wb+");
-	 int i;
+	  if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
+		  perror("open");
+		  exit(1);
+	  }
 
-	 for(i = 0; i < cantidad_paginas*tamanio_pagina; i++){
-		 putc('\0', archivoSwap);
-	 }
-	 fclose(archivoSwap);
- }
-    */
+	  int pagesize = 131072; // 512 CANT PAGINAS * 256 TAMAÑO PAGINA
+	  char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, /*atoi("SWAP.DATA")*/ fd, 0);
 
- //Creo BitMap usando bitarray
+	  if (accesoAMemoria == (caddr_t)(-1)) {
+		  perror("mmap");
+		  exit(1);
+	  }
+
+	  printf("Paso por cargar el archivo: %s\n", accesoAMemoria);
+	  return accesoAMemoria;
+  }
+
+//da error y nolo puedo seguir
+void inicializarArchivo(char *accesoAMemoria){
+
+	//accesoAMemoria = malloc(131072);
+
+	int tamanioSizeof = strlen(accesoAMemoria);
+	//int tamanioStrlen = strlen(accesoAMemoria);
+	printf("tamanio sizeof %d\n", tamanioSizeof);
+
+
+	memset(&accesoAMemoria, '\0', strlen(accesoAMemoria));
+	printf("El primer valor es: %c \n", accesoAMemoria[0]);
+}
+
+//Creo BitMap usando bitarray
 void crearBitMap(){
+
 	bitMap = bitarray_create(bitarray, sizeof(bitarray));
+
 }
 
       /*
@@ -304,7 +328,8 @@ void crearBitMap(){
 
  int paginaDisponible(int pid,int tamanio){
 	 int i;
-	 //Recorro todo el bitMap buscando espacios contiguos y devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
+	 //Recorro todo el bitMap buscando espacios contiguos
+	 //devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
 
 	 for(i = 0; i < tamanio_pagina*cantidad_paginas; i++ ){
 		 if(bitarray_test_bit(bitMap, i) == 1){// VER 0 FALSO
@@ -317,7 +342,7 @@ void crearBitMap(){
  }
 
  //Recorrer la lista de procesos en swap y devolver (int) la ubicación
- int  ubicacionEnSwap(int pid, int tamanio){
+ int  ubicacionEnSwap(int pid){
 	 int i;
 	 nodo_proceso *nodo;
 	 int cantidadNodos = listaProcesos->elements_count;
@@ -329,16 +354,6 @@ void crearBitMap(){
 	 }
 	 return -1;
  }
-
-//Utilizando mmap(), falta probar..
- char *cargarArchivo(){
-
-	 char pagesize[131072]; // 512 CANT PAGINAS * 256 TAMAÑO PAGINA
-	 char* accesoAMemoria = mmap( NULL, *pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, atoi("archivoSwap.bin") , 0);
-
-	 return accesoAMemoria;
- }
-
 // esto seria con fseek y fread
 	 /*if(fseek(a
 	  * rchivoSwap, tamanio, ubicacion) == 0){
@@ -363,11 +378,14 @@ void escribirArchivo(int pid,int tamanio,char* contenido){
 }
 */
 void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
-    int pagina = paginaDisponible(pid,tamanio);
 
-    if(pagina != 0){
+	int pagina = paginaDisponible(pid,tamanio);
+
+    if(pagina != -1){
 //VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
 	    //reservarEspacioParaPrograma(pid, tamanio, );
+
+    	//memcpy(archivoEnMemoria[pid],  , tamanio);
 	    list_add(listaProcesos, crearNodoDeProceso(pid, tamanio, pagina));
 		resultadoCreacion = "Se ha creado correctamente el programa";
 	}else{ //En este caso no tenemos paginas disponibles para crear el programa
