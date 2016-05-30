@@ -23,13 +23,22 @@
 #include "commons/string.h"
 #include "socketCliente.h"
 #include "primitivasAnsisop.h"
+#include "generales.h"
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
 
 #define PACKAGESIZE 1024
 
-void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
-bool validarParametrosDeConfiguracion();
+typedef struct {
+	char* nucleo_ip;
+	char* nucleo_puerto;
+	char* umc_ip;
+	char* umc_puerto;
+}t_configuracion_cpu;
+
+
+void levantarDatosDeConfiguracion(t_configuracion_cpu* configuracion, char* config_path);
+bool validarParametrosDeConfiguracion(t_config*);
 void recibirMensajeNucleo(char* message, int socket_nucleo);
 void validarNucleo(int nucleo_fd);
 void enviarPaqueteAUMC(char* package, int socket);
