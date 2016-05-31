@@ -122,7 +122,8 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "MARCO_X_PROC")
 		&& 	config_has_property(config, "ENTRADAS_TLB")
 		&& 	config_has_property(config, "RETARDO")
-		&&  config_has_property(config, "PUERTO_NUCLEO");
+		&&  config_has_property(config, "PUERTO_NUCLEO")
+		&& 	config_has_property(config, "TIMER_RESET");
 }
 
 /*int conectarseA(char* ip, char* puerto){
@@ -582,7 +583,7 @@ int recibirPagina(int pag, int pid){
 	int mensaje[3];
 	char *buffer;
 
-	mensaje[0] = 4021;
+	mensaje[0] = SOLICITUD_PAGINA;
 	mensaje[1] = pid;
 	mensaje[2] = pag;
 
@@ -650,6 +651,9 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 
 	while(cant_escrita < size){
 
+		//Aplico el algoritmo clock
+		algoritmoClock(programa);
+
 		//Verifico que la pagina esta en memoria
 		if(!programa->paginas[pag].presencia){
 			//La pagina no esta en memoria, la traigo de swap
@@ -699,6 +703,8 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 	resultado = malloc(size);
 
 	while(cant_leida < size){
+
+		algoritmoClock(programa);
 
 		if(!programa->paginas[pag].presencia){
 			//La pagina no esta en memoria, la traigo de swap
@@ -776,6 +782,18 @@ int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 	}else{
 		printf("No se ha podido verificar la autenticidad de la cpu.\n");
 		return -1;
+	}
+}
+
+void algoritmoClock(t_prog *programa){
+
+	programa->timer++;
+
+	if(programa->timer < timer_reset_mem){
+		int i;
+		for(i=0;i<cant_frames;i++){
+			programa->paginas[i].referenciado = false;
+		}
 	}
 }
 
