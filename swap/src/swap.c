@@ -30,7 +30,13 @@ int main(int argc,char *argv[]) {
 	log_info(logger, "Proyecto para SWAP..");
 
 	crearConfiguracion(argv[1]);
-	crearParticionSwap();
+	//crearParticionSwap();
+	crearBitMap();
+	char* archivoMapeado = cargarArchivo();
+	inicializarArchivo(archivoMapeado);
+
+	listaProcesos = list_create();
+	listaEnEspera = list_create();
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -72,6 +78,13 @@ void recibirMensajeUMC(char* message, int socket_umc){
 void crearConfiguracion(char *config_path){
 
 	config = config_create(config_path);
+	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
+	nombre_swap = config_get_string_value(config, "NOMBRE_SWAP");
+	cantidad_paginas = config_get_int_value(config, "CANTIDAD_PAGINAS");
+	tamanio_pagina = config_get_int_value(config, "TAMANIO_PAGINA");
+	retardo_compactacion = config_get_int_value(config, "RETARDO_COMPACTACION");
+
+
 
 	if (validarParametrosDeConfiguracion()){
 	 log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
@@ -165,12 +178,12 @@ int conectarPuertoDeEscucha2(char* puerto){
 	close(listeningSocket);
 
 	return 0;
-
+}
 ///////// ver funcion handshake, parámetros addr y listeningSocket, ahora tiene una resolucion errónea//////////////////
 
 //Acá implementamos el handshake del lado del servidor
   void handshakeServidor(int socket_umc){
-
+/*
 		//Estructura para crear el header + piload
 		typedef struct{
 			int id;
@@ -222,19 +235,155 @@ int conectarPuertoDeEscucha2(char* puerto){
 			 printf("No se admite la conexión con éste socket");
 		 break;
 		}
+		*/
   }
-}
+
 // CREAR ALMACENAMIENTO SWAP
- void crearParticionSwap(){
+  void crearParticionSwap(){
 
-	 FILE *archivoSwap;
-	 archivoSwap = fopen(nombre_swap, "wb+");
-	 int i;
+	  char comando[50];
+	  printf("Creando archivo Swap: \n");
+	  sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
+	  system(comando);
+  }
 
-	 for(i = 0; i < cantidad_paginas * tamanio_paginas; i++){
-		 putc('\0', archivoSwap);
-	 }
-	 fclose(archivoSwap);
+//Utilizando mmap(), falta probar..
+char* cargarArchivo(){
+	  int fd ;
+
+	  if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
+		  perror("open");
+		  exit(1);
+	  }
+
+	  int pagesize = 131072; // 512 CANT PAGINAS * 256 TAMAÑO PAGINA
+	  char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, /*atoi("SWAP.DATA")*/ fd, 0);
+
+	  if (accesoAMemoria == (caddr_t)(-1)) {
+		  perror("mmap");
+		  exit(1);
+	  }
+	  printf("El mapeo a memoria es: %s \n", accesoAMemoria);
+
+	  return accesoAMemoria;
+  }
+
+//da error y nolo puedo seguir
+void inicializarArchivo(char* accesoAMemoria){
+
+	int tamanio = strlen(accesoAMemoria);
+
+	//ACÁ INICIALIZO CON TODOS CARACTERES DEL ARCHIVO EN MEMORIA CON '\0'
+	memset(&(*accesoAMemoria),'\0', tamanio + 1);
 }
 
+//Creo BitMap usando bitarray
+void crearBitMap(){
 
+	bitMap = bitarray_create(bitarray, sizeof(bitarray));
+
+}
+
+      /*
+ void inicializarBitMap(){
+      bitMap_create(char *bitarray, size_t 2048);
+      char bitMap[tamanio_pagina*cantidad_paginas];
+      int i;
+      for(i = 1; i < tamanio_pagina*cantidad_paginas; i++){
+    	  bitMap[i] = '\0';
+      }
+      */
+
+
+ static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap){
+	 	 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
+		 proceso->pid = pid;
+		 proceso->cantidad_paginas = cantidad_paginas;
+		 proceso->posSwap = posSwap;
+	return proceso;
+ }
+
+ static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
+	 	 nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
+		 enEspera->pid = pid;
+		 enEspera->cantidad_paginas = cantidad_paginas;
+	return enEspera;
+ }
+
+ bool hayEspacioContiguo(int pagina, int tamanio){
+	 int i;
+	 //la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
+	 for(i = pagina; i < pagina+tamanio ;i++){
+		 if(bitarray_test_bit(bitMap, i) == 1){//== 0 libre == 1 ocupado
+			 return 0;
+		 }
+	 }
+	 return 1; // retorna v, hay espacio disponible
+ }
+
+ int paginaDisponible(int pid,int tamanio){
+	 int i;
+	 //Recorro todo el bitMap buscando espacios contiguos
+	 //devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
+
+	 for(i = 0; i < tamanio_pagina*cantidad_paginas; i++ ){
+		 if(bitarray_test_bit(bitMap, i) == 1){// VER 0 FALSO
+			 if(hayEspacioContiguo(i,tamanio)){
+				 return i;
+			 }
+		 }
+	 }
+	  return -1;
+ }
+
+ //Recorrer la lista de procesos en swap y devolver (int) la ubicación
+ int  ubicacionEnSwap(int pid){
+	 int i;
+	 nodo_proceso *nodo;
+	 int cantidadNodos = listaProcesos->elements_count;
+	 for(i = 0; i < cantidadNodos; i++ ){
+		 nodo = list_get(listaProcesos, i);
+		 if(nodo->pid == pid){
+			 return nodo->posSwap;
+		 }
+	 }
+	 return -1;
+ }
+// esto seria con fseek y fread
+	 /*if(fseek(a
+	  * rchivoSwap, tamanio, ubicacion) == 0){
+		 fread(cadenaLeida, tamanio,1,archivoSwap); //TODO validación + retorno
+		 return cadenaLeida;
+	 }
+
+	 fclose(archivoSwap);
+	 return 0;
+ } */
+/*
+void escribirArchivo(int pid,int tamanio,char* contenido){
+        int ubicacion = ubicacionEnSwap(pid,tamanio);
+        FILE* archivoSwap = fopen("archivoSwap.bin","r+");
+
+        //ver mmap y munmap
+        if(fseek(archivoSwap, tamanio, ubicacion) == 0){
+	    	fwrite(contenido, tamanio,1,archivoSwap);// TODO validacion
+	    }
+	    fclose(archivoSwap);
+
+}
+*/
+void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
+
+	int pagina = paginaDisponible(pid,tamanio);
+
+    if(pagina != -1){
+//VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
+	    //reservarEspacioParaPrograma(pid, tamanio, );
+
+    	//memcpy(archivoEnMemoria[pid],  , tamanio);
+	    list_add(listaProcesos, crearNodoDeProceso(pid, tamanio, pagina));
+		resultadoCreacion = "Se ha creado correctamente el programa";
+	}else{ //En este caso no tenemos paginas disponibles para crear el programa
+		resultadoCreacion = "Inicializacion Cancelada";
+	}
+}

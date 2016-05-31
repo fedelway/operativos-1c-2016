@@ -10,17 +10,19 @@
 
 #include "consola.h"
 
-t_config* config;
 t_log* logger;
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
 
+
+/****************************************************************************************/
+/*                                   FUNCION MAIN									    */
+/****************************************************************************************/
 int main(int argc,char *argv[]) {
 
-	char* nucleo_ip;
-	char* nucleo_puerto;
+	t_config_consola* configConsola = malloc(sizeof(t_config_consola));
 	int source_size;
-	int nucleo_fd;
+	int socket_nucleo;
 	FILE *source;
 
 	logger = log_create("consola.log", "PARSER",true, LOG_LEVEL_INFO);
@@ -31,24 +33,22 @@ int main(int argc,char *argv[]) {
 	}
 
 	source = abrirSource(argv[2], &source_size);
-
-	crearConfiguracion(argv[1]);
-
-	nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
-	nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
-
-	nucleo_fd = conectarseA(nucleo_ip, nucleo_puerto);
-
-	enviar_source(nucleo_fd, source, source_size);
+	levantarDatosDeConfiguracion(configConsola, argv[1]);
+	socket_nucleo = conectarseA(configConsola->nucleo_ip, configConsola->nucleo_puerto);
+	enviar_source(socket_nucleo, source, source_size);
 
 	return EXIT_SUCCESS;
 }
 
+/****************************************************************************************/
+/*                                     FUNCIONES									    */
+/****************************************************************************************/
+
 /*
- * Función: Envia código fuente del programa ansisop.
- * Recibe: socket del nucleo, puntero al archivo, tamaño del archivo
- * Devuelve: void
-*/
+ *  FUNCION     : Envia código fuente del programa ansisop.
+ *  Recibe      : socket del nucleo, puntero al archivo, tamaño del archivo
+ *  Devuelve    : void
+ */
 void enviar_source(int nucleo_fd, FILE *source, int source_size){
 
 	char *archivo = malloc(source_size);
@@ -59,8 +59,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	int aux;
 	int mandoArchivo = 2001;
 
-//prueba envio mensaje simple a nucleo
-/*
+	//prueba envio mensaje simple a nucleo
+	/*
 	//char* mensaje = "Hello\0";
 	if (mensaje[0] != '\0'){
 		aux = send(nucleo_fd, mensaje, 7, 0);
@@ -71,7 +71,6 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		}
 
 	}*/
-
 
 	cant_leida = fread(archivo, sizeof(char), source_size, source);
 
@@ -91,8 +90,8 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	//Creo el paquete con toda la info: cod op, tam archivo, archivo
 	buffer = malloc(source_size + 2*sizeof(int));
 
-	memcpy(buffer, &source_size, sizeof(int));
-	memcpy(buffer + sizeof(int), &mandoArchivo, sizeof(int));
+	memcpy(buffer, &mandoArchivo, sizeof(int));
+	memcpy(buffer + sizeof(int), &source_size, sizeof(int));
 	memcpy(buffer + 2*sizeof(int), archivo, source_size);
 
 	//Ahora envio el archivo
@@ -103,17 +102,19 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 		cant_enviada += aux;
 	}
 
-	//ya tengo todo el archivo enviado
+	printf("Archivo enviado satisfactoriamente.\n");
 
+	//ya tengo todo el archivo enviado
 	free(archivo);
 	free(buffer);
+
 }
 
 /*
- * Función: Abre el archivo del programa ansisop
- * Recibe: path del archivo, puntero en donde se almacenará el tamaño del archivo
- * Devuelve: puntero a FILE
-*/
+ *  FUNCION     : Abre el archivo del programa ansisop y obtiene el tamaño en del mismo en bytes.
+ *  Recibe      : path del archivo, puntero en donde se almacenará el tamaño del archivo
+ *  Devuelve    : puntero a FILE
+ */
 FILE *abrirSource(char *path, int *source_size){
 
 	FILE *source;
@@ -126,7 +127,7 @@ FILE *abrirSource(char *path, int *source_size){
 		exit(0);
 	}
 
-	if( stat(path, &file_info) == -1){
+	if(stat(path, &file_info) == -1){
 	    log_error_y_cerrar_logger(logger, "Error con stat.");
 	    exit(0);
 	}
@@ -134,51 +135,69 @@ FILE *abrirSource(char *path, int *source_size){
 	//Me fijo el tamanio del archivo en bytes.
 	*source_size = file_info.st_size;
 	log_info(logger, "Tamanio archivo(bytes): %i", *source_size);
+
 	return source;
 }
 
 /*
- * Función: Carga la estructura de configuración a partir del archivo de configuración. Valida parametros obtenidos.
- * Recibe: path del archivo de configuración
- * Devuelve: void
-*/
-void crearConfiguracion(char* config_path){
+ *  FUNCION     : Carga los datos de configuración de la consola. Valida parametros obtenidos.
+ *  Recibe      : estructura de configuracion para la consola, path del archivo de configuración
+ *  Devuelve    : void
+ */
+void levantarDatosDeConfiguracion(t_config_consola* configConsola, char* config_path){
 
-	config = config_create(config_path);
+	t_config* config = config_create(config_path);
 
-	if(validarParametrosDeConfiguracion()){
+	if(validarParametrosDeConfiguracion(config)){
+
 		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
+
+		char* nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
+		configConsola->nucleo_ip = malloc(strlen(nucleo_ip));
+		memcpy(configConsola->nucleo_ip, nucleo_ip, strlen(nucleo_ip));
+
+		char* nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
+		configConsola->nucleo_puerto = malloc(strlen(nucleo_puerto)+1);
+		memcpy(configConsola->nucleo_puerto, nucleo_puerto, strlen(nucleo_puerto));
+		configConsola->nucleo_puerto[strlen(nucleo_puerto)] = '\0';
+
+		config_destroy(config);
 	}else{
 	    log_error_y_cerrar_logger(logger, "Configuracion invalida.");
-		exit(EXIT_SUCCESS);
+	    config_destroy(config);
+		exit(EXIT_FAILURE);
 	}
 }
 
 /*
- * Función: Valida parámetros de configuración necesarios para el proceso Consola
- * Recibe: void
- * Devuelve: bool
-*/
-bool validarParametrosDeConfiguracion(){
-	return 	config_has_property(config, "PROGRAMA_ANSISOP")
-		&& 	config_has_property(config, "NUCLEO_IP")
+ *  FUNCION     : Valida parámetros de configuración necesarios para el proceso Consola
+ *  Recibe      : puntero a estructura de configuración
+ *  Devuelve    : bool
+ */
+bool validarParametrosDeConfiguracion(t_config* config){
+	return 	config_has_property(config, "NUCLEO_IP")
 		&&	config_has_property(config, "NUCLEO_PUERTO");
 }
 
+/*
+ *  FUNCION     : Se conecta al ip y puerto ingresado por parámetro
+ *  Recibe      : puntero a ip y puerto
+ *  Devuelve    : int
+ */
 int conectarseA(char* ip, char* puerto){
 
     struct addrinfo hints, *serverInfo;
-	int result_getaddrinfo;
+	int resultado_getaddrinfo;
 	int socket_conexion;
 
 	memset(&hints, '\0', sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
-	result_getaddrinfo = getaddrinfo(ip, puerto, &hints, &serverInfo);
+	resultado_getaddrinfo = getaddrinfo(ip, puerto, &hints, &serverInfo);
 
-	if(result_getaddrinfo != 0){
-		fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
+	if(resultado_getaddrinfo != 0){
+		fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(resultado_getaddrinfo));
 		return 2;
 	}
 
@@ -189,13 +208,15 @@ int conectarseA(char* ip, char* puerto){
 		exit(1);
 	}
 
-	validarNucleo(socket_conexion);
+	handshakeConNucleo(socket_conexion);
+
+	log_info(logger, "Conectando al NUCLEO. IP y puerto del núcleo: %s - %s", ip, puerto);
 
 // Comento esto, ya no creo que lo vayamos a usar mas que para probar.
 //	int enviar = 1;
 //	char message[PACKAGESIZE];
 
-	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
+//printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
 
 //	while(enviar){
 //		fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
@@ -207,21 +228,25 @@ int conectarseA(char* ip, char* puerto){
 	return socket_conexion;
 }
 
-void validarNucleo(int nucleo_fd){
+/*
+ *  FUNCION     : Realiza el handshake con el nucleo
+ *  Recibe      : socket del nucleo
+ *  Devuelve    : void
+ */
+void handshakeConNucleo(int nucleo_fd){
 
 	int msj_recibido;
 	int soy_consola = 2000;
 
 	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
-	printf("socket: %d, mensaje %d", nucleo_fd,msj_recibido);
+	printf("socket: %d, mensaje %d\n", nucleo_fd,msj_recibido);
 
 	if(msj_recibido == 1000){
 		log_info(logger, "Nucleo validado.");
 		send(nucleo_fd, &soy_consola, sizeof(int), 0);
-		printf("send socket: %d, mensaje %d", nucleo_fd,soy_consola);
+		printf("send socket: %d, mensaje %d\n", nucleo_fd,soy_consola);
 	}else{
 	    log_error_y_cerrar_logger(logger, "El nucleo no pudo ser validado.");
 		exit(0);
 	}
-
 }

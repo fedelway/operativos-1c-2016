@@ -23,10 +23,15 @@
 #include "commons/config.h"
 #include "generales.h"
 
-void crearConfiguracion(char* config_path);
+typedef struct {
+	char* nucleo_ip;
+	char* nucleo_puerto;
+}t_config_consola;
+
+void levantarDatosDeConfiguracion(t_config_consola* configConsola, char* config_path);
 bool validarParametrosDeConfiguracion();
 int conectarseA(char* ip, char* puerto);
-void validarNucleo(int nucleo_fd);
+void handshakeConNucleo(int nucleo_fd);
 FILE *abrirSource(char *path, int *source_size);
 void enviar_source(int nucleo_fd, FILE *source, int source_size);
 

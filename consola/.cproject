@@ -138,4 +138,5 @@
 			<resource resourceType="PROJECT" workspacePath="/consola"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

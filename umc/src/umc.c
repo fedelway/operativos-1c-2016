@@ -11,39 +11,8 @@
 
 
 #include "umc.h"
-#include "commons/collections/list.h"
-#include <pthread.h>
-
-typedef struct{
-	int n_pag;
-	int frame;
-}t_pag;
-
-typedef struct{
-	int pid;
-	t_pag *paginas;
-}t_prog;
-
-//Variables globales
-t_config *config;
-int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
-int nucleo_fd;
-int cant_frames;
-int frame_size;
-int fpp; //Frames por programa
-
-t_list *programas;
-
-char *memoria; //Esta seria el area de memoria.
 
 #define PACKAGESIZE 1024 //Define cual es el tamaño maximo del paquete a enviar
-
-void recibirConexiones(int cpu_fd, int max_fd);
-void aceptarNucleo();
-void trabajarNucleo();
-void trabajarCpu();
-void inicializarMemoria();
-void inicializarPrograma();
 
 int main(int argc,char *argv[]) {
 
@@ -78,11 +47,9 @@ int main(int argc,char *argv[]) {
 		max_fd = socket_CPU;
 	}else max_fd = nucleo_fd;
 
-	aceptarNucleo();
-
-	//Ya tengo el nucleo aceptado, pido espacio para la memoria.
-
 	inicializarMemoria();
+
+	aceptarNucleo();
 
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
@@ -124,7 +91,7 @@ void recibirConexiones(int cpu_fd, int max_fd){
 					pthread_attr_init(&atributos);
 					pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
 
-					pthread_create(&thread, &atributos, (void *)trabajarCpu, NULL);
+					pthread_create(&thread, &atributos, (void *)trabajarCpu, (void*)cpu_fd);
 
 				}
 			}
@@ -141,7 +108,7 @@ void crearConfiguracion(char* config_path){
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
 	}else{
-		printf("configuracion no valida");
+		printf("configuracion no valida\n");
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -155,7 +122,8 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "MARCO_X_PROC")
 		&& 	config_has_property(config, "ENTRADAS_TLB")
 		&& 	config_has_property(config, "RETARDO")
-		&&  config_has_property(config, "PUERTO_NUCLEO");
+		&&  config_has_property(config, "PUERTO_NUCLEO")
+		&& 	config_has_property(config, "TIMER_RESET");
 }
 
 /*int conectarseA(char* ip, char* puerto){
@@ -290,50 +258,10 @@ void handshakeServidor(int socket_swap){
 		}
 }
 
-void aceptarNucleo(){
-
-	int soy_umc = 4000;
-	int nuevo_fd;
-	int msj_recibido;
-	struct sockaddr_in addr; // Para recibir nuevas conexiones
-	socklen_t addrlen = sizeof(addr);
-
-	printf("Esperando conexion del nucleo.\n");
-
-	nuevo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
-
-	printf("Se ha conectado el nucleo.\n");
-
-	send(nuevo_fd, &soy_umc, sizeof(int),0);
-	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
-
-	//Verifico que se haya conectado el nucleo
-	if (msj_recibido == 1000){
-		printf("Se verifico la autenticidad del nucleo.\n");
-
-		//Lanzo el hilo que maneja el nucleo
-/*
-		pthread_t thread;
-		pthread_attr_t atributos;
-
-		pthread_attr_init(&atributos);
-		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
-
-		pthread_create(&thread, &atributos, (void *)trabajarNucleo, NULL);
-*/
-		trabajarNucleo();
-		return;
-	}else{
-		printf("No se pudo verificar la autenticidad del nucleo.\nCerrando...\n");
-		close(nucleo_fd);
-		exit(1);
-	}
-}
-
 void inicializarMemoria(){
 	cant_frames = config_get_int_value(config, "MARCOS");
 	frame_size = config_get_int_value(config, "MARCO_SIZE");
-	fpp = config_get_int_value(config, "MARCO_X_PROG");
+	fpp = config_get_int_value(config, "MARCO_X_PROC");
 
 	memoria = malloc(cant_frames * frame_size);
 
@@ -342,32 +270,98 @@ void inicializarMemoria(){
 		exit(1);
 	}
 
+	memset(memoria,0b11111111,cant_frames*frame_size);
+
 	//inicializo listas
 	programas = list_create();
+
+	//Creo el array de frames
+	frames = malloc(cant_frames * sizeof(t_frame));
+	int i;
+	for(i = 0; i < cant_frames; i++){
+		frames[i].libre = true;
+		frames[i].posicion = i;
+	}
 
 	printf("Memoria inicializada.\n");
 }
 
-void trabajarNucleo(){
-	printf("TrabajarNucleo");
-	int mensaje;
+int framesDisponibles(){
+
+	int cant_disp;
+	int i;
+	for(i=0 ; i < cant_frames; i++){
+		if(frames[i].libre)
+			cant_disp++;
+	}
+
+	return cant_disp;
+}
+
+void aceptarNucleo(){
+
 	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
 
-	//Le mando el tamaño de pagina
-	mensaje = config_get_int_value(config, "MARCO_SIZE");
-	send(nucleo_fd, &mensaje, sizeof(int), 0);
+	printf("Esperando conexion del nucleo.\n");
 
-	printf("pase por aca\n");
+	nucleo_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado el nucleo.\n");
+
+	//Armo paquete
+	int buffer[2];
+	buffer[0] = SOY_UMC;
+	buffer[1] = frame_size;
+
+	send(nucleo_fd, &buffer, 2*sizeof(int),0); //Envio codMensaje y tamaño de pagina
+
+	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+	//Verifico que se haya conectado el nucleo
+	if (msj_recibido == SOY_NUCLEO){
+		printf("Se verifico la autenticidad del nucleo.\n");
+
+		//Recibo Tamaño del stack
+		recv(nucleo_fd, &stack_size,sizeof(int),0);
+
+		//Lanzo el hilo que maneja el nucleo
+		pthread_t thread;
+		pthread_attr_t atributos;
+
+		pthread_attr_init(&atributos);
+		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
+
+		pthread_create(&thread, &atributos, (void *)trabajarNucleo, NULL);
+
+		//trabajarNucleo();
+		return;
+	}else{
+		printf("No se pudo verificar la autenticidad del nucleo.\nCerrando...\n");
+		close(nucleo_fd);
+		exit(1);
+	}
+}
+
+
+void trabajarNucleo(){
+	printf("TrabajarNucleo\n");
+	int msj_recibido;
 
 	//Ciclo infinito
 	for(;;){
-		printf("dentro del for(;;)\n");
 		//Recibo mensajes de nucleo y hago el switch
 		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
+		//Chequeo que no haya una desconexion
+		if(msj_recibido <= 0){
+			printf("Desconexion del nucleo. Terminando...\n");
+			exit(1);
+		}
+
 		switch(msj_recibido){
 
-		case 1010:
+		case INICIALIZAR_PROGRAMA :
 			inicializarPrograma();
 		}
 	}
@@ -378,20 +372,24 @@ void inicializarPrograma(){
 	int pid;
 	int source_size;
 	int cant_recibida = 0;
+	int cant_paginas_cod;
 	int aux;
-	char *buffer;
+	char *buffer, *source;
 
 	//Recibo los datos
 	recv(nucleo_fd, &pid, sizeof(int), 0);
+	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
 	recv(nucleo_fd, &source_size, sizeof(int), 0);
 
+	//Recibo el archivo
 	buffer = malloc(source_size);
-
 	if(buffer == NULL){
 		printf("Error al asignar memoria.\n");
+		//aviso a nucleo que termine programa.
+		terminarPrograma(pid);
 	}
 
-	while(cant_recibida <= source_size){
+	while(cant_recibida < source_size){
 		aux = recv(nucleo_fd, buffer + cant_recibida, source_size - cant_recibida, 0);
 
 		if(aux == -1){
@@ -400,14 +398,25 @@ void inicializarPrograma(){
 
 		cant_recibida += aux;
 	}
+	printf("Archivo recibido satisfactoriamente.\n");
+	source = buffer; //Me guardo el archivo en el puntero source
 
-	//Creo las paginas que a las que va a poder acceder el programa
+	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
 	t_pag *paginas;
 
-	paginas = malloc(sizeof(t_pag) * fpp);
+	paginas = malloc(sizeof(t_pag) * (stack_size + cant_paginas_cod) );
+	for(aux=0; aux < stack_size + cant_paginas_cod; aux++){
+		paginas[aux].nro_pag = aux;
+		paginas[aux].presencia = false;
+		paginas[aux].modificado = false;
+	}
+
+	//Creo la lista de paginas ocupadas
+	int *paginas_ocupadas;
+
+	paginas_ocupadas = malloc(sizeof(int) * fpp);
 	for(aux=0; aux < fpp; aux++){
-		paginas[aux].n_pag = aux;
-		paginas[aux].frame = -1; //Le setteo -1 como una forma de decirle que no tiene nada asignado
+		paginas_ocupadas[aux] = -1;
 	}
 
 	t_prog *programa;
@@ -415,11 +424,389 @@ void inicializarPrograma(){
 	programa = malloc(sizeof(t_prog));
 	programa->pid= pid;
 	programa->paginas = paginas;
+	programa->cant_total_pag = stack_size + cant_paginas_cod;
+	programa->timer = 0;
+	programa->pag_en_memoria = paginas_ocupadas;
 
 	list_add(programas, programa);
 
+	//Le mando a swap el archivo para que lo guarde
+	if( enviarCodigoASwap(source,source_size) == -1 ){
+		//Error en envio de archivo, aviso a nucleo que termine el programa.
+		terminarPrograma(pid);
+	}
+
+	//Libero la memoria
+	free(programa);
+	free(buffer);
+	free(source);
 }
 
-void trabajarCpu(){
+int enviarCodigoASwap(char *source, int source_size){
 
+	int cant_enviada_total = 0;
+	int cant_enviada_parcial;
+	int mensaje = GUARDA_PAGINA;
+	int aux;
+	int pag = 0;//El codigo va siempre en las primeras n paginas.
+	char *buffer;
+
+	buffer = malloc(2*sizeof(int) + frame_size);
+
+	if(buffer == NULL){
+		printf("Error de malloc.\n");
+	}
+
+	//Armo el paquete
+	memcpy(buffer,&mensaje,sizeof(int));
+
+	while(cant_enviada_total < source_size){
+		cant_enviada_parcial = 0;
+
+		memcpy(buffer + sizeof(int),&pag,sizeof(int));
+		memcpy(buffer+2*sizeof(int),source + cant_enviada_total,frame_size);
+
+		//Ya tengo el paquete armado, lo envio
+		while(cant_enviada_parcial < frame_size){
+			aux = send(swap_fd,buffer,2*sizeof(int) + frame_size,0);
+
+			if(aux <= 0){
+				printf("Error en el envio del archivo");
+				return -1;//Error de swap, le digo a nucleo que mande el proceso a finished
+			}
+
+			cant_enviada_parcial += aux;
+		}
+		//Ya envie una pagina, la cant enviada total es la anterior + una pagina
+		cant_enviada_total += frame_size;
+
+		pag++;//Para que swap sepa que es otra pagina
+	}
+
+	//Codigo enviado correctamente, devuelvo 0
+	return 0;
+}
+
+void traerPaginaDeSwap(int pag, t_prog *programa){
+
+	int cant_paginas_ocupadas = 0;
+	int i;
+	int pos_a_escribir;
+
+	//Cuento la cantidad de paginas en memoria
+	for(i=0; i < fpp; i++){
+		if(programa->pag_en_memoria[i] != -1){
+			cant_paginas_ocupadas++;
+		}
+	}
+
+	/* Si la cantidad de paginas en memoria es menor a fpp, significa que aun no se cargaron
+	 * todas las paginas que se pueden. Entonces la cargo directamente.*/
+	if(cant_paginas_ocupadas < fpp){
+		programa->pag_en_memoria[cant_paginas_ocupadas] = pag;
+
+		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
+
+		recibirPagina(pag, pos_a_escribir);
+
+		return;
+	}
+
+	//Todas las paginas estan ocupadas, tengo que reemplazar una.
+	for(i=0; i<fpp; i++){
+
+		//Si no esta referenciada, sustituyo esa pagina
+		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
+
+			//Le cambio el bit de presencia
+			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
+
+			//Me fijo el bit de modificado
+			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
+				//Fue modificada, la envio a swap
+
+				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
+
+				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
+			}
+
+			//Recibo la pagina y salgo del ciclo
+			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
+
+			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
+
+			//Avanzo el puntero
+			programa->puntero = (programa->puntero +1) & fpp;
+
+			return;
+		}
+
+		//Pongo el bit de refencia en false
+		programa->paginas[ programa->pag_en_memoria[programa->puntero]].referenciado = false;
+
+		//incremento el puntero
+		programa->puntero = (programa->puntero + 1) % fpp;
+	}
+
+	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
+	//repito la operacion
+
+	traerPaginaDeSwap(pag, programa);
+
+}
+
+void enviarPagina(int pag, int pid, int pos_a_enviar){
+
+	int mensaje[3];
+	char *buffer;
+
+	//Armo el mensaje
+	mensaje[0] = GUARDA_PAGINA;
+	mensaje[1] = pid;
+	mensaje[2] = pag;
+
+	buffer = malloc(frame_size + 3*sizeof(int));
+
+	memcpy(buffer, &mensaje, 3*sizeof(int));
+	memcpy(buffer + 3*sizeof(int), memoria + pos_a_enviar, frame_size);
+
+	//Envio la orden de guardado
+	send(swap_fd, buffer, frame_size + 3*sizeof(int),0);
+
+	//Ya envie el mensaje para que guarde la pagina, libero la memoria reservada
+	free(buffer);
+}
+
+int recibirPagina(int pag, int pid){
+
+	int mensaje[3];
+	char *buffer;
+
+	mensaje[0] = SOLICITUD_PAGINA;
+	mensaje[1] = pid;
+	mensaje[2] = pag;
+
+	buffer = malloc(frame_size);
+
+	//Envio la solicitud
+	send(swap_fd,&mensaje,3*sizeof(int),0);
+
+	//Recibo la respuesta
+	recv(swap_fd,buffer, frame_size, 0);
+
+	int frame_a_escribir = frameLibre();
+
+	if(frame_a_escribir == -1){
+		//No hay frames libres
+		return -1;
+	}
+
+	int pos_a_escribir = frames[frame_a_escribir].posicion;
+
+	memcpy(memoria + pos_a_escribir, buffer, frame_size);
+
+	//Ya tengo la pagina en memoria
+	free(buffer);
+	return frame_a_escribir;
+}
+
+int frameLibre(){
+
+	int i;
+	for(i=0; i < cant_frames; i++){
+
+		if(frames[i].libre){
+			return i;
+		}
+	}
+
+	//Sali del for, por lo tanto no hay frames libres
+	return -1;
+}
+
+void terminarPrograma(int pid){
+	//Le aviso al nucleo que termine con la ejecucion del programa
+	int bufferInt[2];
+	bufferInt[0] = RECHAZO_PROGRAMA;
+	bufferInt[1] = pid;
+	send(nucleo_fd, &bufferInt,2*sizeof(int),0);
+}
+
+int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa){
+
+	int cant_escrita = 0;
+	int pos_a_escribir;
+	int cant_a_escribir;
+
+	if(offset > frame_size){
+		printf("Error: offset mayor que tamaño de marco.\n");
+		return -1;
+	}
+
+	if(size/frame_size > fpp - pag){
+		printf("No hay espacio para escribir esto en memoria.\n");//Habria que pasar cosas a swap.
+		return 1;
+	}
+
+	while(cant_escrita < size){
+		//Aplico el mutex para que no haya quilombo con los threads
+		pthread_mutex_lock(&mutex_memoria);
+
+		//Aplico el algoritmo clock
+		algoritmoClock(programa);
+
+		//Verifico que la pagina esta en memoria
+		if(!programa->paginas[pag].presencia){
+			//La pagina no esta en memoria, la traigo de swap
+			traerPaginaDeSwap(pag,programa);
+		}
+
+		//Obtengo la posicion en memoria donde debo escribir
+		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
+		pos_a_escribir += offset;
+
+		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
+		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
+
+		memcpy(memoria + pos_a_escribir, src, cant_a_escribir);
+
+		//Actualizo la cant_escrita
+		cant_escrita += cant_a_escribir;
+
+		//Marco la pagina como modificada
+		programa->paginas[pag].modificado = true;
+
+		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
+		pag++;
+		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
+	}
+
+	//Copiado satisfactoriamente
+	return 0;
+}
+
+int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa){
+
+	int cant_leida = 0;
+	int pos_a_leer;
+	int cant_a_leer;
+
+	if(offset > frame_size){
+		printf("Error: offset mayor que tamaño de marco.\n");
+		return -1;
+	}
+
+	if(size/frame_size > fpp){
+		printf("La cantidad de marcos por programa no alcanza para leer esta cantidad de info.\n");
+		return -1;
+	}
+
+	resultado = malloc(size);
+
+	while(cant_leida < size){
+		//Mutex
+		pthread_mutex_lock(&mutex_memoria);
+
+		algoritmoClock(programa);
+
+		if(!programa->paginas[pag].presencia){
+			//La pagina no esta en memoria, la traigo de swap
+			traerPaginaDeSwap(pag, programa);
+		}
+
+		//Obtengo posicion de memoria
+		pos_a_leer = frames[programa->paginas[pag].frame].posicion;
+		pos_a_leer += offset;
+
+		//Para no pasarme de largo y leer otros frames
+		cant_a_leer = min(size - cant_leida, frame_size - offset);
+
+		memcpy(resultado, memoria + pos_a_leer, cant_a_leer);
+
+		cant_leida += cant_a_leer;
+
+		//En la proxima iteracion leo la prox pagina, desde le byte 0
+		pag++;
+		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
+	}
+
+	return 0;
+}
+
+void trabajarCpu(int cpu_listen_fd){
+
+	int cpu_fd;
+	int cpu_num;
+	cpu_fd = aceptarCpu(cpu_listen_fd, &cpu_num);
+
+	if(cpu_fd == -1){
+		return;
+	}
+
+	//Ciclo infinito para recibir mensajes
+	int msj_recibido;
+
+	for(;;){
+		recv(cpu_fd, &msj_recibido,sizeof(int),0);
+
+		if(msj_recibido <= 0){
+			printf("Desconexion de la cpu");
+			close(cpu_fd);
+			return;
+		}
+
+		switch(msj_recibido){
+
+		}
+	}
+
+}
+
+int aceptarCpu(int cpu_listen_fd, int *cpu_num){
+
+	int soy_umc = SOY_UMC;
+	int cpu_fd;
+	int msj_recibido;
+	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	socklen_t addrlen = sizeof(addr);
+
+	cpu_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado una nueva cpu.\n");
+
+	//Hago el handshake
+	send(cpu_fd,&soy_umc,sizeof(int),0);
+	recv(cpu_fd,&msj_recibido,sizeof(int),0);
+	recv(cpu_fd, cpu_num,sizeof(int),0);
+
+	if(msj_recibido == SOY_CPU){
+		printf("Se ha verificado la autenticidad de la cpu n° %d.\n",*cpu_num);
+		return cpu_fd;
+	}else{
+		printf("No se ha podido verificar la autenticidad de la cpu.\n");
+		return -1;
+	}
+}
+
+void algoritmoClock(t_prog *programa){
+
+	programa->timer++;
+
+	if(programa->timer < timer_reset_mem){
+		int i;
+		for(i=0;i<cant_frames;i++){
+			programa->paginas[i].referenciado = false;
+		}
+	}
+}
+
+int min(int a, int b){
+	if(a>=b){
+		return a;
+	}else return b;
 }

@@ -38,6 +38,12 @@ int main(int argc, char *argv[]) {
 	FD_SET(cons_fd, &listen);
 	printf("socket escucha consola: %d \n", cons_fd);
 	printf("Esperando conexiones de consolas.. (PUERTO: %s)\n", puerto_cons);
+	cant_cpus = 0;
+	max_cpu = 0;
+
+	stack_size = config_get_int_value(config, "STACK_SIZE");
+
+	quantum = config_get_int_value(config, "QUANTUM");
 
 
 	//Conexion CPUs
@@ -96,28 +102,37 @@ bool validarParametrosDeConfiguracion() {
 			&& config_has_property(config, "SEM_INIT")
 			&& config_has_property(config, "IO_IDS")
 			&& config_has_property(config, "IO_SLEEP")
-			&& config_has_property(config, "SHARED_VARS"));
+			&& config_has_property(config, "SHARED_VARS")
+			&& config_has_property(config, "STACK_SIZE"));
 }
 
 
 void validacionUMC(int socket_umc){
 	//Hago la validacion con UMC
-	int mensaje = 1000;
-	send(socket_umc, &mensaje, sizeof(int), 0);
-	recv(socket_umc, &mensaje, sizeof(int), 0);
 
-	printf("socket %d\n", socket_umc);
+	int mensaje;
+	int buffer[2];
 
-	if(mensaje == 4000){
+	buffer[0] = SOY_NUCLEO;
+	buffer[1] = stack_size;
+
+	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
+
+	recv(umc_fd, &mensaje, sizeof(int), 0);
+
+	if(mensaje == SOY_UMC){
+
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
-		recv(socket_umc, &mensaje, sizeof(int), 0);
+		recv(umc_fd, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
-		return;
+		printf("Page_size = %d\n",pag_size);
+
 	}else{
 		printf("mensaje: %d\n", mensaje);
 		printf("Error de autentificacion con UMC.\n");
+		close(umc_fd);
 		exit(1);
 	}
 }
@@ -165,6 +180,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 				}else if (i == cpu_fd) {
 					//Agrego la nueva conexion de CPU
 					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
+					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 				}else{
 					//Recibo el mensaje
 					char package[1024];
@@ -188,6 +204,9 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 			}
 		}
 	}
+	//Limpio los pcb en finished
+	limpiarTerminados();
+	planificar();
 }
 
 
@@ -200,9 +219,10 @@ int recibirMensaje(int socket){
 
 }
 
+
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
-	int soy_nucleo = 1000;
+	int soy_nucleo = SOY_NUCLEO;
 	int nuevaConsola;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -215,9 +235,7 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 	send(nuevaConsola, &soy_nucleo, sizeof(int), 0);
 	recv(nuevaConsola, &msj_recibido, sizeof(int), 0);
 
-
-	if(msj_recibido == 2000){
-		printf("mensaje recibido %d.\n", msj_recibido);
+	if(msj_recibido == SOY_CONSOLA){
 
 		//Actualiza el máximo
 		if (nuevaConsola > *max_fd) {
@@ -234,10 +252,57 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 	}
 }
 
+void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
+
+	int nuevo_fd;
+	int msj_recibido;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+
+	printf("Se ha conectado una nueva CPU.\n");
+
+	int buffer[2];
+
+	buffer[0] = SOY_NUCLEO;
+	buffer[1] = quantum;
+
+	send(nuevo_fd, &buffer, 2*sizeof(int),0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
+
+	if(msj_recibido == SOY_CPU){
+
+		if(nuevo_fd > *max_fd){
+			*max_fd = nuevo_fd;
+		}
+
+		FD_SET(nuevo_fd,listen);
+		FD_SET(nuevo_fd,cpus);
+
+		//Agrego la cpu a la lista de cpus
+		t_cpu cpu_nueva;
+
+		cpu_nueva.fd = nuevo_fd;
+		cpu_nueva.libre = true;
+		cpu_nueva.num = max_cpu;
+		max_cpu++;
+
+		cant_cpus++;
+		//Necesito un array con 1 cpu mas de espacio
+		listaCpu = realloc(listaCpu, cant_cpus * sizeof(t_cpu));
+
+		listaCpu[cant_cpus - 1] = cpu_nueva;
+	}else{
+		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
+		close(nuevo_fd);
+	}
+}
+
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
 	//msj Es el mensaje de autentificacion.
 
-	int soy_nucleo = 1000;
+	int soy_nucleo = SOY_NUCLEO;
 	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -258,13 +323,12 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 			*max_fd = nuevo_fd;
 		}
 
-
-		if(msj == 2000){
+		if(msj == SOY_CONSOLA){
 			socket_consola = nuevo_fd;
 			printf("El nuevo usuario es una consola, socket %d\n", socket_consola);
 
 
-		}else if(msj == 3000){
+		}else if(msj == SOY_CPU){
 			socket_CPU = nuevo_fd;
 			printf("El nuevo usuario es una cpu, socket %d\n", socket_CPU);
 		}
@@ -280,16 +344,48 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 }
 
 void hacerAlgoCPU(int codigoMensaje, int fd){
-	//printf("Mensaje CPU: %s\n",package);
+	printf("hacerAlgoCPU.%d\n",codigoMensaje);
 }
 
 void hacerAlgoConsola(int codigoMensaje, int fd){
 
 	switch(codigoMensaje){
 
-	case 2001 :
+	case ENVIO_FUENTE:
 		iniciarNuevaConsola(fd);
 	}
+}
+
+void hacerAlgoUmc(int codigoMensaje){
+
+	int msj_recibido;
+
+	switch(codigoMensaje){
+
+	case RECHAZO_PROGRAMA:
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+		moverDeNewA(msj_recibido,&finished);
+		break;
+
+	case ACEPTO_PROGRAMA:
+		recv(umc_fd,&msj_recibido,sizeof(int),0);
+		moverDeNewA(msj_recibido,&ready);
+		break;
+
+	}
+}
+
+void moverDeNewA(int pid, t_queue *destino){
+
+	bool igualPid(t_pcb *elemento){
+		return elemento->pid == pid;
+	}
+
+	t_pcb *pcb_a_mover = list_find(&new, (void*)igualPid);
+
+	queue_push(destino, pcb_a_mover);
+
+	list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
 }
 
 void iniciarNuevaConsola (int fd){
@@ -318,8 +414,9 @@ void iniciarNuevaConsola (int fd){
 	buffer[source_size] = '\0';
 	source = buffer;
 
-	printf("%s\n", source);
+	source_size++;//Porque le agregue el \0
 
+	printf("%s\n", source);
 
 	//Creo el PCB
 	t_pcb *pcb;
@@ -332,16 +429,23 @@ void iniciarNuevaConsola (int fd){
 	max_pid++;
 
 	//Pido paginas para almacenar el codigo y el stack
-	mensaje = 4010;
+	mensaje = INICIALIZAR_PROGRAMA;
 	//Armo el paquete a enviar
-	int buffer_size = source_size + 3*sizeof(int);
-	buffer = malloc(source_size + 2*sizeof(int) );
+	int buffer_size = source_size + 4*sizeof(int);
+	buffer = malloc(source_size + 4*sizeof(int) );
+
+	int cant_paginas_requeridas = source_size / pag_size;
+
+	if(source_size % pag_size > 0)
+		cant_paginas_requeridas++;
+
 	memcpy(buffer, &mensaje, sizeof(int));
 	memcpy(buffer + sizeof(int), &max_pid, sizeof(int));
-	memcpy(buffer + 2*sizeof(int), &source_size, sizeof(int));
-	memcpy(buffer + 3*sizeof(int), source, source_size);
+	memcpy(buffer + 2*sizeof(int), &cant_paginas_requeridas, sizeof(int));
+	memcpy(buffer + 3*sizeof(int), &source_size, sizeof(int));
+	memcpy(buffer + 4*sizeof(int), source, source_size);
 
-	while(cant_enviada <= buffer_size){
+	while(cant_enviada < buffer_size){
 		aux = send(umc_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 
 		if(aux == -1){
@@ -351,6 +455,7 @@ void iniciarNuevaConsola (int fd){
 
 		cant_enviada += aux;
 	}
+	printf("Archivo enviado satisfactoriamente.\n");
 
 	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
 	list_add(&new, pcb);
@@ -387,4 +492,36 @@ void enviarPaqueteACPU(char* package, int socket){
 	}
 }
 
+void limpiarTerminados(){
 
+	t_pcb *pcb_terminado;
+	int mensaje = FIN_PROGRAMA;
+
+	while(!queue_is_empty(&finished)){
+
+		pcb_terminado = queue_pop(&finished);
+
+		//Le aviso a consola que termino la ejecucion del programa
+		send(pcb_terminado->consola_fd,&mensaje,sizeof(int),0);
+
+		close( pcb_terminado->consola_fd );
+
+		free(pcb_terminado);
+	}
+}
+
+void planificar(){
+
+	int i;
+
+	//Miro que no este vacia la lista de ready
+	if(queue_is_empty(&ready)){
+
+		for(i=0; i<cant_cpus; i++){
+
+			if(listaCpu[i].libre){
+				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola(queue_pop)
+			}
+		}
+	}
+}
