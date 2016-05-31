@@ -21,18 +21,55 @@
 #include "commons/config.h"
 #include "commons/collections/queue.h"
 #include "commons/collections/list.h"
+#include "socketCliente.h"
+#include "socketServidor.h"
+
+
+typedef struct{
+	int pid;
+	int PC;			//program counter
+	int stack_pos;
+	int source_pos;
+	int consola_fd;
+}t_pcb;
+
+//Var globales
+t_config* config;
+int umc_fd;
+int pag_size;
+int max_pid = 0;
+int max_fd = 0;	 //El maximo valor de file descriptor
+
+
+
+//agregamos sockets provisorios para cpu y consola
+int socket_consola = 0;
+int socket_CPU = 0;
+int socket_umc;
+int socket_escucha;
+int cpu_fd, cons_fd;
+
+
+//Las colas con los dif estados de los pcb
+t_queue ready, running, blocked, finished;
+t_list new;
+
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
 bool validarParametrosDeConfiguracion();
+void maximoFileDescriptor(int socket_escucha,int *max_fd);
 int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
+void trabajarConexionesSockets();
 void procesoMensajeRecibidoConsola(char* paquete, int socket);
 void hacerAlgoCPU(int codigoMensaje, int fd);
-void hacerAlgoProg(int codigoMensaje, int fd);
+void hacerAlgoConsola(int codigoMensaje, int fd);
 void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
+int recibirMensaje(int socket);
+
 void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
-void conectarUmc();
+void validacionUMC();
 
 #endif /* NUCLEO_H_ */
