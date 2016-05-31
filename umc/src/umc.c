@@ -900,7 +900,15 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 
 	if(cache_tlb.entradas[posicion_reemplazo].modificado){
 		//Cambiar el modificado en tabla de paginas
+		bool igualPid(t_prog *elemento){
+			return elemento->pid == pid;
+		}
+
+		t_prog *programa_a_modificar = list_find(programas, igualPid);
+
+		programa_a_modificar->paginas[pag].modificado = true;
 	}
+	return;
 }
 
 void algoritmoClock(t_prog *programa){
