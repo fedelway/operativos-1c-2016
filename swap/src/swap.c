@@ -33,7 +33,7 @@ int main(int argc,char *argv[]) {
 	//crearParticionSwap();
 	crearBitMap();
 	char* archivoMapeado = cargarArchivo();
-	inicializarArchivo(&archivoMapeado);
+	inicializarArchivo(archivoMapeado);
 
 	listaProcesos = list_create();
 	listaEnEspera = list_create();
@@ -248,7 +248,7 @@ int conectarPuertoDeEscucha2(char* puerto){
   }
 
 //Utilizando mmap(), falta probar..
-  char* cargarArchivo(){
+char* cargarArchivo(){
 	  int fd ;
 
 	  if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
@@ -263,23 +263,18 @@ int conectarPuertoDeEscucha2(char* puerto){
 		  perror("mmap");
 		  exit(1);
 	  }
+	  printf("El mapeo a memoria es: %s \n", accesoAMemoria);
 
-	  printf("Paso por cargar el archivo: %s\n", accesoAMemoria);
 	  return accesoAMemoria;
   }
 
 //da error y nolo puedo seguir
-void inicializarArchivo(char *accesoAMemoria){
+void inicializarArchivo(char* accesoAMemoria){
 
-	//accesoAMemoria = malloc(131072);
+	int tamanio = strlen(accesoAMemoria);
 
-	int tamanioSizeof = strlen(accesoAMemoria);
-	//int tamanioStrlen = strlen(accesoAMemoria);
-	printf("tamanio sizeof %d\n", tamanioSizeof);
-
-
-	memset(&accesoAMemoria, '\0', strlen(accesoAMemoria));
-	printf("El primer valor es: %c \n", accesoAMemoria[0]);
+	//ACÁ INICIALIZO CON TODOS CARACTERES DEL ARCHIVO EN MEMORIA CON '\0'
+	memset(&(*accesoAMemoria),'\0', tamanio + 1);
 }
 
 //Creo BitMap usando bitarray
