@@ -68,7 +68,8 @@ t_list *programas;
 //Esta seria el area de memoria.
 char *memoria;
 
-
+//Mutexes
+pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();

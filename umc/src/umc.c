@@ -650,6 +650,8 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 	}
 
 	while(cant_escrita < size){
+		//Aplico el mutex para que no haya quilombo con los threads
+		pthread_mutex_lock(&mutex_memoria);
 
 		//Aplico el algoritmo clock
 		algoritmoClock(programa);
@@ -678,6 +680,8 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
 		pag++;
 		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	//Copiado satisfactoriamente
@@ -703,6 +707,8 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 	resultado = malloc(size);
 
 	while(cant_leida < size){
+		//Mutex
+		pthread_mutex_lock(&mutex_memoria);
 
 		algoritmoClock(programa);
 
@@ -725,6 +731,8 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		//En la proxima iteracion leo la prox pagina, desde le byte 0
 		pag++;
 		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	return 0;
