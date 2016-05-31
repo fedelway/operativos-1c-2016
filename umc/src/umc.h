@@ -41,13 +41,16 @@ typedef struct{
 }t_frame;
 
 typedef struct{
+	int pid;
 	int nro_pag;
 	int traduccion;
 	int tiempo_accedido;
+	bool modificado;
 }t_entrada_tlb;
 
 typedef struct{
 	t_entrada_tlb *entradas;
+	int cant_entradas;
 	int timer; //Para LRU
 }t_tlb;
 
@@ -83,6 +86,10 @@ void trabajarCpu();
 int aceptarCpu(int cpu_fd_listen, int *cpu_num);
 void inicializarMemoria();
 void inicializarPrograma();
+void inicializarTlb();
+int buscarEnTlb(int pag, int pid);
+void actualizarTlb(int pag, int pid, int traduccion);
+void reemplazarEntradaTlb(int pag, int pid, int traduccion);
 int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa);
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa);
 void terminarPrograma(int pid);
