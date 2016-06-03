@@ -49,16 +49,12 @@ int main(int argc,char *argv[]) {
 
 	inicializarMemoria();
 
+	inicializarTlb();
+
 	aceptarNucleo();
 
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
-
-/*	char message[PACKAGESIZE];
-	recibirMensajeCPU(&message, socket_CPU);
-
-	enviarPaqueteASwap(message, swap_fd);
-*/
 
 	return EXIT_SUCCESS;
 }
@@ -122,7 +118,8 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "MARCO_X_PROC")
 		&& 	config_has_property(config, "ENTRADAS_TLB")
 		&& 	config_has_property(config, "RETARDO")
-		&&  config_has_property(config, "PUERTO_NUCLEO");
+		&&  config_has_property(config, "PUERTO_NUCLEO")
+		&& 	config_has_property(config, "TIMER_RESET");
 }
 
 /*int conectarseA(char* ip, char* puerto){
@@ -582,7 +579,7 @@ int recibirPagina(int pag, int pid){
 	int mensaje[3];
 	char *buffer;
 
-	mensaje[0] = 4021;
+	mensaje[0] = SOLICITUD_PAGINA;
 	mensaje[1] = pid;
 	mensaje[2] = pag;
 
@@ -649,16 +646,31 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 	}
 
 	while(cant_escrita < size){
+		//Aplico el mutex para que no haya quilombo con los threads
+		pthread_mutex_lock(&mutex_memoria);
 
-		//Verifico que la pagina esta en memoria
-		if(!programa->paginas[pag].presencia){
-			//La pagina no esta en memoria, la traigo de swap
-			traerPaginaDeSwap(pag,programa);
+		//Aplico el algoritmo clock
+		algoritmoClock(programa);
+
+		pos_a_escribir = buscarEnTlb(pag, programa->pid);
+
+		if(pos_a_escribir != -1){
+			//TLB_HIT
+			pos_a_escribir++;
+		}else{
+			//TLB_MISS
+			//Verifico que la pagina esta en memoria
+			if(!programa->paginas[pag].presencia){
+				//La pagina no esta en memoria, la traigo de swap
+				traerPaginaDeSwap(pag,programa);
+			}
+
+			//Obtengo la posicion en memoria donde debo escribir
+			pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
+			pos_a_escribir += offset;
+
+			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
 		}
-
-		//Obtengo la posicion en memoria donde debo escribir
-		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
-		pos_a_escribir += offset;
 
 		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
 		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
@@ -674,6 +686,8 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		//Para que en la proxima vuelta escriba la siguente pagina desde el inicio
 		pag++;
 		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	//Copiado satisfactoriamente
@@ -699,15 +713,30 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 	resultado = malloc(size);
 
 	while(cant_leida < size){
+		//Mutex
+		pthread_mutex_lock(&mutex_memoria);
 
-		if(!programa->paginas[pag].presencia){
-			//La pagina no esta en memoria, la traigo de swap
-			traerPaginaDeSwap(pag, programa);
+		algoritmoClock(programa);
+
+		pos_a_leer = buscarEnTlb(pag, programa->pid);
+
+		if(pos_a_leer != -1){
+			//TLB_HIT pos a leer tiene la posicion a leer
+			pos_a_leer += offset;
+		}else{
+			//TLB_MISS
+
+			if(!programa->paginas[pag].presencia){
+				//La pagina no esta en memoria, la traigo de swap
+				traerPaginaDeSwap(pag, programa);
+			}
+
+			//Obtengo posicion de memoria
+			pos_a_leer = frames[programa->paginas[pag].frame].posicion;
+			pos_a_leer += offset;
+
+			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
 		}
-
-		//Obtengo posicion de memoria
-		pos_a_leer = frames[programa->paginas[pag].frame].posicion;
-		pos_a_leer += offset;
 
 		//Para no pasarme de largo y leer otros frames
 		cant_a_leer = min(size - cant_leida, frame_size - offset);
@@ -716,9 +745,11 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 
 		cant_leida += cant_a_leer;
 
-		//En la proxima iteracion leo la prox pagina, desde le byte 0
+		//En la proxima iteracion leo la prox pagina, desde el byte 0
 		pag++;
 		offset = 0;
+
+		pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	return 0;
@@ -776,6 +807,119 @@ int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 	}else{
 		printf("No se ha podido verificar la autenticidad de la cpu.\n");
 		return -1;
+	}
+}
+
+void inicializarTlb(){
+
+	int cant_entradas_tlb;
+
+	cant_entradas_tlb = config_get_int_value(config, "ENTRADAS_TLB");
+
+	cache_tlb.entradas = malloc(cant_entradas_tlb * sizeof(t_entrada_tlb));
+
+	cache_tlb.cant_entradas = cant_entradas_tlb;
+
+	cache_tlb.timer = 0;
+
+	int i;
+	for(i=0; i < cant_entradas_tlb; i++){
+		cache_tlb.entradas[i].nro_pag = -1;
+		cache_tlb.entradas[i].pid = -1;
+		cache_tlb.entradas[i].modificado = false;
+	}
+	return;
+}
+
+int buscarEnTlb(int pag, int pid){
+
+	//incremento timer
+	cache_tlb.timer++;
+
+	int i;
+	for(i=0; i<cache_tlb.cant_entradas; i++){
+		//Me fijo que coincidan nro pag y pid
+		if(cache_tlb.entradas[i].pid == pid && cache_tlb.entradas[i].nro_pag == pag){
+			//Actualizo el tiempo de acceso de la entrada
+			cache_tlb.entradas[i].tiempo_accedido = cache_tlb.timer;
+			return cache_tlb.entradas[i].traduccion;
+		}
+	}
+
+	//Sali del ciclo => hubo tlb_miss
+	return -1;
+}
+
+void actualizarTlb(int pid, int pag, int traduccion){
+
+	int i;
+	//Checkeo si hubo un mal pedido
+	for(i=0; i<cache_tlb.cant_entradas; i++){
+
+		if(cache_tlb.entradas[i].pid == pid && cache_tlb.entradas[i].nro_pag == pag){
+			printf("Error: Se pidio actualizar tlb, pero la pagina ya estaba.\n");
+		}
+	}
+
+	//busco una entrada libre
+	for(i=0; i<cache_tlb.cant_entradas; i++){
+
+		if(cache_tlb.entradas[i].pid == -1 && cache_tlb.entradas[i].nro_pag == -1){
+			//Esta entrada esta libre
+			cache_tlb.entradas[i].pid = pid;
+			cache_tlb.entradas[i].nro_pag = pag;
+			cache_tlb.entradas[i].traduccion = traduccion;
+			cache_tlb.entradas[i].tiempo_accedido = cache_tlb.timer;
+			return;
+		}
+	}
+
+	//Llegue aca. Significa que no hay entradas libres, hay que reemplazar una.
+	reemplazarEntradaTlb(pid, pag, traduccion);
+}
+
+void reemplazarEntradaTlb(int pid, int pag, int traduccion){
+
+	int posicion_reemplazo;
+	int menor_tiempo_acceso = -1;
+
+	int i;
+	for(i=0; i<cache_tlb.cant_entradas; i++){
+
+		if(cache_tlb.entradas[i].tiempo_accedido > menor_tiempo_acceso){
+			posicion_reemplazo = i;
+			menor_tiempo_acceso = cache_tlb.entradas[i].tiempo_accedido;
+		}
+	}
+
+	//en posicion reemplazo ya tengo a quien tengo que reemplazar.
+	cache_tlb.entradas[posicion_reemplazo].pid = pid;
+	cache_tlb.entradas[posicion_reemplazo].nro_pag = pag;
+	cache_tlb.entradas[posicion_reemplazo].traduccion = traduccion;
+	cache_tlb.entradas[posicion_reemplazo].tiempo_accedido = cache_tlb.timer;
+
+	if(cache_tlb.entradas[posicion_reemplazo].modificado){
+		//Cambiar el modificado en tabla de paginas
+		bool igualPid(t_prog *elemento){
+			return elemento->pid == pid;
+		}
+
+		t_prog *programa_a_modificar = list_find(programas, igualPid);
+
+		programa_a_modificar->paginas[pag].modificado = true;
+	}
+	return;
+}
+
+void algoritmoClock(t_prog *programa){
+
+	programa->timer++;
+
+	if(programa->timer < timer_reset_mem){
+		int i;
+		for(i=0;i<cant_frames;i++){
+			programa->paginas[i].referenciado = false;
+		}
 	}
 }
 

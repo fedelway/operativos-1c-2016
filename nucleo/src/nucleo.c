@@ -13,47 +13,14 @@
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 
-typedef struct{
-	int pid;
-	int PC;			//program counter
-	int stack_pos;
-	int source_pos;
-	int consola_fd;
-}t_pcb;
-
-typedef struct{
-	int num;
-	int fd;
-	bool libre;
-}t_cpu;
-
-//agregamos sockets provisorios para cpu y consola
-int socket_Con = 0;
-int socket_CPU = 0;
-int socket_umc;
-
-//Var globales
-t_config* config;
-int umc_fd;
-int pag_size;
-int stack_size;
-int max_pid = 0;
-int max_cpu;
-int quantum;
-int cant_cpus;
-t_cpu *listaCpu;
-
-//Las colas con los dif estados de los pcb
-t_queue ready, running, blocked, finished;
-t_list new;
 
 int main(int argc, char *argv[]) {
 
-	char *puerto_prog, *puerto_cpu;
-	fd_set listen; //En estos 2 sets tengo todos los descriptores de lectura/escritura
-	int max_fd = 0;			//El maximo valor de file descriptor
-	int cpu_fd, prog_fd;
+	char *puerto_cons, *puerto_cpu;
+	char *ip_UMC, *puerto_UMC;
+	fd_set listen;
 
+	//valida los parametros de entrada del main
 	if (argc != 2) {
 		fprintf(stderr, "Uso: nucleo config_path\n");
 		return 1;
@@ -61,8 +28,16 @@ int main(int argc, char *argv[]) {
 
 	FD_ZERO(&listen);
 
+
 	crearConfiguracion(argv[1]);
 
+	//Conexion consolas
+	puerto_cons = config_get_string_value(config, "PUERTO_PROG");
+	cons_fd = conectarPuertoDeEscucha(puerto_cons);
+	maximoFileDescriptor(cons_fd,&max_fd);
+	FD_SET(cons_fd, &listen);
+	printf("socket escucha consola: %d \n", cons_fd);
+	printf("Esperando conexiones de consolas.. (PUERTO: %s)\n", puerto_cons);
 	cant_cpus = 0;
 	max_cpu = 0;
 
@@ -70,21 +45,35 @@ int main(int argc, char *argv[]) {
 
 	quantum = config_get_int_value(config, "QUANTUM");
 
-	puerto_prog = config_get_string_value(config, "PUERTO_PROG");
+
+	//Conexion CPUs
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
-
-	prog_fd = conectarPuertoEscucha(puerto_prog, &listen, &max_fd);
-	printf("Esperando conexiones de consolas.. (PUERTO: %s)\n", puerto_prog);
-
-	cpu_fd = conectarPuertoEscucha(puerto_cpu, &listen, &max_fd);
+	cpu_fd = conectarPuertoDeEscucha(puerto_cpu);
+	maximoFileDescriptor(cpu_fd,&max_fd);
+	FD_SET(cpu_fd, &listen);
+	printf("socket escucha cpu: %d \n", cpu_fd);
 	printf("Esperando conexiones de CPUs.. (PUERTO: %s)\n", puerto_cpu);
 
-	conectarUmc();
 
-	printf("trabajarConexiones\n");
-	trabajarConexiones(&listen, &max_fd, cpu_fd, prog_fd);
+	//Conexion UMC
+	puerto_UMC = config_get_string_value(config, "PUERTO_UMC");
+	ip_UMC = config_get_string_value(config, "IP_UMC");
+
+	socket_umc = conectarseA(ip_UMC, puerto_UMC);
+	validacionUMC(socket_umc);
+
+
+	trabajarConexionesSockets(&listen, &max_fd, cpu_fd, cons_fd);
 
 	return EXIT_SUCCESS;
+}
+
+
+void maximoFileDescriptor(int socket_escucha,int *max_fd){
+
+	if (socket_escucha > *max_fd) {
+		*max_fd = socket_escucha;
+	}
 }
 
 void crearConfiguracion(char *config_path) {
@@ -117,72 +106,10 @@ bool validarParametrosDeConfiguracion() {
 			&& config_has_property(config, "STACK_SIZE"));
 }
 
-int conectarPuertoEscucha(char *puerto, fd_set *setEscucha, int *max_fd) {
 
-	struct addrinfo hints, *serverInfo;
-	int result_getaddrinfo;
-	int socket_escucha;
-
-	memset(&hints, '\0', sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_flags = AI_PASSIVE;
-	hints.ai_socktype = SOCK_STREAM;
-
-	result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo);
-
-	if (result_getaddrinfo != 0) {
-		fprintf(stderr, "error: getaddrinfo: %s\n",
-				gai_strerror(result_getaddrinfo));
-		return 2;
-	}
-
-	socket_escucha = socket(serverInfo->ai_family, serverInfo->ai_socktype,
-			serverInfo->ai_protocol);
-
-	if (socket_escucha > *max_fd) {
-		*max_fd = socket_escucha;
-	}
-
-	if (bind(socket_escucha, serverInfo->ai_addr, serverInfo->ai_addrlen)
-			== -1) {
-		return -1;
-	}
-	freeaddrinfo(serverInfo);
-
-	listen(socket_escucha, BACKLOG);
-
-	//Ya tengo el socket configurado, lo agrego a la lista de escucha
-	FD_SET(socket_escucha, setEscucha);
-
-	return socket_escucha;
-}
-
-void conectarUmc(){
-
-	char *ip, *puerto;
-	struct addrinfo hints, *serverInfo;
-
-	puerto = config_get_string_value(config, "PUERTO_UMC");
-	ip = config_get_string_value(config, "IP_UMC");
-
-	memset(&hints, '\0', sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_flags = AI_PASSIVE;
-	hints.ai_socktype = SOCK_STREAM;
-
-	if(getaddrinfo(ip, puerto, &hints, &serverInfo) != 0){
-		printf("Error al conectar a la UMC\n");
-		exit(1);
-	}
-
-	umc_fd = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-
-	if( connect(umc_fd, serverInfo ->ai_addr, serverInfo->ai_addrlen) == -1){
-		printf("Error al conectar a la UMC\n");
-		exit(1);
-	}
-
+void validacionUMC(int socket_umc){
 	//Hago la validacion con UMC
+
 	int mensaje;
 	int buffer[2];
 
@@ -192,7 +119,9 @@ void conectarUmc(){
 	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
 	recv(umc_fd, &mensaje, sizeof(int), 0);
+
 	if(mensaje == SOY_UMC){
+
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
@@ -201,133 +130,126 @@ void conectarUmc(){
 		printf("Page_size = %d\n",pag_size);
 
 	}else{
+		printf("mensaje: %d\n", mensaje);
 		printf("Error de autentificacion con UMC.\n");
 		close(umc_fd);
 		exit(1);
 	}
-
 }
 
 //TODO: Todas las validaciones de errores
-void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd) {
+void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
-	bool a = true;
 	int i;
-	int codigoMensaje; //Aca van a llegar los mensajes
+	int codigoMensaje;
+	int recvPaquete;
 
-	//Setteo la estructura time
-	//TODO: Cambiarlo para que tome valores de archivo de configuracion
-	struct timeval time;
-	time.tv_sec = 10;
-	time.tv_usec = 0;
+	//creo un set gral de sockets
+	fd_set readyListen;
+	//Creo estos sets donde van los descriptores que estan listos para lectura/escritura
+	fd_set cpu_fd_set;
+	fd_set cons_fd_set;
 
-	fd_set readyListen, cpu_fd_set, prog_fd_set; //En estos sets van los descriptores que estan listos para lectura/escritura
 
+	//limpio los sets
 	FD_ZERO(&readyListen);
-	FD_SET(umc_fd,listen);//Agrego el fd de umc que faltaba
+	FD_ZERO(&cpu_fd_set);
+	FD_ZERO(&cons_fd_set);
 
+	//agrego el socket servidor al set
+	FD_SET(cons_fd, &readyListen);
+	FD_SET(cpu_fd, &readyListen);
+
+
+	// main loop
 	for (;;) {
-		readyListen = *listen; //pongo todos los sockets en la lista para que los seleccione
+		readyListen = *listen;
 
-		if (a) {
-			printf("Select.. \n");
-			a = false;
+		if (select((*max_fd + 1), &readyListen, NULL, NULL, NULL) == -1) {
+			perror("Error en el Select");
 		}
 
-		select((*max_fd + 1), &readyListen, NULL, NULL, &time);
-		//busca en todos los file descriptor datos que leer/escribir
+
+		// Recorro buscando el socket que tiene datos
 		for (i = 0; i <= *max_fd; i++) {
-
-//pregunto si hay actividad en un puerto escucha
-//si coincide con el puerto escucha de la consola, lo agrego en la bolsa de consola
-//si coincide con el puerto escucha de la cpu, lo agrego en la bolsa de cpu
-
 			if (FD_ISSET(i, &readyListen)) {
-				if (i == prog_fd) {
-					//Agrego la nueva conexion
-					agregarConsola(i, max_fd, listen, &prog_fd_set);
-				}
+				if (i == cons_fd) {
+					//Agrego la nueva conexion de Consola
+					agregarConsola(i, max_fd, listen, &cons_fd_set);
 
-				if (i == cpu_fd) {
-
+				}else if (i == cpu_fd) {
+					//Agrego la nueva conexion de CPU
+					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
 					agregarCpu(i, max_fd, listen, &cpu_fd_set);
+				}else{
+					//Recibo el mensaje
+					char package[1024];
+					int recvPaquete = recv(i,(void*) package, 5, 0);
+					printf("socket %d, recvPaquete %d, msj %s \n", i, recvPaquete, package);
 
-				}
-
-				//No es puerto escucha, llego un paquete, miro quien lo envio y decido que hacer
-				if(FD_ISSET(i, &prog_fd_set)){
-					recv(i,&codigoMensaje,sizeof(int),0);
-
-					if(codigoMensaje <= 0){
-						//Hubo desconexion
+					//recvPaquete = recibirMensaje(i);
+					if (recvPaquete <= 0) {
+						// recibio 0 bytes, cierro la conexion y remuevo del set
 						close(i);
-						printf("Se ha desconectado una consola.\n");
-						FD_CLR(i, listen);
-						FD_CLR(i, &prog_fd_set);
-					}else{
-						//Hay un mensaje de verdad, hago algo
-						hacerAlgoProg(codigoMensaje, i);
+						printf("Error al recibir el mensaje. Se cierra la conexion\n");
+						FD_CLR(i, &readyListen);
 					}
-				}else if(FD_ISSET(i, &cpu_fd_set)){
-					recv(i,&codigoMensaje,sizeof(int),0);
-
-					if (codigoMensaje <= 0){
-						close(i);
-						printf("Se ha desconectado una cpu.\n");
-						FD_CLR(i, listen);
-						FD_CLR(i, &cpu_fd_set);
-					}else{
-						hacerAlgoCPU(codigoMensaje, i);
+					if(FD_ISSET(i, &cpu_fd_set)){
+						hacerAlgoCPU(package, i);
 					}
-				}else if(i == umc_fd){
-					recv(i, &codigoMensaje, sizeof(int), 0);
-
-					if(codigoMensaje <= 0){
-						close(i);
-						printf("Se ha desconectado la umc. Terminando...\n");
-						exit(1);
-					}else{
-						hacerAlgoUmc(codigoMensaje);
+					if(FD_ISSET(i, &cons_fd_set)){
+						hacerAlgoConsola(package, i);
 					}
 				}
 			}
-		}//Termine de buscar en todos los fd
-
-		//Limpio los pcb en finished
-		limpiarTerminados();
-
-		planificar();
+		}
 	}
+	//Limpio los pcb en finished
+	limpiarTerminados();
+	planificar();
 }
+
+
+int recibirMensaje(int socket){
+	char package[1024];
+	int recvPaquete = recv(socket,(void*) package, 5, 0);
+	printf("socket %d, recvPaquete %d, msj %s \n", socket, recvPaquete, package);
+
+	return recvPaquete;
+
+}
+
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
 	int soy_nucleo = SOY_NUCLEO;
-	int nuevo_fd;
+	int nuevaConsola;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
 	socklen_t addrlen = sizeof(addr);
 
-	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+	nuevaConsola = accept(fd, (struct sockaddr *) &addr, &addrlen);
 
-	printf("Se ha conectado un nueva consola.\n");
+	printf("Se ha conectado un nueva consola %d.\n", nuevaConsola);
 
-	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
-	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
+	send(nuevaConsola, &soy_nucleo, sizeof(int), 0);
+	recv(nuevaConsola, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == SOY_CONSOLA){
 
-		if (nuevo_fd > *max_fd) {
-			*max_fd = nuevo_fd;
+		//Actualiza el máximo
+		if (nuevaConsola > *max_fd) {
+			*max_fd = nuevaConsola;
 		}
 
-		FD_SET(nuevo_fd, listen);
-		FD_SET(nuevo_fd, consolas);
+		//Agrega a la consola al set
+		FD_SET(nuevaConsola, listen);
+		FD_SET(nuevaConsola, consolas);
+
 	}else{
 		printf("No se verifico la autenticidad de la consola, cerrando la conexion. \n");
-		close(nuevo_fd);
+		close(nuevaConsola);
 	}
-
 }
 
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
@@ -396,13 +318,14 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 
 	if(msj_recibido == msj){
 
+		//Actualiza el máximo
 		if (nuevo_fd > *max_fd) {
 			*max_fd = nuevo_fd;
 		}
 
 		if(msj == SOY_CONSOLA){
-			socket_Con = nuevo_fd;
-			printf("El nuevo usuario es una consola, socket %d\n", socket_Con);
+			socket_consola = nuevo_fd;
+			printf("El nuevo usuario es una consola, socket %d\n", socket_consola);
 
 
 		}else if(msj == SOY_CPU){
@@ -424,7 +347,7 @@ void hacerAlgoCPU(int codigoMensaje, int fd){
 	printf("hacerAlgoCPU.%d\n",codigoMensaje);
 }
 
-void hacerAlgoProg(int codigoMensaje, int fd){
+void hacerAlgoConsola(int codigoMensaje, int fd){
 
 	switch(codigoMensaje){
 
@@ -598,10 +521,7 @@ void planificar(){
 
 			if(listaCpu[i].libre){
 				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola(queue_pop)
-
 			}
 		}
 	}
-
-
 }
