@@ -29,14 +29,32 @@ int main(int argc,char *argv[]) {
 	logger = log_create("swap.log", "SWAP",true, LOG_LEVEL_INFO);
 	log_info(logger, "Proyecto para SWAP..");
 
+
+	listaProcesos = list_create();
+	listaEnEspera = list_create();
+
 	crearConfiguracion(argv[1]);
 	//crearParticionSwap();
 	crearBitMap();
 	char* archivoMapeado = cargarArchivo();
 	inicializarArchivo(archivoMapeado);
+	printf("archivo es: %s \n", archivoMapeado);
+	int pagina = paginaDisponible(1, 5);
+	//hayEspacioContiguo(1,10);
+	 //bool hayEspacioContiguo(int pagina, int tamanio)
+	char* resultadoCreacion;
+	crearProgramaAnSISOP(1,5,&resultadoCreacion,archivoMapeado);
+/*
+	//pruebas para ver si funciona
+    nodo_proceso nodo = crearNodoDeProceso(1, 3, 1);
+	list_add(listaProcesos, crearNodoDeProceso(2, 3, 4));
+	list_add(listaProcesos, crearNodoDeProceso(1, 3, 1));
 
-	listaProcesos = list_create();
-	listaEnEspera = list_create();
+	int swap;
+	swap = ubicacionEnSwap(2);
+
+	printf("LA POSICION EN SWAP ES: %d. \n", swap );
+*/
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -268,13 +286,13 @@ char* cargarArchivo(){
 	  return accesoAMemoria;
   }
 
-//da error y nolo puedo seguir
+//ACÁ INICIALIZO CON TODOS CARACTERES DEL ARCHIVO EN MEMORIA CON '\0'
 void inicializarArchivo(char* accesoAMemoria){
 
 	int tamanio = strlen(accesoAMemoria);
 
-	//ACÁ INICIALIZO CON TODOS CARACTERES DEL ARCHIVO EN MEMORIA CON '\0'
 	memset(&(*accesoAMemoria),'\0', tamanio + 1);
+
 }
 
 //Creo BitMap usando bitarray
@@ -284,17 +302,7 @@ void crearBitMap(){
 
 }
 
-      /*
- void inicializarBitMap(){
-      bitMap_create(char *bitarray, size_t 2048);
-      char bitMap[tamanio_pagina*cantidad_paginas];
-      int i;
-      for(i = 1; i < tamanio_pagina*cantidad_paginas; i++){
-    	  bitMap[i] = '\0';
-      }
-      */
-
-
+//CREO LOS NODOS DE LAS LISTAS
  static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap){
 	 	 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
 		 proceso->pid = pid;
@@ -309,7 +317,7 @@ void crearBitMap(){
 		 enEspera->cantidad_paginas = cantidad_paginas;
 	return enEspera;
  }
-
+//VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
  bool hayEspacioContiguo(int pagina, int tamanio){
 	 int i;
 	 //la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
@@ -322,14 +330,16 @@ void crearBitMap(){
  }
 
  int paginaDisponible(int pid,int tamanio){
-	 int i;
+		printf("pasó por pagina disponible \n");
+		int i;
 	 //Recorro todo el bitMap buscando espacios contiguos
 	 //devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
 
 	 for(i = 0; i < tamanio_pagina*cantidad_paginas; i++ ){
-		 if(bitarray_test_bit(bitMap, i) == 1){// VER 0 FALSO
+		 if(bitarray_test_bit(bitMap, i) == 0){// VER 0 FALSO
 			 if(hayEspacioContiguo(i,tamanio)){
 				 return i;
+
 			 }
 		 }
 	 }
@@ -337,7 +347,7 @@ void crearBitMap(){
  }
 
  //Recorrer la lista de procesos en swap y devolver (int) la ubicación
- int  ubicacionEnSwap(int pid){
+ int  ubicacionEnSwap(int pid){ //FUNCIONA
 	 int i;
 	 nodo_proceso *nodo;
 	 int cantidadNodos = listaProcesos->elements_count;
@@ -349,41 +359,26 @@ void crearBitMap(){
 	 }
 	 return -1;
  }
-// esto seria con fseek y fread
-	 /*if(fseek(a
-	  * rchivoSwap, tamanio, ubicacion) == 0){
-		 fread(cadenaLeida, tamanio,1,archivoSwap); //TODO validación + retorno
-		 return cadenaLeida;
-	 }
 
-	 fclose(archivoSwap);
-	 return 0;
- } */
-/*
-void escribirArchivo(int pid,int tamanio,char* contenido){
-        int ubicacion = ubicacionEnSwap(pid,tamanio);
-        FILE* archivoSwap = fopen("archivoSwap.bin","r+");
-
-        //ver mmap y munmap
-        if(fseek(archivoSwap, tamanio, ubicacion) == 0){
-	    	fwrite(contenido, tamanio,1,archivoSwap);// TODO validacion
-	    }
-	    fclose(archivoSwap);
-
-}
-*/
-void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion){
+//SOLAMENTE COPIA CON MEMCPY UNA CADENA (IDEM INICIAR PROGRAMA O MODIFICACIÓN)
+//FALTA ACTUALIZAR BITMAP
+char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion, char* archivoMapeado){
 
 	int pagina = paginaDisponible(pid,tamanio);
+	printf("prueba \n" );
 
     if(pagina != -1){
-//VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
-	    //reservarEspacioParaPrograma(pid, tamanio, );
+    //VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
+    //reservarEspacioParaPrograma(pid, tamanio, );
+   	    memcpy(archivoMapeado, "prueba" , 7);
 
-    	//memcpy(archivoEnMemoria[pid],  , tamanio);
 	    list_add(listaProcesos, crearNodoDeProceso(pid, tamanio, pagina));
-		resultadoCreacion = "Se ha creado correctamente el programa";
-	}else{ //En este caso no tenemos paginas disponibles para crear el programa
+		 resultadoCreacion = "Se ha creado correctamente el programa";
+		printf("COPIADOS AL ARCHIVO:  %s. \n",archivoMapeado );
+	}else{
+		//En este caso no tenemos paginas disponibles para crear el programa
 		resultadoCreacion = "Inicializacion Cancelada";
 	}
+	 return resultadoCreacion;
 }
+

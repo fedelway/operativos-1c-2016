@@ -20,14 +20,6 @@
 #include <fcntl.h>
 
 
-void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
-bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
-void recibirMensajeUMC(char* message, int socket_umc);
-void inicializarBitMap();
-void crearNodo(int pid, int cantidad_paginas, int posSwap);
-char* cargarArchivo();
-void inicializarArchivo(char* archivoAMemoria);
-void crearBitMap();
 
 #endif /* SWAP_H_ */
 //parámetros de configuración
@@ -61,3 +53,18 @@ void crearBitMap();
 //listas
 t_list *listaProcesos;
 t_list *listaEnEspera;
+
+
+void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
+bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
+void recibirMensajeUMC(char* message, int socket_umc);
+static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap);
+static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas);
+void inicializarBitMap();
+char* cargarArchivo();
+void inicializarArchivo(char* archivoAMemoria);
+void crearBitMap();
+bool hayEspacioContiguo(int pagina, int tamanio);
+int paginaDisponible(int pid,int tamanio);
+int  ubicacionEnSwap(int pid);
+char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion, char* archivoMapeado);
