@@ -792,7 +792,7 @@ int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
 	socklen_t addrlen = sizeof(addr);
 
-	cpu_fd = accept(nucleo_fd, (struct sockaddr *) &addr, &addrlen);
+	cpu_fd = accept(cpu_listen_fd, (struct sockaddr *) &addr, &addrlen);
 
 	printf("Se ha conectado una nueva cpu.\n");
 
