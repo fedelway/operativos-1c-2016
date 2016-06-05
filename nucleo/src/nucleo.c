@@ -116,23 +116,26 @@ void validacionUMC(int socket_umc){
 	buffer[0] = SOY_NUCLEO;
 	buffer[1] = stack_size;
 
-	send(umc_fd, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
-	recv(umc_fd, &mensaje, sizeof(int), 0);
+	recv(socket_umc, &mensaje, sizeof(int), 0);
+	printf("mensaje recibido %d\n", mensaje);
+
+	send(socket_umc, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
+
 
 	if(mensaje == SOY_UMC){
 
 		printf("Conectado a UMC.\n");
 
 		//Recibo el tamaño de pagina
-		recv(umc_fd, &mensaje, sizeof(int), 0);
+		recv(socket_umc, &mensaje, sizeof(int), 0);
 		pag_size = mensaje;
 		printf("Page_size = %d\n",pag_size);
 
 	}else{
 		printf("mensaje: %d\n", mensaje);
 		printf("Error de autentificacion con UMC.\n");
-		close(umc_fd);
+		close(socket_umc);
 		exit(1);
 	}
 }
@@ -424,7 +427,6 @@ void iniciarNuevaConsola (int fd){
 	pcb = malloc(sizeof(pcb));
 
 	pcb->PC = 0;
-	pcb->consola_fd = fd;
 	pcb->pid = max_pid + 1;
 	max_pid++;
 
@@ -494,7 +496,7 @@ void enviarPaqueteACPU(char* package, int socket){
 
 void limpiarTerminados(){
 
-	t_pcb *pcb_terminado;
+	t_consola *pcb_terminado;
 	int mensaje = FIN_PROGRAMA;
 
 	while(!queue_is_empty(&finished)){
@@ -502,9 +504,9 @@ void limpiarTerminados(){
 		pcb_terminado = queue_pop(&finished);
 
 		//Le aviso a consola que termino la ejecucion del programa
-		send(pcb_terminado->consola_fd,&mensaje,sizeof(int),0);
+		send(pcb_terminado->socketConsola,&mensaje,sizeof(int),0);
 
-		close( pcb_terminado->consola_fd );
+		close( pcb_terminado->socketConsola );
 
 		free(pcb_terminado);
 	}

@@ -28,12 +28,31 @@
 
 
 typedef struct{
+	int byte_inicio;
+	int long_instruccion;
+}t_indice_codigo;
+
+typedef struct{
+	int etiqueta;
+	int etiqueta_size;
+}t_indice_etiquetas;
+
+typedef struct{
+	int argumentos;
+	int variables;
+	int dirRetorno;
+	int posVariable;
+}t_indice_stack;
+
+typedef struct{
 	int pid;
 	int PC;			//program counter
-	int stack_pos;
-	int source_pos;
-	int consola_fd;
+	int cant_pag;
+	t_indice_codigo indice_cod;
+	t_indice_etiquetas indice_etiquetas;
+	t_indice_stack indice_stack;
 }t_pcb;
+
 
 typedef struct{
 	int num;
@@ -41,6 +60,10 @@ typedef struct{
 	bool libre;
 }t_cpu;
 
+typedef struct{
+	int pcb;
+	int socketConsola;
+}t_consola;
 
 //Var globales
 t_config* config;
@@ -87,7 +110,6 @@ void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, in
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
 void enviarPaqueteACPU(char* package, int socket);
-void iniciarNuevaConsola(int fd);
 void limpiarTerminados();
 void planificar();
 void moverDeNewA(int pid, t_queue *destino);
