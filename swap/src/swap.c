@@ -38,13 +38,14 @@ int main(int argc,char *argv[]) {
 	crearBitMap();
 	char* archivoMapeado = cargarArchivo();
 	inicializarArchivo(archivoMapeado);
-	printf("archivo es: %s \n", archivoMapeado);
-	int pagina = paginaDisponible(1, 5);
+	//int pagina = paginaDisponible(1, 5);
 	//hayEspacioContiguo(1,10);
 	 //bool hayEspacioContiguo(int pagina, int tamanio)
-	char* resultadoCreacion;
-	crearProgramaAnSISOP(1,5,&resultadoCreacion,archivoMapeado);
-/*
+	char* resultadoCreacion; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
+	char* codigo_prog = "variable a, b";
+	char* resultadoDeCreacion = crearProgramaAnSISOP(1,12,resultadoCreacion,codigo_prog,archivoMapeado); //para probar que devuelve
+    printf("El resultado de la creación del programa es: %s", resultadoDeCreacion); // probado cuando no hay espacio tambien y funciona ok
+	/*
 	//pruebas para ver si funciona
     nodo_proceso nodo = crearNodoDeProceso(1, 3, 1);
 	list_add(listaProcesos, crearNodoDeProceso(2, 3, 4));
@@ -266,7 +267,7 @@ int conectarPuertoDeEscucha2(char* puerto){
   }
 
 //Utilizando mmap(), falta probar..
-char* cargarArchivo(){
+  char* cargarArchivo(){
 	  int fd ;
 
 	  if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
@@ -274,15 +275,13 @@ char* cargarArchivo(){
 		  exit(1);
 	  }
 
-	  int pagesize = 131072; // 512 CANT PAGINAS * 256 TAMAÑO PAGINA
-	  char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, /*atoi("SWAP.DATA")*/ fd, 0);
+	  int pagesize = 10; // 512 CANT PAGINAS
+	  char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, fd, 0);
 
 	  if (accesoAMemoria == (caddr_t)(-1)) {
 		  perror("mmap");
 		  exit(1);
 	  }
-	  printf("El mapeo a memoria es: %s \n", accesoAMemoria);
-
 	  return accesoAMemoria;
   }
 
@@ -299,7 +298,19 @@ void inicializarArchivo(char* accesoAMemoria){
 void crearBitMap(){
 
 	bitMap = bitarray_create(bitarray, sizeof(bitarray));
+}
 
+//Paso cada página del BITMAP a ocupada
+void actualizarBitMap(int pid, int pagina, int cant_paginas){
+
+	int i;
+	int  cant = 0;
+	for(i =1; i<= cant_paginas; i++){
+
+		bitarray_set_bit(bitMap,pagina);
+		cant = cant +1;
+	}
+	printf("Paginas ocupadas:  %d \n",cant );
 }
 
 //CREO LOS NODOS DE LAS LISTAS
@@ -317,6 +328,7 @@ void crearBitMap(){
 		 enEspera->cantidad_paginas = cantidad_paginas;
 	return enEspera;
  }
+
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
  bool hayEspacioContiguo(int pagina, int tamanio){
 	 int i;
@@ -359,26 +371,34 @@ void crearBitMap(){
 	 }
 	 return -1;
  }
+//Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
+char* crearProgramaAnSISOP(int pid,int cant_paginas,char* resultadoCreacion, char* codigo_prog, char* archivoMapeado){
 
-//SOLAMENTE COPIA CON MEMCPY UNA CADENA (IDEM INICIAR PROGRAMA O MODIFICACIÓN)
-//FALTA ACTUALIZAR BITMAP
-char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion, char* archivoMapeado){
-
-	int pagina = paginaDisponible(pid,tamanio);
-	printf("prueba \n" );
+	int pagina = paginaDisponible(pid,cant_paginas);
 
     if(pagina != -1){
-    //VER COMO RESERVO MEMORIA - no va a ir a parar a lista de procesos y si al bit map
-    //reservarEspacioParaPrograma(pid, tamanio, );
-   	    memcpy(archivoMapeado, "prueba" , 7);
+   	    memcpy(archivoMapeado, codigo_prog , cant_paginas);
+   	    list_add(listaProcesos, crearNodoDeProceso(pid, cant_paginas, pagina));
+		actualizarBitMap(pid, pagina, cant_paginas);
+   	    resultadoCreacion = "Se ha creado correctamente el programa";
+		printf("Codigo copiado al archivo Swap:  %s \n",archivoMapeado );
 
-	    list_add(listaProcesos, crearNodoDeProceso(pid, tamanio, pagina));
-		 resultadoCreacion = "Se ha creado correctamente el programa";
-		printf("COPIADOS AL ARCHIVO:  %s. \n",archivoMapeado );
 	}else{
 		//En este caso no tenemos paginas disponibles para crear el programa
 		resultadoCreacion = "Inicializacion Cancelada";
 	}
 	 return resultadoCreacion;
 }
+/*
+void leerUnaPágina(int pagina){
+	if(ubicacionEnSwap(pagina) == 1){
 
+		char* bytes = malloc()
+	}else{
+
+	}
+
+
+}
+
+*/
