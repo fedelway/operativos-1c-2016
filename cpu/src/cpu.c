@@ -11,44 +11,44 @@
 #include "cpu.h"
 
 t_log* logger;
-int socket_umc;
 
+/****************************************************************************************/
+/*                                   FUNCION MAIN									    */
+/****************************************************************************************/
 int main(int argc,char *argv[]) {
 
 	t_configuracion_cpu* configCPU = malloc(sizeof(t_configuracion_cpu));
 
-	int socket_nucleo, socket_umc;
+	int socket_umc, socket_nucleo;
 
 	logger = log_create("cpu.log", "CPU",true, LOG_LEVEL_INFO);
 
+	//valida los parametros de entrada del main
+	if (argc != 2) {
+	    log_error_y_cerrar_logger(logger, "Uso: cpu config_path (faltan parametros de entrada)\n");
+		return EXIT_FAILURE;
+	}
+
     log_info(logger, "Inciando proceso CPU..");
 	levantarDatosDeConfiguracion(configCPU, argv[1]);
-//	crearConfiguracion(argv[1]);
 
 	//Conexión al nucleo
-	log_info(logger, "Conectando al nucleo. IP y puerto del núcleo: %s - %s", configCPU->nucleo_ip, configCPU->nucleo_puerto);
-	socket_nucleo = conectarseA(configCPU->nucleo_ip, configCPU->nucleo_puerto);
-	log_info(logger, "Conexion establecida con el nucleo. (Socket: %d)",socket_nucleo);
-	log_info(logger, "Realizando handshake con el nucleo.");
-	validarNucleo(socket_nucleo);
+	socket_nucleo = conectarAlNucleo(configCPU);
 
 	//Conexión al umc
-	log_info(logger, "Conectando a la umc. IP y puerto del núcleo: %s - %s", configCPU->umc_ip, configCPU->umc_puerto);
-	socket_umc = conectarseA(configCPU->umc_ip, configCPU->umc_puerto);
-	log_info(logger, "Conexion establecida con la umc. (Socket: %d)",socket_umc);
+	socket_umc = conectarAUMC(configCPU);
 
 	char message[PACKAGESIZE];
 	memset (message,'\0',PACKAGESIZE);
-	recibirMensajeNucleo(&message, socket_nucleo);
+	recibirPCB(message, socket_nucleo);
 	printf("recibido del nucleo: %s\n", message);
 
 	//Reenviar el msj recibido del nucleo a la UMC
 	enviarPaqueteAUMC(message, socket_umc);
 
 	//TODO - Ejecutar siguiente instrucción a partir del program counter del pcb
-//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
+	//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
 	//TODO - Después, eliminar el metadata_desde_literal de la cpu. Tiene que obtener el pcb del nucleo.
-
 
 	//Levanto un archivo ansisop de prueba
 	char* programa_ansisop;
@@ -74,7 +74,8 @@ int main(int argc,char *argv[]) {
 	int enviar = 1;
 	int status = 1;
 
-	/*while(enviar && status !=0){
+	/*
+	while(enviar && status !=0){
 	 	fgets(message, PACKAGESIZE, stdin);
 		if (!strcmp(message,"exit\n")) enviar = 0;
 		if (enviar) send(socket_umc, message, strlen(message) + 1, 0);
@@ -85,6 +86,7 @@ int main(int argc,char *argv[]) {
 		if (status != 0) printf("%s", message);
 	}*/
 
+	//Doy de baja la CPU, cierro las conexiones.
 	log_info(logger, "Cierro conexiones.",socket_nucleo);
 	cerrarConexionSocket(socket_nucleo);
 	cerrarConexionSocket(socket_umc);
@@ -94,12 +96,29 @@ int main(int argc,char *argv[]) {
 	return EXIT_SUCCESS;
 }
 
-void recibirMensajeNucleo(char* message, int socket_nucleo){
+/****************************************************************************************/
+/*                                   FUNCIONES CPU									    */
+/****************************************************************************************/
+void recibirPCB(char* message, int socket_nucleo){
+
+	//Recibo mensaje del nucleo.
+	//Primeros 4 bytes del id de la función (sacar de la definicion de los protocolos)
+
+	int header;
 
 	printf("voy a recibir mensaje de %d\n", socket_nucleo);
 	int status = 0;
-	//while(status == 0){
-	status = recv(socket_nucleo, message, PACKAGESIZE, 0);
+	while(status == 0){
+		status = recv(socket_nucleo, &header, sizeof(int), 0);
+
+		switch (header) {
+			case ENVIO_PCB:
+				printf("obtuve el pcb\n");
+				break;
+			default:
+				break;
+		}
+/*
 		if (status != 0){
 			printf("recibo mensaje de nucleo %d\n", status);
 			printf("recibi este mensaje: %s\n", message);
@@ -108,13 +127,12 @@ void recibirMensajeNucleo(char* message, int socket_nucleo){
 			sleep(1);
 			printf(".\n");
 		}
-
-	//}
+*/
+	}
 }
 
 void enviarPaqueteAUMC(char* message, int socket){
 	//Envio el archivo entero
-
 
 	int resultSend = send(socket, message, PACKAGESIZE, 0);
 	printf("resultado send %d, a socket %d \n",resultSend, socket);
@@ -136,10 +154,33 @@ bool validarParametrosDeConfiguracion(t_config* config){
 	return (	config_has_property(config, "NUCLEO_IP")
 			&&  config_has_property(config, "NUCLEO_PUERTO")
 			&& 	config_has_property(config, "UMC_IP")
-			&& 	config_has_property(config, "UMC_PUERTO"));
+			&& 	config_has_property(config, "UMC_PUERTO")
+			&& 	config_has_property(config, "CPU_ID"));
 }
 
-void validarNucleo(int nucleo_fd){
+int conectarAlNucleo(t_configuracion_cpu* configCPU){
+
+	//Conexión al nucleo
+	log_info(logger, "Conectando al nucleo. IP y puerto del núcleo: %s - %s", configCPU->nucleo_ip, configCPU->nucleo_puerto);
+	int socket_nucleo = conectarseA(configCPU->nucleo_ip, configCPU->nucleo_puerto);
+	log_info(logger, "Conexion establecida con el nucleo. (Socket: %d)",socket_nucleo);
+	log_info(logger, "Realizando handshake con el nucleo.");
+	handshakeNucleo(socket_nucleo);
+
+	return socket_nucleo;
+}
+
+int conectarAUMC(t_configuracion_cpu* configCPU){
+
+	log_info(logger, "Conectando a la umc. IP y puerto del núcleo: %s - %s", configCPU->umc_ip, configCPU->umc_puerto);
+	int socket_umc = conectarseA(configCPU->umc_ip, configCPU->umc_puerto);
+	log_info(logger, "Conexion establecida con la umc. (Socket: %d)",socket_umc);
+	handshakeUMC(socket_umc, *configCPU->cpu_id);
+
+	return socket_umc;
+}
+
+void handshakeNucleo(int nucleo_fd){
 
 	int msj_recibido;
 	int soy_cpu = 3000;
@@ -157,6 +198,33 @@ void validarNucleo(int nucleo_fd){
 	}
 }
 
+
+void handshakeUMC(int socket_umc, int cpu_id){
+
+	int mensaje;
+	int buffer[2];
+
+	printf("iniciando handshake con umc\n");
+	buffer[0] = SOY_CPU;
+	buffer[1] = cpu_id;
+
+	printf("soy cpu %d, cpu_id: %d", buffer[0], buffer[1]);
+
+	//Tengo que recibir el ID del nucleo = 1000
+	recv(socket_umc, &mensaje, sizeof(int), 0);
+	printf("mensaje recibido %d\n", mensaje);
+
+	send(socket_umc, &buffer, 2*sizeof(int), 0);
+
+	if(mensaje == SOY_UMC){
+		log_info(logger, "UMC validado.");
+		//Envio ID de la CPU según el protocolo
+	}else{
+		log_error(logger, "La UMC no pudo ser validada.");
+	    log_destroy(logger);
+		exit(0);
+	}
+}
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion){
 	t_puntero_instruccion inicio;
 	int offset;
@@ -177,17 +245,7 @@ void reciboPcbDeNucleo(){
 }
 
 void reciboMensaje(){
-	//Estructura para crear el header + piload
-	typedef struct{
-		int id;
-		int tamanio;
-	}t_header;
-
-	typedef struct{
-	  t_header header;
-	  char* paiload;
-	}t_package;
-
+	//Estructura para crear el header + paiload
 }
 
 
@@ -224,10 +282,134 @@ void levantarDatosDeConfiguracion(t_configuracion_cpu* configuracion, char* conf
 		memcpy(configuracion->umc_puerto, umc_puerto, strlen(umc_puerto));
 		configuracion->umc_puerto[strlen(umc_puerto)] = '\0';
 
+		int cpu_id = config_get_int_value(config,"CPU_ID");
+		configuracion->cpu_id = malloc(sizeof configuracion->cpu_id);
+		memcpy(configuracion->cpu_id, &cpu_id, sizeof(int));
+
 		config_destroy(config);
 	}else{
 	    log_error_y_cerrar_logger(logger, "Configuracion invalida.");
 	    config_destroy(config);
 		exit(EXIT_FAILURE);
 	}
+}
+
+
+/****************************************************************************************/
+/*                                PRIMITIVAS ANSISOP								    */
+/****************************************************************************************/
+static const int CONTENIDO_VARIABLE = 20;
+static const int POSICION_MEMORIA = 0x10;
+
+
+/*
+ * DEFINIR VARIABLE:
+ */
+//t_posicion socketes_definirVariable(t_nombre_variable identificador_variable);
+t_puntero socketes_definirVariable(t_nombre_variable variable) {
+
+	/*
+	 * Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable llamada identificador_variable y la registra en el Stack, retornando la posición del valor de esta nueva variable del stack.
+El valor de la variable queda indefinido: no deberá inicializarlo con ningún valor default.
+Esta función se invoca una vez por variable, a pesar de que este varias veces en una línea. Por ejemplo, evaluar variables a, b, c llamará tres veces a esta función con los parámetros a, b y c.
+*/
+
+	printf("INICIO DEFINIR_VARIABLE %c -------\n", variable);
+	printf("FIN DEFINIR_VARIABLE %c -------\n", variable);
+	return POSICION_MEMORIA;
+}
+
+//TODO: Cambiar t_puntero por t_posicion
+
+//t_posicion socketes_obtenerPosicionVariable(t_nombre_variable identificador_variable);
+t_puntero socketes_obtenerPosicionVariable(t_nombre_variable variable) {
+	printf("Obtener posicion de %c\n", variable);
+	return POSICION_MEMORIA;
+}
+
+//t_valor_variable socketes_dereferenciar(t_posicion direccion_variable);
+t_valor_variable socketes_dereferenciar(t_puntero puntero) {
+	printf("Dereferenciar %d y su valor es: %d\n", puntero, CONTENIDO_VARIABLE);
+	return CONTENIDO_VARIABLE;
+}
+//void socketes_asignar(t_posicion direccion_variable, t_valor_variable valor)
+void socketes_asignar(t_puntero puntero, t_valor_variable variable) {
+	printf("Asignando en %d el valor %d\n", puntero, variable);
+}
+
+//TODO: Cambiar parámetros que recibe y devuelve!
+
+//t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable);
+t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
+	t_valor_variable valor_variable;
+	printf("Obtener Valor Compartida\n");
+	return valor_variable;
+}
+
+//t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor)
+t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
+	t_valor_variable valor_variable;
+	printf("Asignar Valor Compartida\n");
+	return valor_variable;
+}
+
+/*
+ * Devuelve el número de la primer instrucción ejecutable de etiqueta y -1 en caso de error.
+ * t_puntero_instruccion irAlLabel(t_nombre_etiqueta etiqueta)
+*/
+
+//t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
+t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+	t_puntero_instruccion puntero_instruccion;
+	printf("Ir al Label\n");
+	return puntero_instruccion;
+}
+
+void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
+	printf("Llamar con retorno:\n");
+}
+
+//t_puntero_instruccion socketes_retornar(t_valor_variable retorno);
+t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
+	t_puntero_instruccion puntero_instruccion;
+	printf("Retornar\n");
+	return puntero_instruccion;
+}
+
+//int socketes_imprimir(t_valor_variable valor_mostrar);
+void socketes_imprimir(t_valor_variable valor_mostrar) {
+	int nro_entero = 17;
+	printf("Imprimir %d\n", valor_mostrar);
+//	return nro_entero;
+}
+
+//int socketes_imprimirTexto(char* texto);
+void socketes_imprimirTexto(char* texto) {
+	int nro_entero = 17;
+	printf("ImprimirTexto: %s", texto);
+	//return nro_entero;
+}
+
+//TODO: Modificar funciones!!
+
+//int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo);
+void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
+	int nro_entero = 17;
+	printf("Entrada Salida\n");
+	//return nro_entero;
+}
+
+//int socketes_wait(t_nombre_semaforo identificador_semaforo);
+void socketes_wait(t_nombre_semaforo identificador_semaforo){
+	int nro_entero = 17;
+	printf("Wait \n");
+	//return nro_entero;
+}
+
+//int socketes_signal(t_nombre_semaforo identificador_semaforo);
+void socketes_signal(t_nombre_semaforo identificador_semaforo){
+	int nro_entero = 17;
+	printf("Signal \n");
+
+	//return nro_entero;
 }
