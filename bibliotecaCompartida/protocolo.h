@@ -16,10 +16,12 @@
 
 //Mensajes de Consola
 #define SOY_CONSOLA 2000
-#define ENVIO_FUENTE 2001
+#define ENVIO_FUENTE 2010
 
 //Mensajes de Cpu
 #define SOY_CPU 3000
+#define ANSISOP_IMPRIMIR 3010
+#define ANSISOP_IMPRIMIR_TEXTO 3020
 
 //Mensajes de Umc
 #define SOY_UMC 4000
