@@ -22,17 +22,32 @@
 #include "commons/log.h"
 #include "commons/config.h"
 #include "generales.h"
+#include "protocolo.h"
+#include "socketCliente.h"
 
+
+/****************************************************************************************/
+/*                           DEFINICION DE ESTRUCTURAS								    */
+/****************************************************************************************/
 typedef struct {
 	char* nucleo_ip;
 	char* nucleo_puerto;
 }t_config_consola;
 
+/****************************************************************************************/
+/*                            CONFIGURACION Y CONEXIONES								*/
+/****************************************************************************************/
 void levantarDatosDeConfiguracion(t_config_consola* configConsola, char* config_path);
 bool validarParametrosDeConfiguracion();
-int conectarseA(char* ip, char* puerto);
 void handshakeConNucleo(int nucleo_fd);
+
+/****************************************************************************************/
+/*                                 FUNCIONES CONSOLA								    */
+/****************************************************************************************/
 FILE *abrirSource(char *path, int *source_size);
 void enviar_source(int nucleo_fd, FILE *source, int source_size);
+void imprimirValor(int socket_nucleo);
+void imprimirCadena(int socket_nucleo);
+
 
 #endif /* CONSOLA_H_ */
