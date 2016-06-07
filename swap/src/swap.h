@@ -32,7 +32,7 @@
 //bitMap
 	//Configuro el tamaño del BITMAP con los valores de configuración convertidos a bit
 
-	char bitarray[512];
+	char bitarray[12];
 	t_bitarray *bitMap;
 
 
@@ -67,4 +67,4 @@ void crearBitMap();
 bool hayEspacioContiguo(int pagina, int tamanio);
 int paginaDisponible(int pid,int tamanio);
 int  ubicacionEnSwap(int pid);
-char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion, char* archivoMapeado);
+char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog,char* archivoMapeado);
