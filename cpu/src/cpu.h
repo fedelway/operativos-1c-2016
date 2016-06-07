@@ -27,6 +27,7 @@
 #include "parser/metadata_program.h"
 #include "protocolo.h"
 
+
 /****************************************************************************************/
 /*                           DEFINICION DE ESTRUCTURAS								    */
 /****************************************************************************************/
@@ -45,17 +46,18 @@ typedef struct {
 /*                            CONFIGURACION Y CONEXIONES								*/
 /****************************************************************************************/
 void levantarDatosDeConfiguracion(t_configuracion_cpu* configuracion, char* config_path);
-int conectarAlNucleo(t_configuracion_cpu* configCPU);
-int conectarAUMC(t_configuracion_cpu* configCPU);
 bool validarParametrosDeConfiguracion(t_config*);
-void handshakeNucleo(int socket_nucleo);
-void handshakeUMC(int socket_umc, int cpu_id);
+void conectarAlNucleo(t_configuracion_cpu* configCPU);
+void conectarAUMC(t_configuracion_cpu* configCPU);
+void handshakeNucleo(void);
+void handshakeUMC(int cpu_id);
+
 
 /****************************************************************************************/
 /*                                   FUNCIONES CPU								        */
 /****************************************************************************************/
-void recibirPCB(char* message, int socket_nucleo);
-void enviarPaqueteAUMC(char* package, int socket);
+void recibirPCB(char* message);
+void enviarPaqueteAUMC(char* package);
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion);
 
 /****************************************************************************************/
@@ -70,7 +72,6 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar);
 t_puntero socketes_retornar(t_valor_variable retorno);
-//int socketes_imprimir(t_valor_variable valor_mostrar);  TODO: ver definiciones
 void socketes_imprimir(t_valor_variable valor_mostrar);
 //int socketes_imprimirTexto(char* texto); TODO: ver definiciones
 void socketes_imprimirTexto(char* texto);
