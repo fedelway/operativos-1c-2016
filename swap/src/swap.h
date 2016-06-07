@@ -15,8 +15,7 @@
 #include "commons/collections/list.h"
 #include "socketServidor.h"
 #include "commons/bitarray.h"
-//para trabajar con el mmap()
-#include <sys/mman.h>
+#include <sys/mman.h> //para trabajar con el mmap()
 #include <fcntl.h>
 
 
@@ -68,3 +67,5 @@ bool hayEspacioContiguo(int pagina, int tamanio);
 int paginaDisponible(int pid,int tamanio);
 int  ubicacionEnSwap(int pid);
 char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog,char* archivoMapeado);
+void leerUnaPagina(int pid,int pag,char* archivoMapeado);
+void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado);
