@@ -38,24 +38,21 @@ int main(int argc,char *argv[]) {
 	crearBitMap();
 	char* archivoMapeado = cargarArchivo();
 	inicializarArchivo(archivoMapeado);
-	//int pagina = paginaDisponible(1, 5);
+	//int pagina = paginaDisponible(1, 14);
 	//hayEspacioContiguo(1,10);
-	 //bool hayEspacioContiguo(int pagina, int tamanio)
-	char* resultadoCreacion; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
+	//bool hayEspacioContiguo(int pagina, int tamanio)
+
+	int disponible1 = paginaDisponible(1, 14);
+	printf("la pagina disponible para el primer programa es: %d \n", disponible1);
+
+	char* resultadoCreacion1; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
 	char* codigo_prog = "variable a, b";
-	char* resultadoDeCreacion = crearProgramaAnSISOP(1,12,resultadoCreacion,codigo_prog,archivoMapeado); //para probar que devuelve
-    printf("El resultado de la creación del programa es: %s", resultadoDeCreacion); // probado cuando no hay espacio tambien y funciona ok
-	/*
-	//pruebas para ver si funciona
-    nodo_proceso nodo = crearNodoDeProceso(1, 3, 1);
-	list_add(listaProcesos, crearNodoDeProceso(2, 3, 4));
-	list_add(listaProcesos, crearNodoDeProceso(1, 3, 1));
+	char* resultadoDeCreacionPrograma1 = crearProgramaAnSISOP(1,14,resultadoCreacion1,codigo_prog,archivoMapeado); //para probar que devuelve
+	printf("El resultado de la creación del programa %d es: %s \n",1, resultadoDeCreacionPrograma1); // probado cuando no hay espacio tambien y funciona ok
 
-	int swap;
-	swap = ubicacionEnSwap(2);
+	modificarPagina(1, "a + c", archivoMapeado);
 
-	printf("LA POSICION EN SWAP ES: %d. \n", swap );
-*/
+	//leerUnaPagina(1,1,archivoMapeado); AUN NO FUNCIONA
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -71,7 +68,7 @@ int main(int argc,char *argv[]) {
 
 	log_destroy(logger);
 
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 
 }
 
@@ -82,14 +79,14 @@ void recibirMensajeUMC(char* message, int socket_umc){
 	int status = 0;
 	//while(status == 0){
 	status = recv(socket_umc, message, PACKAGESIZE, 0);
-		if (status != 0){
-			printf("recibo mensaje de UMC %d\n", status);
-			printf("recibi este mensaje: %s\n", message);
-			status = 0;
-		}else{
-			sleep(1);
-			printf(".\n");
-		}
+	if (status != 0){
+		printf("recibo mensaje de UMC %d\n", status);
+		printf("recibi este mensaje: %s\n", message);
+		status = 0;
+	}else{
+		sleep(1);
+		printf(".\n");
+	}
 
 	//}
 }
@@ -106,8 +103,8 @@ void crearConfiguracion(char *config_path){
 
 
 	if (validarParametrosDeConfiguracion()){
-	 log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
-	 return;
+		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
+		return;
 	}else{
 		log_error(logger, "Configuración no válida");
 		log_destroy(logger);
@@ -128,35 +125,35 @@ bool validarParametrosDeConfiguracion(){
 
 int conectarPuertoDeEscucha2(char* puerto){
 
-    struct addrinfo hints, *serverInfo;
-    int result_getaddrinfo;
+	struct addrinfo hints, *serverInfo;
+	int result_getaddrinfo;
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC; 		// AF_INET or AF_INET6 to force version
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC; 		// AF_INET or AF_INET6 to force version
 	hints.ai_flags = AI_PASSIVE;		// Asigna el address del localhost: 127.0.0.1
 	hints.ai_socktype = SOCK_STREAM;	// Indica que usaremos el protocolo TCP
 
 	getaddrinfo(NULL, puerto, &hints, &serverInfo);
 
-    if ((result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo)) != 0) {
-        fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
-        return 2;
-    }
+	if ((result_getaddrinfo = getaddrinfo(NULL, puerto, &hints, &serverInfo)) != 0) {
+		fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
+		return 2;
+	}
 
-    //Obtengo un socket para que escuche las conexiones entrantes
+	//Obtengo un socket para que escuche las conexiones entrantes
 	int listeningSocket;
 	listeningSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
-    printf("Asocio al listennigSocket al puerto: %s.\n", puerto);
+	printf("Asocio al listennigSocket al puerto: %s.\n", puerto);
 
 	//Asocio al socket con el puerto para escuchar las conexiones en dicho puerto
 	bind(listeningSocket,serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo); // Libero serverInfo
 
-    printf("Listening....\n");
+	printf("Listening....\n");
 
 	//Le digo al socket que se quede escuchando
-    //TODO: Ver de donde sacamos el Backlog
+	//TODO: Ver de donde sacamos el Backlog
 	listen(listeningSocket, BACKLOG);		// IMPORTANTE: listen() es una syscall BLOQUEANTE.
 
 	//Si hay una conexion entrante, la acepta y crea un nuevo socket mediante el cual nos podamos comunicar con el cliente
@@ -179,11 +176,11 @@ int conectarPuertoDeEscucha2(char* puerto){
 
 	//Cuando el cliente cierra la conexion, recv() devolvera 0.
 	while (status != 0 && enviar !=0){
-	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
+		memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
 		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
 		if (status != 0) printf("%s", package);
 
-	//Envío un mensaje al cliente que se conectó
+		//Envío un mensaje al cliente que se conectó
 		fgets(package, PACKAGESIZE, stdin);
 		if (!strcmp(package,"exit\n")) enviar= 0;	// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
 		if (enviar) send(socketCliente, package, strlen(package) + 1, 0); 	// Solo envio si el usuario no quiere salir.
@@ -201,8 +198,8 @@ int conectarPuertoDeEscucha2(char* puerto){
 ///////// ver funcion handshake, parámetros addr y listeningSocket, ahora tiene una resolucion errónea//////////////////
 
 //Acá implementamos el handshake del lado del servidor
-  void handshakeServidor(int socket_umc){
-/*
+void handshakeServidor(int socket_umc){
+	/*
 		//Estructura para crear el header + piload
 		typedef struct{
 			int id;
@@ -254,36 +251,36 @@ int conectarPuertoDeEscucha2(char* puerto){
 			 printf("No se admite la conexión con éste socket");
 		 break;
 		}
-		*/
-  }
+	 */
+}
 
 // CREAR ALMACENAMIENTO SWAP
-  void crearParticionSwap(){
+void crearParticionSwap(){
 
-	  char comando[50];
-	  printf("Creando archivo Swap: \n");
-	  sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
-	  system(comando);
-  }
+	char comando[50];
+	printf("Creando archivo Swap: \n");
+	sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",cantidad_paginas*tamanio_pagina, nombre_swap);
+	system(comando);
+}
 
 //Utilizando mmap(), falta probar..
-  char* cargarArchivo(){
-	  int fd ;
+char* cargarArchivo(){
+	int fd ;
 
-	  if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
-		  perror("open");
-		  exit(1);
-	  }
+	if ((fd = open ("SWAP.DATA", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR)) == -1) {
+		perror("open");
+		exit(1);
+	}
 
-	  int pagesize = 10; // 512 CANT PAGINAS
-	  char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, fd, 0);
+	int pagesize = 512; // 512 CANT PAGINAS
+	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, fd, 0);
 
-	  if (accesoAMemoria == (caddr_t)(-1)) {
-		  perror("mmap");
-		  exit(1);
-	  }
-	  return accesoAMemoria;
-  }
+	if (accesoAMemoria == (caddr_t)(-1)) {
+		perror("mmap");
+		exit(1);
+	}
+	return accesoAMemoria;
+}
 
 //ACÁ INICIALIZO CON TODOS CARACTERES DEL ARCHIVO EN MEMORIA CON '\0'
 void inicializarArchivo(char* accesoAMemoria){
@@ -314,91 +311,129 @@ void actualizarBitMap(int pid, int pagina, int cant_paginas){
 }
 
 //CREO LOS NODOS DE LAS LISTAS
- static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap){
-	 	 nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
-		 proceso->pid = pid;
-		 proceso->cantidad_paginas = cantidad_paginas;
-		 proceso->posSwap = posSwap;
+static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap){
+	nodo_proceso *proceso=malloc(sizeof(nodo_proceso));
+	proceso->pid = pid;
+	proceso->cantidad_paginas = cantidad_paginas;
+	proceso->posSwap = posSwap;
 	return proceso;
- }
+}
 
- static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
-	 	 nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
-		 enEspera->pid = pid;
-		 enEspera->cantidad_paginas = cantidad_paginas;
+static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
+	nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
+	enEspera->pid = pid;
+	enEspera->cantidad_paginas = cantidad_paginas;
 	return enEspera;
- }
+}
 
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
- bool hayEspacioContiguo(int pagina, int tamanio){
-	 int i;
-	 //la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
-	 for(i = pagina; i < pagina+tamanio ;i++){
-		 if(bitarray_test_bit(bitMap, i) == 1){//== 0 libre == 1 ocupado
-			 return 0;
-		 }
-	 }
-	 return 1; // retorna v, hay espacio disponible
- }
+bool hayEspacioContiguo(int pagina, int tamanio){
+	int i;
+	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
+	for(i = pagina; i <= pagina+tamanio ;i++){
+		if(bitarray_test_bit(bitMap, i) == 1){//== 1 libre == 0 ocupado
+			return 1;
+		}
+	}
+	return 0; // retorna F, No hay espacio disponible
+}
 
- int paginaDisponible(int pid,int tamanio){
-		printf("pasó por pagina disponible \n");
-		int i;
-	 //Recorro todo el bitMap buscando espacios contiguos
-	 //devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
+int paginaDisponible(int pid,int tamanio){
+	printf("pasó por pagina disponible \n");
+	int i;
+	//Recorro todo el bitMap buscando espacios contiguos
+	//devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
 
-	 for(i = 0; i < tamanio_pagina*cantidad_paginas; i++ ){
-		 if(bitarray_test_bit(bitMap, i) == 0){// VER 0 FALSO
-			 if(hayEspacioContiguo(i,tamanio)){
-				 return i;
+	for(i = 0; i <= tamanio_pagina*cantidad_paginas; i++ ){
+		if(bitarray_test_bit(bitMap, i) == 1){// 1 VER, 0 FALSO
+			if(hayEspacioContiguo(i,tamanio)){
+				return i;
 
-			 }
-		 }
-	 }
-	  return -1;
- }
+			}
+		}
+	}
+	return -1;
+}
 
- //Recorrer la lista de procesos en swap y devolver (int) la ubicación
- int  ubicacionEnSwap(int pid){ //FUNCIONA
-	 int i;
-	 nodo_proceso *nodo;
-	 int cantidadNodos = listaProcesos->elements_count;
-	 for(i = 0; i < cantidadNodos; i++ ){
-		 nodo = list_get(listaProcesos, i);
-		 if(nodo->pid == pid){
-			 return nodo->posSwap;
-		 }
-	 }
-	 return -1;
- }
+//Recorrer la lista de procesos en swap y devolver (int) la ubicación // resuelto con list_find()!
+int  ubicacionEnSwap(int pid){ //FUNCIONA
+
+	bool ubicarPaginasPrograma(nodo_proceso nodoDeProceso){
+		return(nodoDeProceso.pid == pid);
+	}
+
+	nodo_proceso *nodoDeProceso = list_find(listaProcesos, (void*) ubicarPaginasPrograma);
+	if (nodoDeProceso != NULL){
+		int posSwap = nodoDeProceso->posSwap;
+		return posSwap;
+	}else{
+		return -1;
+		printf("No se encontró el proceso\n");
+	}
+}
+
+/* version anterior s/list_find
+	int i;
+	nodo_proceso *nodo;
+	int cantidadNodos = listaProcesos->elements_count;
+	for(i = 0; i < cantidadNodos; i++ ){
+		nodo = list_get(listaProcesos, i);
+		if(nodo->pid == pid){
+			return nodo->posSwap;
+		}
+	}
+	return -1;
+}
+*/
+
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
 char* crearProgramaAnSISOP(int pid,int cant_paginas,char* resultadoCreacion, char* codigo_prog, char* archivoMapeado){
 
 	int pagina = paginaDisponible(pid,cant_paginas);
 
-    if(pagina != -1){
-   	    memcpy(archivoMapeado, codigo_prog , cant_paginas);
-   	    list_add(listaProcesos, crearNodoDeProceso(pid, cant_paginas, pagina));
+	if(pagina != -1){
+		memcpy(archivoMapeado, codigo_prog , cant_paginas);
+		list_add(listaProcesos, crearNodoDeProceso(pid, cant_paginas, pagina));
+
 		actualizarBitMap(pid, pagina, cant_paginas);
-   	    resultadoCreacion = "Se ha creado correctamente el programa";
+		resultadoCreacion = "Se ha creado correctamente el programa\n";
 		printf("Codigo copiado al archivo Swap:  %s \n",archivoMapeado );
 
 	}else{
 		//En este caso no tenemos paginas disponibles para crear el programa
 		resultadoCreacion = "Inicializacion Cancelada";
 	}
-	 return resultadoCreacion;
+	return resultadoCreacion;
 }
-/*
-void leerUnaPágina(int pagina){
-	if(ubicacionEnSwap(pagina) == 1){
+//todo:corregir porque no mapea lo revuelto
+// FALTA archivoMapeado ponerlo COMO VAR GLOBAL( lo paso así para que funcione).
+void leerUnaPagina(int pid, int pagina,char* archivoMapeado){
+	printf("quiere leer pagina\n");
 
-		char* bytes = malloc()
+
+	if (ubicacionEnSwap(pid) == -1){
+		char *bytes = malloc(sizeof(char));
+		memcpy(&bytes, &archivoMapeado[ubicacionEnSwap(pid)], sizeof(char));
+		printf("El contenido de la página");//: %d es %c. \n",pagina, *bytes);
 	}else{
 
+	printf("No se encontro el contenido");
 	}
-
-
 }
 
-*/
+void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado){
+
+	printf("entra a modificar\n");
+	int posSwap = ubicacionEnSwap(pid);
+
+	archivoMapeado = malloc(posSwap + strlen(nuevoCodigo));
+
+	if (ubicacionEnSwap(pid) != -1){
+		memcpy(&archivoMapeado[posSwap], &nuevoCodigo, strlen(nuevoCodigo));
+		printf("la modificacion en la pagina n° %d es: %c", posSwap, *archivoMapeado);
+	}else{
+		printf("PAGINA NO ENCONTRADA EN SWAP");
+	}
+}
+
+
