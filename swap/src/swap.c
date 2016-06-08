@@ -15,11 +15,13 @@
 
 t_config* config;
 t_log* logger;
+char *archivoMapeado;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 int conectarPuertoDeEscucha2(char* puerto);
 void crearParticionSwap();
+
 
 int main(int argc,char *argv[]) {
 
@@ -34,23 +36,42 @@ int main(int argc,char *argv[]) {
 	listaEnEspera = list_create();
 
 	crearConfiguracion(argv[1]);
-	//crearParticionSwap();
+	crearParticionSwap();
 	crearBitMap();
-	char* archivoMapeado = cargarArchivo();
+	archivoMapeado = cargarArchivo();
 	inicializarArchivo(archivoMapeado);
-	//int pagina = paginaDisponible(1, 14);
-	//hayEspacioContiguo(1,10);
-	//bool hayEspacioContiguo(int pagina, int tamanio)
-
+/*
+	//prueba para crear 1° programa
 	int disponible1 = paginaDisponible(1, 14);
 	printf("la pagina disponible para el primer programa es: %d \n", disponible1);
 
 	char* resultadoCreacion1; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
-	char* codigo_prog = "variable a, b";
+	char* codigo_prog = "variables a,b";
 	char* resultadoDeCreacionPrograma1 = crearProgramaAnSISOP(1,14,resultadoCreacion1,codigo_prog,archivoMapeado); //para probar que devuelve
 	printf("El resultado de la creación del programa %d es: %s \n",1, resultadoDeCreacionPrograma1); // probado cuando no hay espacio tambien y funciona ok
 
-	modificarPagina(1, "a + c", archivoMapeado);
+
+
+	 //prueba para crear 2° programa
+	int disponible2 = paginaDisponible(2,11);
+	printf("la pagina disponible para el primer programa es: %d \n", disponible2);
+
+	char* resultadoCreacion2; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
+	char* codigo_prog2 = "int c,d,f;";
+	char* resultadoDeCreacionPrograma2 = crearProgramaAnSISOP(2,11,resultadoCreacion2,codigo_prog2,archivoMapeado); //para probar que devuelve
+	printf("El resultado de la creación del programa %d es: %s \n",2, resultadoDeCreacionPrograma2); // probado cuando no hay espacio tambien y funciona ok
+
+	 //prueba para crear 3° programa
+	int disponible3 = paginaDisponible(3, 8);
+	printf("la pagina disponible para el primer programa es: %d \n", disponible3);
+
+	char* resultadoCreacion3; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
+	char* codigo_prog3 = "char r;";
+	char* resultadoDeCreacionPrograma3 = crearProgramaAnSISOP(3,7,resultadoCreacion3,codigo_prog3,archivoMapeado); //para probar que devuelve
+	printf("El resultado de la creación del programa %d es: %s \n",3, resultadoDeCreacionPrograma3); // probado cuando no hay espacio tambien y funciona ok
+
+*/
+	//modificarPagina(1, "a + c", archivoMapeado);
 
 	//leerUnaPagina(1,1,archivoMapeado); AUN NO FUNCIONA
 
@@ -272,7 +293,7 @@ char* cargarArchivo(){
 		exit(1);
 	}
 
-	int pagesize = 512; // 512 CANT PAGINAS
+	int pagesize =tamanio_pagina*cantidad_paginas; // 512 CANT PAGINAS
 	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ| PROT_WRITE, MAP_SHARED, fd, 0);
 
 	if (accesoAMemoria == (caddr_t)(-1)) {
@@ -331,7 +352,7 @@ bool hayEspacioContiguo(int pagina, int tamanio){
 	int i;
 	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
 	for(i = pagina; i <= pagina+tamanio ;i++){
-		if(bitarray_test_bit(bitMap, i) == 1){//== 1 libre == 0 ocupado
+		if(bitarray_test_bit(bitMap, i) == 0){//== 0 libre == 1 ocupado
 			return 1;
 		}
 	}
@@ -345,7 +366,7 @@ int paginaDisponible(int pid,int tamanio){
 	//devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
 
 	for(i = 0; i <= tamanio_pagina*cantidad_paginas; i++ ){
-		if(bitarray_test_bit(bitMap, i) == 1){// 1 VER, 0 FALSO
+		if(bitarray_test_bit(bitMap, i) == 0){// 1 VER, 0 FALSO
 			if(hayEspacioContiguo(i,tamanio)){
 				return i;
 
@@ -390,14 +411,15 @@ int  ubicacionEnSwap(int pid){ //FUNCIONA
 char* crearProgramaAnSISOP(int pid,int cant_paginas,char* resultadoCreacion, char* codigo_prog, char* archivoMapeado){
 
 	int pagina = paginaDisponible(pid,cant_paginas);
-
 	if(pagina != -1){
-		memcpy(archivoMapeado, codigo_prog , cant_paginas);
+		//copia codigo_prog a archivoMapeado a partir de pagina*tamanio_pagina
+		memcpy(archivoMapeado + pagina*tamanio_pagina, codigo_prog , cant_paginas);
+		//memcpy(archivoMapeado + pagina*cant_paginas, &codigo_prog , cant_paginas);
 		list_add(listaProcesos, crearNodoDeProceso(pid, cant_paginas, pagina));
 
 		actualizarBitMap(pid, pagina, cant_paginas);
 		resultadoCreacion = "Se ha creado correctamente el programa\n";
-		printf("Codigo copiado al archivo Swap:  %s \n",archivoMapeado );
+		printf("Codigo copiado al archivo Swap:  %s \n",archivoMapeado + pagina*tamanio_pagina);
 
 	}else{
 		//En este caso no tenemos paginas disponibles para crear el programa
@@ -405,6 +427,7 @@ char* crearProgramaAnSISOP(int pid,int cant_paginas,char* resultadoCreacion, cha
 	}
 	return resultadoCreacion;
 }
+
 //todo:corregir porque no mapea lo revuelto
 // FALTA archivoMapeado ponerlo COMO VAR GLOBAL( lo paso así para que funcione).
 void leerUnaPagina(int pid, int pagina,char* archivoMapeado){
@@ -435,5 +458,23 @@ void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado){
 		printf("PAGINA NO ENCONTRADA EN SWAP");
 	}
 }
+/*
+bool hayFragmentacion(char* archivoMapeado){
+	int libre;
+	if(paginaDisponible(int pid,int tamanio) == -1){
+		libre == libre +1;
+		printf("sumo los espacios libres \n");
+		}
+//compactación al ingresar un programa, falta hacerlo dsp sin el pid y tamanio
+void verificarEspacio(char* archivoMapeado, char* bitMap, int pid, int tamanio){
+	//No hay espacio contiguo y hay espacio separado
+	if (paginaDisponible(pid, tamanio) == -1 && hayFragmentacionExterna(pid, tamanio)){
+		comenzarCompactacion();
+		}
+	}else{
+
+	}
+}
 
 
+*/

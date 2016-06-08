@@ -14,6 +14,7 @@
 #include "commons/log.h"
 #include "commons/collections/list.h"
 #include "socketServidor.h"
+#include "protocolo.h"
 #include "commons/bitarray.h"
 #include <sys/mman.h> //para trabajar con el mmap()
 #include <fcntl.h>
