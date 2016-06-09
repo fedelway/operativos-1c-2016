@@ -25,16 +25,18 @@
 #include "socketCliente.h"
 #include "socketServidor.h"
 #include "protocolo.h"
+#include "parser/parser.h"
+#include "parser/metadata_program.h"
 
 
 typedef struct{
-	int byte_inicio;
-	int long_instruccion;
+	int byte_inicio[10];
+	int long_instruccion[10];
 }t_indice_codigo;
 
 typedef struct{
-	int etiqueta;
-	int etiqueta_size;
+	char *etiquetas;
+	t_size etiquetas_size;
 }t_indice_etiquetas;
 
 typedef struct{
@@ -113,5 +115,8 @@ void enviarPaqueteACPU(char* package, int socket);
 void limpiarTerminados();
 void planificar();
 void moverDeNewA(int pid, t_queue *destino);
+
+void crearPCB(int source_size,char *source);
+void solicitarPaginasUMC(int source_size, char *buffer, char *source);
 
 #endif /* NUCLEO_H_ */

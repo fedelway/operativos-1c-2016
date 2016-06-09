@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 	validacionUMC(socket_umc);
 
 
-	trabajarConexionesSockets(&listen, &max_fd, cpu_fd, cons_fd);
+ 	trabajarConexionesSockets(&listen, &max_fd, cpu_fd, cons_fd);
 
 	return EXIT_SUCCESS;
 }
@@ -144,7 +144,6 @@ void validacionUMC(int socket_umc){
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
 	int i;
-	int codigoMensaje;
 	int recvPaquete;
 
 	//creo un set gral de sockets
@@ -186,11 +185,8 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 				}else{
 					//Recibo el mensaje
-					char package[1024];
-					int recvPaquete = recv(i,(void*) package, 5, 0);
-					printf("socket %d, recvPaquete %d, msj %s \n", i, recvPaquete, package);
+					int codMensaje = recibirMensaje(i);
 
-					//recvPaquete = recibirMensaje(i);
 					if (recvPaquete <= 0) {
 						// recibio 0 bytes, cierro la conexion y remuevo del set
 						close(i);
@@ -198,10 +194,10 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 						FD_CLR(i, &readyListen);
 					}
 					if(FD_ISSET(i, &cpu_fd_set)){
-						hacerAlgoCPU(package, i);
+						hacerAlgoCPU(codMensaje, i);
 					}
 					if(FD_ISSET(i, &cons_fd_set)){
-						hacerAlgoConsola(package, i);
+						hacerAlgoConsola(codMensaje, i);
 					}
 				}
 			}
@@ -214,12 +210,11 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 
 
 int recibirMensaje(int socket){
-	char package[1024];
-	int recvPaquete = recv(socket,(void*) package, 5, 0);
-	printf("socket %d, recvPaquete %d, msj %s \n", socket, recvPaquete, package);
 
-	return recvPaquete;
-
+	int codMensaje = 0;
+	int recvPaquete = recv(socket, &codMensaje, sizeof(int), 0);
+	printf("socket %d, recvPaquete %d, msj %d \n", socket, recvPaquete, codMensaje);
+	return codMensaje;
 }
 
 
@@ -352,6 +347,8 @@ void hacerAlgoCPU(int codigoMensaje, int fd){
 
 void hacerAlgoConsola(int codigoMensaje, int fd){
 
+	printf("codigoMensaje%d\n", codigoMensaje);
+
 	switch(codigoMensaje){
 
 	case ENVIO_FUENTE:
@@ -392,11 +389,13 @@ void moverDeNewA(int pid, t_queue *destino){
 }
 
 void iniciarNuevaConsola (int fd){
-	int cant_recibida = 0;
-	int cant_enviada = 0;
-	int source_size;
+
+	t_pcb *pcb;
+
+	//recibo archivo de Consola
 	char *buffer, *source;
-	int mensaje;
+	int source_size = 0;
+	int cant_recibida = 0;
 	int aux;
 
 	recv(fd, &source_size, sizeof(int), 0);
@@ -418,18 +417,61 @@ void iniciarNuevaConsola (int fd){
 	source = buffer;
 
 	source_size++;//Porque le agregue el \0
-
 	printf("%s\n", source);
 
+	//Creo la estructura del PCB
+	crearPCB(source_size, source);
+
+	//solicito paginas necesarias a UMC
+	solicitarPaginasUMC(source_size, buffer, source);
+
+	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
+	list_add(&new, pcb);
+
+	//Libero la memoria
+	free(buffer);
+	free(source);
+
+}
+
+
+
+void crearPCB(int source_size,char *source){
 	//Creo el PCB
-	t_pcb *pcb;
+	t_pcb * pcb;
+	pcb = malloc(sizeof(t_pcb));
 
-	pcb = malloc(sizeof(pcb));
-
+	pcb->pid = ++max_pid;
 	pcb->PC = 0;
-	pcb->pid = max_pid + 1;
-	max_pid++;
+	pcb->cant_pag = source_size;
 
+	t_metadata_program* metadata;
+	metadata = metadata_desde_literal(source);
+
+	t_indice_codigo * indiceCodigo;
+	t_indice_etiquetas * indiceEtiquetas;
+	int i;
+
+	for(i=0; i < metadata->instrucciones_size; i++){
+		t_intructions instr = metadata->instrucciones_serializado[i];
+		indiceCodigo->byte_inicio[i] = instr.start;
+		indiceCodigo->long_instruccion[i] = instr.offset;
+	}
+
+/*
+	indiceEtiquetas->etiquetas = (char*)malloc(sizeof(char)*metadata->etiquetas_size);
+	memcpy(indiceEtiquetas->etiquetas, metadata->etiquetas, metadata->etiquetas_size);
+
+	indiceEtiquetas->etiquetas_size = metadata->etiquetas_size;
+*/
+
+}
+
+void solicitarPaginasUMC(int source_size, char *buffer, char *source){
+
+	int mensaje;
+	int cant_enviada = 0;
+	int aux;
 	//Pido paginas para almacenar el codigo y el stack
 	mensaje = INICIALIZAR_PROGRAMA;
 	//Armo el paquete a enviar
@@ -459,13 +501,9 @@ void iniciarNuevaConsola (int fd){
 	}
 	printf("Archivo enviado satisfactoriamente.\n");
 
-	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
-	list_add(&new, pcb);
-
-	//Libero la memoria
-	free(buffer);
-	free(source);
 }
+
+
 
 void procesoMensajeRecibidoConsola(char *package, int socket){
 	printf("Mensaje recibido Consola: %s\n",package);
