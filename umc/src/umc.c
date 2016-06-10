@@ -430,12 +430,27 @@ void inicializarPrograma(){
 	if( enviarCodigoASwap(source,source_size) == -1 ){
 		//Error en envio de archivo, aviso a nucleo que termine el programa.
 		terminarPrograma(pid);
+
+		free(programa);
+		free(buffer);
+		free(source);
+
+		return;
 	}
+
+	//Archivo enviado exitosamente, le doy el ok a nucleo
+	int msj[2];
+
+	msj[0] = ACEPTO_PROGRAMA;
+	msj[1] = pid;
+
+	send(nucleo_fd, &msj, 2*sizeof(int),0);
 
 	//Libero la memoria
 	free(programa);
 	free(buffer);
 	free(source);
+	return;
 }
 
 int enviarCodigoASwap(char *source, int source_size){
