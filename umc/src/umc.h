@@ -73,6 +73,7 @@ char *memoria;
 
 //Mutexes
 pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_listaProgramas = PTHREAD_MUTEX_INITIALIZER;
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
@@ -100,6 +101,9 @@ int recibirPagina(int pag, int pid); //Devuelve el frame en donde escribio la pa
 void algoritmoClock(t_prog *programa);
 int frameLibre();
 int min(int a, int b);
-
+void leerParaCpu(int cpu_fd);
+void escribirParaCpu(int cpu_fd);
+t_prog *buscarPrograma(int pid);
+int sendAll(int fd, void *cosa, int size, int flags);
 
 #endif /* UMC_H_ */

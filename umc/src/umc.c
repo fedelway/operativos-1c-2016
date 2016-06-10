@@ -424,7 +424,9 @@ void inicializarPrograma(){
 	programa->timer = 0;
 	programa->pag_en_memoria = paginas_ocupadas;
 
+	pthread_mutex_lock(&mutex_listaProgramas);
 	list_add(programas, programa);
+	pthread_mutex_unlock(&mutex_listaProgramas);
 
 	//Le mando a swap el archivo para que lo guarde
 	if( enviarCodigoASwap(source,source_size) == -1 ){
@@ -794,11 +796,66 @@ void trabajarCpu(int cpu_listen_fd){
 
 		switch(msj_recibido){
 
+			case LEER:
+				leerParaCpu(cpu_fd);
+				break;
+
+			case ESCRIBIR:
+				escribirParaCpu(cpu_fd);
+				break;
 		}
 	}
 
 }
 
+void leerParaCpu(int cpu_fd){
+
+	int pag, offset, size, pid;
+
+	//recibo todos los datos
+	recv(cpu_fd, &pag, sizeof(int),0);
+	recv(cpu_fd, &offset, sizeof(int),0);
+	recv(cpu_fd, &size, sizeof(int),0);
+	recv(cpu_fd, &pid, sizeof(int),0);
+
+	//busco el programa segun el pid
+	t_prog *programa = buscarPrograma(pid);
+
+	char *resultado;
+	leerEnMemoria(resultado, pag, offset, size, programa);
+	//TODO:terminar el programa si esto da -1
+
+	//Ya tengo lo que se necesitaba leer en resultado, lo envio.
+	if( sendAll(cpu_fd, resultado, size, 0) == -1){
+		printf("Error en el envio de la lectura solicitada\n");
+	}
+
+	return;
+}
+
+void escribirParaCpu(int cpu_fd){
+
+	int pag, offset, size, pid;
+	char *buffer;
+
+	recv(cpu_fd, &pag, sizeof(int),0);
+	recv(cpu_fd, &offset, sizeof(int),0);
+	recv(cpu_fd, &size, sizeof(int),0);
+	recv(cpu_fd, &pid, sizeof(int),0);
+
+	if( recvAll(cpu_fd, buffer, size, 0) == -1){
+		printf("Error al recibir la solicitud.\n");
+	}
+
+	t_prog *programa = buscarPrograma(pid);
+
+	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
+		printf("Error en la escritura en memoria.\n");
+	}
+
+	//TODO: enviar la confirmacion de que se escribio ok
+	return;
+}
 int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 
 	int soy_umc = SOY_UMC;
@@ -922,6 +979,7 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 		t_prog *programa_a_modificar = list_find(programas, igualPid);
 
 		programa_a_modificar->paginas[pag].modificado = true;
+		//TODO:Cambiar esto por buscarPrograma
 	}
 	return;
 }
@@ -938,8 +996,60 @@ void algoritmoClock(t_prog *programa){
 	}
 }
 
+t_prog *buscarPrograma(int pid){
+
+	bool igualPid(t_prog *elemento){
+		return elemento->pid == pid;
+	}
+
+	pthread_mutex_lock(&mutex_listaProgramas);
+	t_prog *programa_a_buscar = list_find(programas,igualPid);
+	pthread_mutex_unlock(&mutex_listaProgramas);
+
+	return programa_a_buscar;
+}
+
 int min(int a, int b){
 	if(a>=b){
 		return a;
 	}else return b;
+}
+
+int sendAll(int fd, void *cosa, int size, int flags){
+
+	int cant_enviada = 0;
+	int aux;
+
+	while(cant_enviada < size){
+
+		aux = send(fd, cosa + cant_enviada, size - cant_enviada, flags);
+
+		if(aux == -1){
+			return -1;
+		}
+		cant_enviada += aux;
+	}
+
+	//Ya envie correctamente
+	return 0;
+}
+
+int recvAll(int fd, char *buffer, int size, int flags){
+
+	buffer = malloc(size);
+
+	int cant_recibida = 0;
+	int aux;
+
+	while(cant_recibida < size){
+
+		aux = recv(fd, buffer + cant_recibida, size - cant_recibida, flags);
+
+		if(aux == -1){
+			return -1;
+		}
+		cant_recibida += aux;
+	}
+
+	return 0;
 }
