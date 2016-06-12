@@ -856,9 +856,10 @@ void escribirParaCpu(int cpu_fd){
 	//TODO: enviar la confirmacion de que se escribio ok
 	return;
 }
+
 int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 
-	int soy_umc = SOY_UMC;
+	int buffer[2];
 	int cpu_fd;
 	int msj_recibido;
 	struct sockaddr_in addr; // Para recibir nuevas conexiones
@@ -868,8 +869,11 @@ int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 
 	printf("Se ha conectado una nueva cpu.\n");
 
+	buffer[0] = SOY_UMC;
+	buffer[1] = frame_size;
+
 	//Hago el handshake
-	send(cpu_fd,&soy_umc,sizeof(int),0);
+	send(cpu_fd, &buffer, 2*sizeof(int),0); //Envio codMensaje y tamaño de pagina
 	recv(cpu_fd,&msj_recibido,sizeof(int),0);
 	recv(cpu_fd, cpu_num,sizeof(int),0);
 

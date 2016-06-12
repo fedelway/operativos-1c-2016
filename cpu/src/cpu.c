@@ -11,6 +11,7 @@
 #include "cpu.h"
 
 t_log* logger;
+int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
 
 /****************************************************************************************/
@@ -39,7 +40,7 @@ int main(int argc,char *argv[]) {
 
 	char message[PACKAGESIZE];
 	memset (message,'\0',PACKAGESIZE);
-	recibirPCB(message);
+	//recibirPCB(message);
 	printf("recibido del nucleo: %s\n", message);
 
 	//Reenviar el msj recibido del nucleo a la UMC
@@ -184,11 +185,14 @@ void handshakeNucleo(){
 	int msj_recibido;
 	int soy_cpu = 3000;
 
+
+	log_info(logger, "Iniciando Handshake con el Nucleo");
 	//Tengo que recibir el ID del nucleo = 1000
 	recv(socket_nucleo, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == 1000){
-		log_info(logger, "Nucleo validado.");
+		recv(socket_nucleo, &quantum, sizeof(int), 0);
+		log_info(logger, "Nucleo validado. Quantum recibido: %d",quantum);
 		send(socket_nucleo, &soy_cpu, sizeof(int), 0); //Envio ID de la CPU
 	}else{
 		log_error(logger, "El nucleo no pudo ser validado.");
@@ -203,21 +207,22 @@ void handshakeUMC(int cpu_id){
 	int mensaje;
 	int buffer[2];
 
-	printf("iniciando handshake con umc\n");
+	log_info(logger, "Iniciando Handshake con la UMC");
 	buffer[0] = SOY_CPU;
 	buffer[1] = cpu_id;
 
-	printf("soy cpu %d, cpu_id: %d", buffer[0], buffer[1]);
-
 	//Tengo que recibir el ID del nucleo = 1000
 	recv(socket_umc, &mensaje, sizeof(int), 0);
+
 	printf("mensaje recibido %d\n", mensaje);
 
 	send(socket_umc, &buffer, 2*sizeof(int), 0);
 
 	if(mensaje == SOY_UMC){
-		log_info(logger, "UMC validado.");
 		//Envio ID de la CPU según el protocolo
+		recv(socket_umc, &tamanio_pagina, sizeof(int), 0);
+		log_info(logger, "UMC validado. Tamaño de página recibido: %d",tamanio_pagina);
+		printf("Tamaño de página recibido %d\n", tamanio_pagina);
 	}else{
 		log_error(logger, "La UMC no pudo ser validada.");
 	    log_destroy(logger);
@@ -248,16 +253,6 @@ void recibirPCB(char* message){
 				printf("obtuve otro id %d\n", header);
 				break;
 		}
-/*
-		if (status != 0){
-			printf("recibo mensaje de nucleo %d\n", status);
-			printf("recibi este mensaje: %s\n", message);
-			status = 0;
-		}else{
-			sleep(1);
-			printf(".\n");
-		}
-*/
 	}
 }
 
@@ -337,9 +332,25 @@ t_valor_variable socketes_dereferenciar(t_puntero puntero) {
 	printf("Dereferenciar %d y su valor es: %d\n", puntero, CONTENIDO_VARIABLE);
 	return CONTENIDO_VARIABLE;
 }
-//void socketes_asignar(t_posicion direccion_variable, t_valor_variable valor)
-void socketes_asignar(t_puntero puntero, t_valor_variable variable) {
-	printf("Asignando en %d el valor %d\n", puntero, variable);
+
+/*
+ *  FUNCION     : Copia un valor en la variable ubicada en direccion_variable.
+ *  Recibe      : t_posicion direccion_variable, t_valor_variable valor
+ *  Devuelve    : void
+ */
+void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
+	//Le solicito la página a la umc.
+	//A partir de la direccion_variable, obtengo el número de página y el offset
+	//Hago un memcpy del valor desde el offset de la página hasta un size de 4 bytes.
+	printf("ANSISOP ------- Ejecuto asignar: en la direccion %d, el valor %d ----\n", direccion_variable, valor);
+
+	//Calculo la página y el offset a partir de dirección_variable
+/*
+	int nroPagina, offset;
+	nroPagina = direccion_variable
+		(n° de pagina * tamaño de pagina) + offset;
+*/
+
 }
 
 //TODO: Cambiar parámetros que recibe y devuelve!
@@ -388,7 +399,7 @@ t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
  */
 void socketes_imprimir(t_valor_variable valor_mostrar) {
 
-	printf("AnSisop - Ejecuto Imprimir: %d\n", valor_mostrar);
+	printf("ANSISOP ------- Ejecuto Imprimir: %d ----\n", valor_mostrar);
 
 	int buffer[2];
 
@@ -407,7 +418,7 @@ void socketes_imprimir(t_valor_variable valor_mostrar) {
  */
 void socketes_imprimirTexto(char* texto) {
 
-	printf("AnSisop - Ejecuto ImprimirTexto: %s\n", texto);
+	printf("ANSISOP ------- Ejecuto ImprimirTexto: %s ----\n", texto);
 
 	printf("Envio mensaje imprimir al Núcleo\n");
 	int id_mensaje = ANSISOP_IMPRIMIR_TEXTO;

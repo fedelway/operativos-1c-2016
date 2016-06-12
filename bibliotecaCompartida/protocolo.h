@@ -11,7 +11,7 @@
 //Mensajes de nucleo
 #define SOY_NUCLEO 1000
 #define INICIALIZAR_PROGRAMA 1010
-#define FIN_PROGRAMA 1020
+#define FINALIZAR_PROGRAMA 1020
 #define ENVIO_PCB 1030
 
 //Mensajes de Consola
