@@ -43,11 +43,6 @@ int conectarPuertoDeEscucha(char* puerto){
 	//El listennigSocket lo seguimos usando para escuchar las conexiones entrantes.
 	//Nota TODO: Para que el listenningSocket vuelva a esperar conexiones, necesitariamos volver a decirle que escuche, con listen();
 
-	struct sockaddr_in addr; // addr contien los datos de la conexion del cliente.
-	socklen_t addrlen = sizeof(addr);
-
-	//int socketCliente = accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
-
 	//Ya estamos listos para recibir paquetes de nuestro cliente...
 	//Vamos a ESPERAR (ergo, funcion bloqueante) que nos manden los paquetes, y los imprimiremos por pantalla.
 
@@ -58,21 +53,12 @@ int conectarPuertoDeEscucha(char* puerto){
 
 	return listeningSocket;
 }
+//retorna el socket cliente (resultado del accept)
+int aceptarConexion(int socket_escucha){
 
-/*
-	//Cuando el cliente cierra la conexion, recv() devolvera 0.
-	while (status != 0){
-	    memset (package,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
-		status = recv(socketCliente, (void*) package, PACKAGESIZE, 0);
-		if (status != 0) printf("%s", package);
-	}
+	struct sockaddr_in addr; // addr contien los datos de la conexion del cliente.
+	socklen_t addrlen = sizeof(addr);
 
-	printf("Cliente se ha desconectado. Finalizo todas las conexiones.\n");
-
-	//Al terminar el intercambio de paquetes, cerramos todas las conexiones.
-	close(socketCliente);
-	close(listeningSocket);
-
-	return 0;
+	int socket_cliente = accept(socket_escucha, (struct sockaddr *) &addr, &addrlen);
+	return socket_cliente;
 }
-*/

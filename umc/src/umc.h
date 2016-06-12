@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include "commons/log.h"
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -55,6 +56,7 @@ typedef struct{
 }t_tlb;
 
 //Variables globales
+t_log* logger;
 t_config *config;
 int swap_fd; //Lo hago global porque vamos a laburar con hilos. Esto no se sincroniza porque es solo lectura.
 int nucleo_fd;
@@ -65,6 +67,7 @@ int fpp; //Frames por programa
 int stack_size;
 int timer_reset_mem;
 t_tlb cache_tlb;
+
 
 t_list *programas;
 
@@ -77,6 +80,7 @@ pthread_mutex_t mutex_listaProgramas = PTHREAD_MUTEX_INITIALIZER;
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
+void handshakeSWAP();
 void recibirMensajeCPU(char* message, int socket_CPU);
 void enviarPaqueteASwap(char* message, int socket);
 int framesDisponibles();

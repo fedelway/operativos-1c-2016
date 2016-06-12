@@ -19,9 +19,9 @@
 #include <sys/mman.h> //para trabajar con el mmap()
 #include <fcntl.h>
 
+int socket_swap;
 
 
-#endif /* SWAP_H_ */
 //parámetros de configuración
     char* puerto_escucha;
 	char* nombre_swap;
@@ -54,7 +54,11 @@
 t_list *listaProcesos;
 t_list *listaEnEspera;
 
+// VARIABLES GLOBALES
+int socket_escucha,socket_umc;
 
+void handshakeUMC();
+int aceptarConexion(int puerto);
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
 void recibirMensajeUMC(char* message, int socket_umc);
@@ -70,3 +74,8 @@ int  ubicacionEnSwap(int pid);
 char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog,char* archivoMapeado);
 void leerUnaPagina(int pid,int pag,char* archivoMapeado);
 void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado);
+int espaciosLibres(int cantidad);
+bool hayFragmentacion(int pid, int tamanio);
+
+
+#endif /* SWAP_H_ */

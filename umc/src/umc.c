@@ -19,6 +19,7 @@ int main(int argc,char *argv[]) {
 	char *swap_ip;
 	char *swap_puerto;
 	int max_fd = 0;
+	logger = log_create("umc.log", "UMC",true, LOG_LEVEL_INFO);
 
 	if(argc != 2){
 		fprintf(stderr,"uso: umc config_path\n");
@@ -30,7 +31,8 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
- 	//swap_fd = conectarseA(swap_ip, swap_puerto);
+ 	swap_fd = conectarseA(swap_ip, swap_puerto);
+ 	handshakeSWAP();
 
 	//conexion a cpu
 	char* cpu_puerto;
@@ -122,52 +124,6 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "TIMER_RESET");
 }
 
-/*int conectarseA(char* ip, char* puerto){
-
-    struct addrinfo hints, *serverInfo;
-	int result_getaddrinfo;
-	int socket_conexion;
-
-	memset(&hints, '\0', sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-
-	result_getaddrinfo = getaddrinfo(ip, puerto, &hints, &serverInfo);
-
-	if(result_getaddrinfo != 0){
-		fprintf(stderr, "error: getaddrinfo: %s\n", gai_strerror(result_getaddrinfo));
-		return 2;
-	}
-
-	socket_conexion = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-
-	if( connect(socket_conexion, serverInfo->ai_addr, serverInfo->ai_addrlen) == -1){
-		printf("Fallo al conectar\n");
-		exit(1);
-	}
-
-	int status =1;
-	int enviar = 1;
-	char message[PACKAGESIZE];
-
-	printf("Conectado al servidor. Bienvenido al sistema, ya puede enviar mensajes. Escriba 'exit' para salir\n");
-
-	while(enviar && status !=0){
-	 	fgets(message, PACKAGESIZE, stdin);			// Lee una linea en el stdin (lo que escribimos en la consola) hasta encontrar un \n (y lo incluye) o llegar a PACKAGESIZE.
-		if (!strcmp(message,"exit\n")) enviar = 0;			// Chequeo que el usuario no quiera salir
-		if (enviar) send(socket_conexion, message, strlen(message) + 1, 0); 	// Solo envio si el usuario no quiere salir.
-
-		//Recibo mensajes del servidor
-		memset (message,'\0',PACKAGESIZE); //Lleno de '\0' el package, para que no me muestre basura
-		status = recv(socket_conexion, (void*) message, PACKAGESIZE, 0);
-		if (status != 0) printf("%s", message);
-
-	}
-	close(socket_conexion);
-
-	return 0;
-}*/
-
 void recibirMensajeCPU(char* message, int socket_CPU){
 
 	printf("voy a recibir mensaje de %d\n", socket_CPU);
@@ -200,58 +156,28 @@ void enviarPaqueteASwap(char* message, int socket){
 	}
 }
 
-void handshakeServidor(int socket_swap){
+void handshakeSWAP(){
 
-		//Estructura para crear el header + piload
-		typedef struct{
-			int id;
-			int tamanio;
-		}t_header;
+	int mensaje;
+	int soy_umc;
 
-		typedef struct{
-		  t_header header;
-		  char* paiload;
-		}package;
+	log_info(logger, "Iniciando Handshake con la SWAP");
+	soy_umc = SOY_UMC;
 
+	//Tengo que recibir el ID del swap
+	recv(swap_fd, &mensaje, sizeof(int), 0);
+	printf("mensaje recibido %d\n", mensaje);
 
-		//seteo el mensaje que le envío a la swap para que ésta reciba el header.id=2 y haga desde su proceso el handshake
-		package mensajeAEnviar;
-		mensajeAEnviar.header.id = 5020 ;
-		mensajeAEnviar.header.tamanio = 0;
-		mensajeAEnviar.paiload = "\0";
+	send(swap_fd, &soy_umc, sizeof(int), 0);
 
-		package mensajeARecibir;
-		mensajeARecibir.header.id = 4020;
-		mensajeARecibir.header.tamanio = 0;
-		mensajeARecibir.paiload = "\0";
-
-		recv(socket_swap, &mensajeARecibir, sizeof(mensajeARecibir) , 0);
-
-		switch(mensajeARecibir.header.id){
-
-		 case 1000:
-			 // Procesa ok
-			 printf("OK\n");
-		 break;
-
-		 case 4020:
-			 //Handshake servidor
-			 printf("No hace nada porque está reservado para el servidor\n");
-	     break;
-
-		 case 5020:
-			 //Envio de Handshake Cliente
-			printf("Conectado a swap.\n");
-			memset(mensajeAEnviar.paiload,'\0', mensajeAEnviar.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
-			recv(socket_swap, mensajeARecibir.paiload, mensajeARecibir.header.tamanio , 0);
-
-			send(socket_swap, &mensajeAEnviar, sizeof(mensajeAEnviar), 0);
-		 break;
-
-		 default:
-			 printf("No se admite la conexión con éste socket");
-		 break;
-		}
+	if(mensaje == SOY_SWAP){
+		log_info(logger, "SWAP validado.");
+		printf("Se ha validado correctamente la SWAP");
+	}else{
+		log_error(logger, "La SWAP no pudo ser validada.");
+	    log_destroy(logger);
+		exit(0);
+	}
 }
 
 void inicializarMemoria(){

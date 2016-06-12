@@ -77,13 +77,10 @@ int main(int argc,char *argv[]) {
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
-	conectarPuertoDeEscucha2(puerto_escucha);
+	socket_escucha = conectarPuertoDeEscucha(puerto_escucha);
+	socket_umc = aceptarConexion(socket_escucha);
+	handshakeUMC();
 
-	//conexion a umc
-	char* umc_puerto;
-	umc_puerto = config_get_string_value(config,"PUERTO");
-	printf("Mi puerto escucha es: %s", umc_puerto);
-	int socket_umc = conectarPuertoDeEscucha(umc_puerto);
 	recibirMensajeUMC(message,socket_umc);
 
 
@@ -108,8 +105,6 @@ void recibirMensajeUMC(char* message, int socket_umc){
 		sleep(1);
 		printf(".\n");
 	}
-
-	//}
 }
 
 void crearConfiguracion(char *config_path){
@@ -216,63 +211,26 @@ int conectarPuertoDeEscucha2(char* puerto){
 
 	return 0;
 }
-///////// ver funcion handshake, parámetros addr y listeningSocket, ahora tiene una resolucion errónea//////////////////
 
 //Acá implementamos el handshake del lado del servidor
-void handshakeServidor(int socket_umc){
-	/*
-		//Estructura para crear el header + piload
-		typedef struct{
-			int id;
-			int tamanio;
-		}t_header;
+void handshakeUMC(){
 
-		typedef struct{
-		  t_header header;
-		  char* paiload;
-		}package;
+	int msj_recibido;
+	int soy_swap = SOY_SWAP;
 
-	   socket_umc= accept(listeningSocket, (struct sockaddr *) &addr, &addrlen);
+	log_info(logger, "Iniciando Handshake con la UMC");
 
-		//seteo el mensaje que le envío a la umc para que ésta reciba el header.id=2 y haga desde su proceso el handshake
-		package mensajeAEnviar;
-		mensajeAEnviar.header.id = 5020 ;
-		mensajeAEnviar.header.tamanio = 0;
-		mensajeAEnviar.paiload = "\0";
+	send(socket_umc, &soy_swap, sizeof(int), 0);
+	recv(socket_umc, &msj_recibido, sizeof(int), 0);
 
-		package mensajeARecibir;
-		mensajeARecibir.header.id = 4020;
-		mensajeARecibir.header.tamanio = 0;
-		mensajeARecibir.paiload = "\0";
-        //Falta revisar si el segundo parámetro coincide con el tipo de la funcion send()
-		send(socket_umc, &mensajeAEnviar, sizeof(mensajeAEnviar), 0);
-		recv(socket_umc, &mensajeARecibir, sizeof(mensajeARecibir), 0);
-
-        // Acá hay que ver si cambiamos el nombre del mensaje por package, tengo la duda de si toma el mensaje seteado del send() anterior
-		switch(mensajeARecibir.header.id){
-
-		 case 1000:
-			 // Procesa ok
-			 printf("OK\n");
-		 break;
-
-		 case 4020:
-			 //Respuesta de Handshake servidor
-			 	printf("Conectado a UMC.\n");
-			 	memset(mensajeARecibir.paiload,'\0', mensajeARecibir.header.tamanio); //Lleno de '\0' el package, para que no me muestre basura
-			    recv(socketCliente, mensajeARecibir.paiload, mensajeARecibir.header.tamanio , 0);
-	     break;
-
-		 case 5020:
-			 //Handshake cliente
-			 printf("No hace nada porque está reservado para el cliente\n");
-		 break;
-
-		 default:
-			 printf("No se admite la conexión con éste socket");
-		 break;
-		}
-	 */
+	if(msj_recibido == SOY_UMC){
+		log_info(logger, "UMC validado.");
+		printf("Se ha validado correctamente la UMC. \n");
+	}else{
+		log_error(logger, "La UMC no pudo ser validada.");
+		log_destroy(logger);
+		exit(0);
+	}
 }
 
 // CREAR ALMACENAMIENTO SWAP
@@ -458,23 +416,35 @@ void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado){
 		printf("PAGINA NO ENCONTRADA EN SWAP");
 	}
 }
-/*
-bool hayFragmentacion(char* archivoMapeado){
-	int libre;
-	if(paginaDisponible(int pid,int tamanio) == -1){
-		libre == libre +1;
-		printf("sumo los espacios libres \n");
-		}
-//compactación al ingresar un programa, falta hacerlo dsp sin el pid y tamanio
-void verificarEspacio(char* archivoMapeado, char* bitMap, int pid, int tamanio){
-	//No hay espacio contiguo y hay espacio separado
-	if (paginaDisponible(pid, tamanio) == -1 && hayFragmentacionExterna(pid, tamanio)){
-		comenzarCompactacion();
-		}
-	}else{
+//------------------------------------------------------------------------------------------------//
+int espaciosLibres(int cantidad){
 
-	}
+	int i, cantLibres = 0;
+	//Recorro todo el bitMap buscando espacios separados
+	for(i = 0; i <= tamanio_pagina*cantidad_paginas; i++ ){
+		if(bitarray_test_bit(bitMap, i) == 0 ){//0 libre,  1 ocupado (no libre)
+			cantLibres++;
+		}
+	}return cantLibres;
 }
 
 
+
+bool hayFragmentacion(int pid, int tamanio){
+
+	if(!paginaDisponible(pid, tamanio) && (espaciosLibres(tamanio) >= tamanio)){
+		return 0;
+	}else{
+		return 1;
+	}
+}
+/*
+//compactación al ingresar un programa,
+void verificarEspacio( char* bitMap, int pid, int tamanio){
+	//No hay espacio contiguo y hay espacio separado
+	if(hayFragmentacion(pid, tamanio)){ // ver resolverlo sin depender
+		comenzarCompactacion(); //AGREGAR SEMÁFORO Y ADD A LISTA DE ESPERA MIENTRAS SE COMPACTE
+
+	}
+}
 */
