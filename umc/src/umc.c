@@ -902,16 +902,66 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 
 	if(cache_tlb.entradas[posicion_reemplazo].modificado){
 		//Cambiar el modificado en tabla de paginas
-		bool igualPid(t_prog *elemento){
+
+		/*		bool igualPid(t_prog *elemento){
 			return elemento->pid == pid;
 		}
 
 		t_prog *programa_a_modificar = list_find(programas, igualPid);
 
+		programa_a_modificar->paginas[pag].modificado = true;*/
+
+		t_prog *programa_a_modificar = buscarPrograma(pid);
+
 		programa_a_modificar->paginas[pag].modificado = true;
-		//TODO:Cambiar esto por buscarPrograma
 	}
 	return;
+}
+
+void flushTlb(){
+
+	int i;
+	for(i=0;i<cache_tlb.cant_entradas;i++){
+
+		//Actualizo bits de modificado en tabla de paginas
+		if(cache_tlb.entradas[i].modificado){
+			int nro_pag = cache_tlb.entradas[i].nro_pag;
+			int pid = cache_tlb.entradas[i].pid;
+
+			t_prog *programa_modificado = buscarPrograma(pid);
+
+			programa_modificado->paginas[nro_pag].modificado = true;
+		}
+
+		//Limpio la entrada
+		cache_tlb.entradas[i].pid = -1;
+	}
+}
+
+void flushTlb(int pid){
+
+	int i;
+	for(i=0;i<cache_tlb.cant_entradas;i++){
+
+		//Solo reseteo aquellos que coincidan con el pid dato
+		if(cache_tlb.entradas[i].pid == pid){
+
+			//Actualizo bits de modificado en tabla de paginas
+			if(cache_tlb.entradas[i].modificado){
+				int nro_pag = cache_tlb.entradas[i].nro_pag;
+				int pid = cache_tlb.entradas[i].pid;
+
+				t_prog *programa_modificado = buscarPrograma(pid);
+
+				programa_modificado->paginas[nro_pag].modificado = true;
+			}
+
+			//Limpio la entrada
+			cache_tlb.entradas[i].pid = -1;
+		}
+	}
+
+
 }
 
 void algoritmoClock(t_prog *programa){

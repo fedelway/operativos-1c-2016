@@ -103,6 +103,8 @@ void traerPaginaDeSwap(int pag, t_prog *programa);
 void enviarPagina(int pag, int pid, int pos_a_enviar);
 int recibirPagina(int pag, int pid); //Devuelve el frame en donde escribio la pagina
 void algoritmoClock(t_prog *programa);
+void flushTlb();
+void flushTlb(int pid);
 int frameLibre();
 int min(int a, int b);
 void leerParaCpu(int cpu_fd);
