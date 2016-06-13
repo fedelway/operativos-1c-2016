@@ -938,7 +938,7 @@ void flushTlb(){
 	}
 }
 
-void flushTlb(int pid){
+void flushPid(int pid){
 
 	int i;
 	for(i=0;i<cache_tlb.cant_entradas;i++){
