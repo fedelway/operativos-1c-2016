@@ -23,7 +23,7 @@
 #define ANSISOP_IMPRIMIR 3010
 #define ANSISOP_IMPRIMIR_TEXTO 3020
 #define LEER 3040 					//(int pag, int offset, int size, int pid)
-#define ESCRIBIR 3041 				//(int pag, int offset, int size, int *char, int pid) Envio ademas lo que quiero escribir
+#define ESCRIBIR 3050 				//(int pag, int offset, int size, int *char, int pid) Envio ademas lo que quiero escribir
 
 //Mensajes de Umc
 #define SOY_UMC 4000

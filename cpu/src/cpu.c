@@ -53,9 +53,9 @@ int main(int argc,char *argv[]) {
 	//Levanto un archivo ansisop de prueba
 	char* programa_ansisop;
 
-	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend\n";
-	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend";
+	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend\n";
 
+	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend";
 
 	printf("Ejecutando AnalizadorLinea\n");
 	printf("================\n");
@@ -195,9 +195,8 @@ void handshakeNucleo(){
 		log_info(logger, "Nucleo validado. Quantum recibido: %d",quantum);
 		send(socket_nucleo, &soy_cpu, sizeof(int), 0); //Envio ID de la CPU
 	}else{
-		log_error(logger, "El nucleo no pudo ser validado.");
-	    log_destroy(logger);
-		exit(0);
+	    log_error_y_cerrar_logger(logger, "El nucleo no pudo ser validado.");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -224,9 +223,8 @@ void handshakeUMC(int cpu_id){
 		log_info(logger, "UMC validado. Tamaño de página recibido: %d",tamanio_pagina);
 		printf("Tamaño de página recibido %d\n", tamanio_pagina);
 	}else{
-		log_error(logger, "La UMC no pudo ser validada.");
-	    log_destroy(logger);
-		exit(0);
+	    log_error_y_cerrar_logger(logger, "La UMC no pudo ser validada.");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -263,7 +261,7 @@ void enviarPaqueteAUMC(char* message){
 	printf("resultado send %d, a socket %d \n",resultSend, socket_umc);
 	if(resultSend == -1){
 		printf ("Error al enviar archivo a UMC.\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}else {
 		printf ("Archivo enviado a UMC.\n");
 		printf ("mensaje: %s\n", message);
@@ -344,13 +342,43 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	//Hago un memcpy del valor desde el offset de la página hasta un size de 4 bytes.
 	printf("ANSISOP ------- Ejecuto asignar: en la direccion %d, el valor %d ----\n", direccion_variable, valor);
 
-	//Calculo la página y el offset a partir de dirección_variable
-/*
-	int nroPagina, offset;
-	nroPagina = direccion_variable
-		(n° de pagina * tamaño de pagina) + offset;
-*/
+	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
 
+	//Calculo la página y el offset a partir de dirección_variable
+	solicitud_escritura->nroPagina = direccion_variable / tamanio_pagina;
+	solicitud_escritura->offset = direccion_variable - solicitud_escritura->nroPagina * tamanio_pagina;
+	solicitud_escritura->size = sizeof(int);
+	solicitud_escritura->pid = 123; //TODO Obtener PID del PCB
+	solicitud_escritura->valor = valor;
+
+	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
+			solicitud_escritura->offset, direccion_variable);
+
+	//Armo el paquete para escribir una página
+	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje,'\0',mensaje_tamanio);
+	int header = ESCRIBIR;
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &solicitud_escritura->nroPagina, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), &solicitud_escritura->offset, sizeof(int));
+	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
+	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
+	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
+/*
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado > 0){
+		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+				 solicitud_escritura.nroPagina, solicitud_escritura.offset, valor);
+	}else{
+		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+				 solicitud_escritura.nroPagina, solicitud_escritura.offset, valor);
+		exit(EXIT_FAILURE);
+	}
+*/
+	free(solicitud_escritura);
+	free(mensaje);
 }
 
 //TODO: Cambiar parámetros que recibe y devuelve!
@@ -458,4 +486,9 @@ void socketes_signal(t_nombre_semaforo identificador_semaforo){
 	printf("Signal \n");
 
 	//return nro_entero;
+}
+
+
+void socketes_finalizar(){
+	printf("ANSISOP ------- Finalizar Programa. ----\n");
 }
