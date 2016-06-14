@@ -56,6 +56,7 @@ int main(int argc,char *argv[]) {
 	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend\n";
 
 	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend";
+	programa_ansisop = "begin\n:etiqueta\nwait c\nprint !colas\nsignal b\n#Ciclar indefinidamente\ngoto etiqueta\nend";
 
 	printf("Ejecutando AnalizadorLinea\n");
 	printf("================\n");
@@ -365,18 +366,18 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
 	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
 	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
-/*
+
 	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
 
 	if(resultado > 0){
 		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-				 solicitud_escritura.nroPagina, solicitud_escritura.offset, valor);
+				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
 	}else{
 		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-				 solicitud_escritura.nroPagina, solicitud_escritura.offset, valor);
+				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
 		exit(EXIT_FAILURE);
 	}
-*/
+
 	free(solicitud_escritura);
 	free(mensaje);
 }
@@ -473,19 +474,47 @@ void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 	//return nro_entero;
 }
 
-//int socketes_wait(t_nombre_semaforo identificador_semaforo);
 void socketes_wait(t_nombre_semaforo identificador_semaforo){
-	int nro_entero = 17;
-	printf("Wait \n");
-	//return nro_entero;
+
+	printf("ANSISOP ------- Ejecuto WAIT: %s ----\n", identificador_semaforo);
+
+	int header_mensaje = ANSISOP_WAIT;
+
+	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
+
+	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
+
+	printf("Envio mensaje wait al Núcleo con el identificador del semaforo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
+	//TODO esperar la respuesta.
+	//(?)Qué es lo que tiene que devolver? Se tiene que quedar esperando hasta que el wait de 0?
+	//Tb tengo que usar wait/signal en estas funciones, para simular el wait/signal de las primitivas?
 }
 
-//int socketes_signal(t_nombre_semaforo identificador_semaforo);
 void socketes_signal(t_nombre_semaforo identificador_semaforo){
-	int nro_entero = 17;
-	printf("Signal \n");
 
-	//return nro_entero;
+	printf("ANSISOP ------- Ejecuto SIGNAL: %s ----\n", identificador_semaforo);
+
+	int header_mensaje = ANSISOP_SIGNAL;
+
+	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
+
+	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
+
+	printf("Envio mensaje SIGNAL al Núcleo con el identificador del semaforo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
+	//TODO esperar la respuesta.
+	//(?)Qué es lo que tiene que devolver? Yo tengo que almacenar el valor del semaforo?
 }
 
 
