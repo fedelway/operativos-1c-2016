@@ -19,8 +19,8 @@
 #include <sys/mman.h> //para trabajar con el mmap()
 #include <fcntl.h>
 
-int socket_swap;
 
+//------------------------------- VARIABLES GLOBALES--------------------------------//
 
 //parámetros de configuración
     char* puerto_escucha;
@@ -29,10 +29,9 @@ int socket_swap;
 	int tamanio_pagina;
 	int retardo_compactacion;
 
-//bitMap
-	//Configuro el tamaño del BITMAP con los valores de configuración convertidos a bit
+//bitMap usando bitarray
 
-	char bitarray[12];
+	char *bitarray;
 	t_bitarray *bitMap;
 
 
@@ -49,13 +48,15 @@ int socket_swap;
 		 int cantidad_paginas;
 }nodo_enEspera;
 
-
 //listas
+
 t_list *listaProcesos;
 t_list *listaEnEspera;
 
-// VARIABLES GLOBALES
-int socket_escucha,socket_umc;
+int socket_escucha,socket_umc,tamanioBitMap;
+int socket_swap;
+
+
 
 void handshakeUMC();
 int aceptarConexion(int puerto);
@@ -69,10 +70,10 @@ char* cargarArchivo();
 void inicializarArchivo(char* archivoAMemoria);
 void crearBitMap();
 bool hayEspacioContiguo(int pagina, int tamanio);
-int paginaDisponible(int pid,int tamanio);
+int paginaDisponible(int tamanio);
 int  ubicacionEnSwap(int pid);
 char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog,char* archivoMapeado);
-void leerUnaPagina(int pid,int pag,char* archivoMapeado);
+void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado);
 int espaciosLibres(int cantidad);
 bool hayFragmentacion(int pid, int tamanio);
