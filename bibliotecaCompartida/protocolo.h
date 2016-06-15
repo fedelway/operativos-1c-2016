@@ -26,6 +26,9 @@
 #define ESCRIBIR 3050 				//(int pag, int offset, int size, int *char, int pid) Envio ademas lo que quiero escribir
 #define ANSISOP_WAIT 3060
 #define ANSISOP_SIGNAL 3070
+#define ANSISOP_ENTRADA_SALIDA 3080
+#define ANSISOP_OBTENER_VALOR_COMPARTIDO 3090
+#define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3100
 
 //Mensajes de Umc
 #define SOY_UMC 4000

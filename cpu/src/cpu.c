@@ -57,6 +57,8 @@ int main(int argc,char *argv[]) {
 
 	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend";
 	programa_ansisop = "begin\n:etiqueta\nwait c\nprint !colas\nsignal b\n#Ciclar indefinidamente\ngoto etiqueta\nend";
+	programa_ansisop = "#!/usr/bin/ansisop\n#Alliance - S4\nbegin\nvariables f, i, t\n#`f`: Hasta donde contar\nf=20\n:inicio\n#`i`: Iterador\ni=i+1\n#Imprimir el contador\nprint i\n#`t`: Comparador entre `i` y `f`\nt=f-i\n#De no ser iguales, salta a inicio\n#esperar\nio HDD1 3\njnz t inicio\nend";
+
 
 	printf("Ejecutando AnalizadorLinea\n");
 	printf("================\n");
@@ -465,15 +467,39 @@ void socketes_imprimirTexto(char* texto) {
 
 }
 
-//TODO: Modificar funciones!!
-
-//int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo);
+/*
+ *  FUNCION     : Informa al Núcleo que el Programa actual pretende utilizar el dispositivo
+ *  			  durante tiempo unidades de tiempo.
+ *  Recibe      : t_nombre_dispositivo dispositivo, int tiempo
+ *  Devuelve    : void
+ */
 void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
-	int nro_entero = 17;
-	printf("Entrada Salida\n");
-	//return nro_entero;
+
+	printf("ANSISOP ------- Ejecuto Entrada-Salida. Dispositivo :%s | Unidades de tiempo: %d ----\n", dispositivo, tiempo);
+
+	int header_mensaje = ANSISOP_ENTRADA_SALIDA;
+
+	char *mensaje = (char *)malloc(sizeof(int)*2+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &dispositivo, sizeof(t_nombre_dispositivo));
+	memcpy(mensaje + sizeof(int) + sizeof(t_nombre_dispositivo), &tiempo, sizeof(int));
+
+	//TODO Mandar la estructura del pcb después del tiempo.
+	//Proceso va a la cola de bloqueados. CPU no haria espera activa.
+	//La liberaría para que pueda ocuparse de otro proceso.
+
+	printf("Envio mensaje de entrada y salida al Núcleo con el identificador del semaforo y la cantidad de unidades de tiempo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
 }
 
+/*
+ *  FUNCION     : Informa al Núcleo que ejecute la función wait para el semáforo indicado.
+ *  Recibe      : t_nombre_semaforo identificador_semaforo
+ *  Devuelve    : void
+ */
 void socketes_wait(t_nombre_semaforo identificador_semaforo){
 
 	printf("ANSISOP ------- Ejecuto WAIT: %s ----\n", identificador_semaforo);
@@ -494,8 +520,15 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 	//TODO esperar la respuesta.
 	//(?)Qué es lo que tiene que devolver? Se tiene que quedar esperando hasta que el wait de 0?
 	//Tb tengo que usar wait/signal en estas funciones, para simular el wait/signal de las primitivas?
+	//Si me manda que se tiene que bloquear, devuelvo el pcb actualizado no?
 }
 
+
+/*
+ *  FUNCION     : Informa al Núcleo que ejecute la función signal para el semáforo indicado.
+ *  Recibe      : t_nombre_semaforo identificador_semaforo
+ *  Devuelve    : void
+ */
 void socketes_signal(t_nombre_semaforo identificador_semaforo){
 
 	printf("ANSISOP ------- Ejecuto SIGNAL: %s ----\n", identificador_semaforo);
