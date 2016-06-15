@@ -309,8 +309,8 @@ static const int POSICION_MEMORIA = 0x10;
 //t_posicion socketes_definirVariable(t_nombre_variable identificador_variable);
 t_puntero socketes_definirVariable(t_nombre_variable variable) {
 
-	/*
-	 * Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable llamada identificador_variable y la registra en el Stack, retornando la posición del valor de esta nueva variable del stack.
+/*
+* Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable llamada identificador_variable y la registra en el Stack, retornando la posición del valor de esta nueva variable del stack.
 El valor de la variable queda indefinido: no deberá inicializarlo con ningún valor default.
 Esta función se invoca una vez por variable, a pesar de que este varias veces en una línea. Por ejemplo, evaluar variables a, b, c llamará tres veces a esta función con los parámetros a, b y c.
 */
@@ -340,11 +340,11 @@ t_valor_variable socketes_dereferenciar(t_puntero puntero) {
  *  Devuelve    : void
  */
 void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
-	//Le solicito la página a la umc.
-	//A partir de la direccion_variable, obtengo el número de página y el offset
-	//Hago un memcpy del valor desde el offset de la página hasta un size de 4 bytes.
+
 	printf("ANSISOP ------- Ejecuto asignar: en la direccion %d, el valor %d ----\n", direccion_variable, valor);
 
+	//A partir de la direccion_variable, obtengo el número de página y el offset,
+	//para hacer la solicitud de escritura a la UMC.
 	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
 
 	//Calculo la página y el offset a partir de dirección_variable
@@ -357,7 +357,7 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
 			solicitud_escritura->offset, direccion_variable);
 
-	//Armo el paquete para escribir una página
+	//Armo el paquete para escribir una página y envio el mensaje a la UMC
 	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
 	char *mensaje = malloc(mensaje_tamanio);
 	memset(mensaje,'\0',mensaje_tamanio);
@@ -386,18 +386,79 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 
 //TODO: Cambiar parámetros que recibe y devuelve!
 
-//t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable);
+
+/*
+ *  FUNCION     : Solicita al Núcleo el valor de una variable compartida
+ *  Recibe      : t_nombre_compartida variable
+ *  Devuelve    : t_valor_variable
+ */
 t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
-	t_valor_variable valor_variable;
-	printf("Obtener Valor Compartida\n");
-	return valor_variable;
+
+	t_valor_variable valor_variableCompartida;
+
+	printf("ANSISOP ------- Ejecuto ObtenerValorCompartida. Variable: %s ----\n", variable);
+
+	int header_mensaje = ANSISOP_OBTENER_VALOR_COMPARTIDO;
+
+	char *mensaje = (char *)malloc(sizeof(int));
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+
+	printf("Envio mensaje al Núcleo para obtener el valor de la variable compartida.\n");
+
+	send(socket_nucleo, &mensaje, sizeof(int), 0);
+
+	//TODO esperar la respuesta: el valor de la variable compartida
+
+	int status = 0;
+
+	int header_recibido;
+	while(status == 0){
+		//Espero respuesta del nucleo...
+		//TODO: Averiguar si el recv es bloqueante...
+		status = recv(socket_umc, &header_recibido, sizeof(int), 0);
+		sleep(2); //TODO: Sacar
+		if (status != 0) printf("Header recibido: %d.\n", header_recibido);
+	}
+
+	//TODO: Cambiar si usa un id diferente para la respuesta de la solicitud de lectura.
+	if(header_recibido == ANSISOP_OBTENER_VALOR_COMPARTIDO){
+		//Recibo valor de la variable compartida
+		int resultado = recv(socket_umc, &valor_variableCompartida, sizeof(int), 0);
+		if(resultado <= 0){
+			printf("Resultado del recv de la variable compartida %s dio: %d\n", variable,resultado);
+		}
+	}
+
+	return valor_variableCompartida;
 }
 
-//t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor)
-t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
-	t_valor_variable valor_variable;
-	printf("Asignar Valor Compartida\n");
-	return valor_variable;
+
+/*
+ *  FUNCION     : Solicita al Núcleo asignar el valor a la variable compartida. Devuelve el valor asignado.
+ *  Recibe      : t_nombre_compartida variable, t_valor_variable valor_asignado
+ *  Devuelve    : t_valor_variable valor_asignado
+ */
+t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor_asignado){
+
+	t_valor_variable valor_variableCompartida;
+
+	printf("ANSISOP ------- Ejecuto asignarValorCompartida. Variable: %s. | Valor asignado: %d. ----\n", variable, valor_asignado);
+
+	int header_mensaje = ANSISOP_ASIGNAR_VALOR_COMPARTIDO;
+
+	int tamanio_mensaje = sizeof(int)+sizeof(t_nombre_compartida)+sizeof(t_valor_variable);
+	char *mensaje = (char *)malloc(tamanio_mensaje);
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje, &variable, sizeof(t_nombre_compartida));
+	memcpy(mensaje, &valor_asignado, sizeof(t_valor_variable));
+
+	printf("Envio mensaje al Núcleo para asignar el valor a la variable compartida.\n");
+
+	send(socket_nucleo, &mensaje, tamanio_mensaje, 0);
+
+	//TODO: Tengo que esperar un ok del nucleo por cada vez que le asigno algo a una variable?
+
+	return valor_asignado;
 }
 
 /*
