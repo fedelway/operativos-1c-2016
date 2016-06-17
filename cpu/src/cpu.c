@@ -38,6 +38,11 @@ int main(int argc,char *argv[]) {
 	//Conexión al umc
 	conectarAUMC(configCPU);
 
+	//TODO Trabajar con hilos. ?
+	signal(SIGUSR1, handler_seniales);
+
+	//Otro que vaya procesando las instrucciones que corresponden
+
 	char message[PACKAGESIZE];
 	memset (message,'\0',PACKAGESIZE);
 	//recibirPCB(message);
@@ -186,14 +191,13 @@ void conectarAUMC(t_configuracion_cpu* configCPU){
 void handshakeNucleo(){
 
 	int msj_recibido;
-	int soy_cpu = 3000;
-
+	int soy_cpu = SOY_CPU;
 
 	log_info(logger, "Iniciando Handshake con el Nucleo");
 	//Tengo que recibir el ID del nucleo = 1000
 	recv(socket_nucleo, &msj_recibido, sizeof(int), 0);
 
-	if(msj_recibido == 1000){
+	if(msj_recibido == SOY_NUCLEO){
 		recv(socket_nucleo, &quantum, sizeof(int), 0);
 		log_info(logger, "Nucleo validado. Quantum recibido: %d",quantum);
 		send(socket_nucleo, &soy_cpu, sizeof(int), 0); //Envio ID de la CPU
@@ -296,6 +300,20 @@ void reciboMensaje(){
 }
 
 
+void handler_seniales(int senial) {
+	switch (senial) {
+		case SIGUSR1:
+			printf("Obtuve una señal de SIGUSR1\n");
+			sleep(3);
+			break;
+		default:
+			printf("Obtuve otra senial inesperada\n");
+			sleep(3);
+	}
+	exit(EXIT_FAILURE);
+}
+
+
 /****************************************************************************************/
 /*                                PRIMITIVAS ANSISOP								    */
 /****************************************************************************************/
@@ -304,34 +322,132 @@ static const int POSICION_MEMORIA = 0x10;
 
 
 /*
- * DEFINIR VARIABLE:
+ *  FUNCION     : Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable
+ *  			  llamada identificador_variable y la registra en el Stack, retornando la posición
+ *  			  del valor de esta nueva variable del stack.
+ *  Recibe      : t_nombre_variable identificador_variable
+ *  Devuelve    : t_puntero posicion_memoria (En caso de error, retorna -1.)
  */
-//t_posicion socketes_definirVariable(t_nombre_variable identificador_variable);
-t_puntero socketes_definirVariable(t_nombre_variable variable) {
+t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
+
+	printf("ANSISOP ------- Ejecuto Definir Variable. Variable: %c ----\n", identificador_variable);
+
+	//Acceder al stack.
+	//Crear un nuevo nodo para el stack. Busco un espacio libre de 4 bytes.
+	//Guardo el valor en el campo vars, creando una nueva entrada /nodo con:
+	//Identificador_variable - Pagina - Offset - Size (siempre 4 bytes.)
+	//El valor de la variable queda indefinido -> No inicializarlo
+
+	int pagina = 0; //TODO cambiar offset y pagina
+	int offset = 8;
+
+	int posicion_memoria = pagina*offset;
+
+	return posicion_memoria;
+}
 
 /*
-* Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable llamada identificador_variable y la registra en el Stack, retornando la posición del valor de esta nueva variable del stack.
-El valor de la variable queda indefinido: no deberá inicializarlo con ningún valor default.
-Esta función se invoca una vez por variable, a pesar de que este varias veces en una línea. Por ejemplo, evaluar variables a, b, c llamará tres veces a esta función con los parámetros a, b y c.
-*/
+ *  FUNCION     : Devuelve el desplazamiento respecto al inicio del segmento Stack en que se encuentra
+ *  			  el valor de la variable identificador_variable del contexto actual.
+ *  Recibe      : t_nombre_variable variable
+ *  Devuelve    : t_puntero (En caso de error, retorna -1.)
+ */
+t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_variable) {
 
-	printf("INICIO DEFINIR_VARIABLE %c -------\n", variable);
-	printf("FIN DEFINIR_VARIABLE %c -------\n", variable);
-	return POSICION_MEMORIA;
+	printf("ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: %c ----\n", identificador_variable);
+
+	//Buscar en el índice de stack, la entrada/nodo que pertenece a identificador_variable
+	//Devolver la posición -> Supongo que como es un t_puntero,
+	//debería devolver => 	nroPagina*tamanioPagina+offset. (el nroPagina y el offset lo obtengo del
+	//						vars del indice stack)
+
+	int pagina = 0; //TODO cambiar offset y pagina
+	int offset = 8;
+
+	int posicion_memoria = pagina*offset;
+
+	return posicion_memoria;
 }
 
-//TODO: Cambiar t_puntero por t_posicion
+/*
+ *  FUNCION     : Obtiene el valor resultante de leer a partir de direccion_variable,
+ *  			  sin importar cual fuera el contexto actual.
+ *  Recibe      : t_puntero puntero (Lugar donde buscar)
+ *  Devuelve    : t_valor_variable (Valor que se encuentra en esa posicion)
+ */
+t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 
-//t_posicion socketes_obtenerPosicionVariable(t_nombre_variable identificador_variable);
-t_puntero socketes_obtenerPosicionVariable(t_nombre_variable variable) {
-	printf("Obtener posicion de %c\n", variable);
-	return POSICION_MEMORIA;
-}
+	t_valor_variable valor_variable;
+	printf("ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: %d ----\n", direccion_variable);
 
-//t_valor_variable socketes_dereferenciar(t_posicion direccion_variable);
-t_valor_variable socketes_dereferenciar(t_puntero puntero) {
-	printf("Dereferenciar %d y su valor es: %d\n", puntero, CONTENIDO_VARIABLE);
-	return CONTENIDO_VARIABLE;
+	//A partir de la puntero, obtengo el número de página y el offset de la variable que quiero leer.
+	//Pido a la umc, que lea el 4 bytes a partir del número de página y offset.
+
+	t_solicitud_lectura *solicitud_lectura = (t_solicitud_lectura *)malloc(sizeof(t_solicitud_lectura));
+
+	//Calculo la página y el offset a partir de puntero
+	solicitud_lectura->nroPagina = direccion_variable / tamanio_pagina;
+	solicitud_lectura->offset = direccion_variable - solicitud_lectura->nroPagina * tamanio_pagina;
+	solicitud_lectura->size = sizeof(int);
+	solicitud_lectura->pid = 123; //TODO Obtener PID del PCB
+
+	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_lectura->nroPagina,
+			solicitud_lectura->offset, direccion_variable);
+
+	//Armo el paquete solicitar una lectura a la UMC
+	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_lectura);
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje,'\0',mensaje_tamanio);
+	int header = LEER;
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &solicitud_lectura->nroPagina, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), &solicitud_lectura->offset, sizeof(int));
+	memcpy(mensaje + 3*sizeof(int), &solicitud_lectura->size, sizeof(int));
+	memcpy(mensaje + 4*sizeof(int), &solicitud_lectura->pid, sizeof(int));
+
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado < 0){
+		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+			solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+			exit(EXIT_FAILURE);
+	}
+
+	free(solicitud_lectura);
+	free(mensaje);
+
+	log_info(logger, "Envio mensaje a UMC para lectura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+			 solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+
+	int header_recibido;
+	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
+
+	if(resultado_recv < 0){
+		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+		log_error_y_cerrar_logger(logger, "Falló en respuesta del pedido de "
+										  "lectura de la posicion %d",direccion_variable);
+		exit(EXIT_FAILURE);
+	}
+
+	if(header_recibido == LEER){
+		resultado_recv = recv(socket_nucleo, &valor_variable, sizeof(t_valor_variable), 0);
+
+		if(resultado_recv < 0){
+			printf("resultado_recv menor que 0: %d\n", resultado_recv);
+			log_error_y_cerrar_logger(logger, "Falló en obtener el valor de la variable del pedido de "
+											  "lectura de la posicion %d",direccion_variable);
+			exit(EXIT_FAILURE);
+		}
+
+		printf("Resultado pedido de lectura. Direccion: %d. | Header: %d. | valor_variable: %d\n",
+				direccion_variable, header_recibido, valor_variable);
+	}else{
+		printf("header_recibido es DISTINTO a LEER. header_recibido: %d | LEER: %d\n", header_recibido, LEER);
+	}
+
+	printf("Dereferenciar %d y su valor es: %d\n", direccion_variable, valor_variable);
+
+	return valor_variable;
 }
 
 /*
@@ -374,17 +490,16 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	if(resultado > 0){
 		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
 				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+
 	}else{
 		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+		 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
 		exit(EXIT_FAILURE);
 	}
 
 	free(solicitud_escritura);
 	free(mensaje);
 }
-
-//TODO: Cambiar parámetros que recibe y devuelve!
 
 
 /*
@@ -462,22 +577,24 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 }
 
 /*
- * Devuelve el número de la primer instrucción ejecutable de etiqueta y -1 en caso de error.
- * t_puntero_instruccion irAlLabel(t_nombre_etiqueta etiqueta)
-*/
-
-//t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
-t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+ *  FUNCION     : Cambia la linea de ejecucion a la correspondiente de la etiqueta buscada.
+ *  Recibe      : t_nombre_etiqueta etiqueta
+ *  Devuelve    : void
+ */
+void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+	//Del pcb voy a recurrir al campo etiquetas.
+	//Ahí aplico  metadata_buscar_etiqueta.
+	//Obtengo la posición de la etiqueta en el código y....
+	//actualizo el campo ret pos para saber a donde tiene que volver al terminar de ejecutar
+	//lo que corresponde a esa etiqueta
 	t_puntero_instruccion puntero_instruccion;
 	printf("Ir al Label\n");
-	return puntero_instruccion;
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	printf("Llamar con retorno:\n");
 }
 
-//t_puntero_instruccion socketes_retornar(t_valor_variable retorno);
 t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 	t_puntero_instruccion puntero_instruccion;
 	printf("Retornar\n");
@@ -526,6 +643,14 @@ void socketes_imprimirTexto(char* texto) {
 
 	send(socket_nucleo, &buffer, sizeof(buffer)+1, 0);
 
+	int mensaje_recibido;
+	int resultado_recv = recv(socket_nucleo, &mensaje_recibido, sizeof(int), 0);
+
+	if(resultado_recv > 0){
+		printf("resultado_recv mayor que 0: %d. | mensaje_recibido: %d\n", resultado_recv, mensaje_recibido);
+	}else{
+		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+	}
 }
 
 /*
