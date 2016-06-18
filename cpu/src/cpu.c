@@ -38,6 +38,11 @@ int main(int argc,char *argv[]) {
 	//Conexión al umc
 	conectarAUMC(configCPU);
 
+	//TODO Trabajar con hilos. ?
+	signal(SIGUSR1, handler_seniales);
+
+	//Otro que vaya procesando las instrucciones que corresponden
+
 	char message[PACKAGESIZE];
 	memset (message,'\0',PACKAGESIZE);
 	//recibirPCB(message);
@@ -53,8 +58,11 @@ int main(int argc,char *argv[]) {
 	//Levanto un archivo ansisop de prueba
 	char* programa_ansisop;
 
-	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend\n";
-	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend";
+	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend\n";
+
+	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend";
+	programa_ansisop = "begin\n:etiqueta\nwait c\nprint !colas\nsignal b\n#Ciclar indefinidamente\ngoto etiqueta\nend";
+	programa_ansisop = "#!/usr/bin/ansisop\n#Alliance - S4\nbegin\nvariables f, i, t\n#`f`: Hasta donde contar\nf=20\n:inicio\n#`i`: Iterador\ni=i+1\n#Imprimir el contador\nprint i\n#`t`: Comparador entre `i` y `f`\nt=f-i\n#De no ser iguales, salta a inicio\n#esperar\nio HDD1 3\njnz t inicio\nend";
 
 
 	printf("Ejecutando AnalizadorLinea\n");
@@ -183,21 +191,19 @@ void conectarAUMC(t_configuracion_cpu* configCPU){
 void handshakeNucleo(){
 
 	int msj_recibido;
-	int soy_cpu = 3000;
-
+	int soy_cpu = SOY_CPU;
 
 	log_info(logger, "Iniciando Handshake con el Nucleo");
 	//Tengo que recibir el ID del nucleo = 1000
 	recv(socket_nucleo, &msj_recibido, sizeof(int), 0);
 
-	if(msj_recibido == 1000){
+	if(msj_recibido == SOY_NUCLEO){
 		recv(socket_nucleo, &quantum, sizeof(int), 0);
 		log_info(logger, "Nucleo validado. Quantum recibido: %d",quantum);
 		send(socket_nucleo, &soy_cpu, sizeof(int), 0); //Envio ID de la CPU
 	}else{
-		log_error(logger, "El nucleo no pudo ser validado.");
-	    log_destroy(logger);
-		exit(0);
+	    log_error_y_cerrar_logger(logger, "El nucleo no pudo ser validado.");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -224,9 +230,8 @@ void handshakeUMC(int cpu_id){
 		log_info(logger, "UMC validado. Tamaño de página recibido: %d",tamanio_pagina);
 		printf("Tamaño de página recibido %d\n", tamanio_pagina);
 	}else{
-		log_error(logger, "La UMC no pudo ser validada.");
-	    log_destroy(logger);
-		exit(0);
+	    log_error_y_cerrar_logger(logger, "La UMC no pudo ser validada.");
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -263,7 +268,7 @@ void enviarPaqueteAUMC(char* message){
 	printf("resultado send %d, a socket %d \n",resultSend, socket_umc);
 	if(resultSend == -1){
 		printf ("Error al enviar archivo a UMC.\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}else {
 		printf ("Archivo enviado a UMC.\n");
 		printf ("mensaje: %s\n", message);
@@ -295,6 +300,20 @@ void reciboMensaje(){
 }
 
 
+void handler_seniales(int senial) {
+	switch (senial) {
+		case SIGUSR1:
+			printf("Obtuve una señal de SIGUSR1\n");
+			sleep(3);
+			break;
+		default:
+			printf("Obtuve otra senial inesperada\n");
+			sleep(3);
+	}
+	exit(EXIT_FAILURE);
+}
+
+
 /****************************************************************************************/
 /*                                PRIMITIVAS ANSISOP								    */
 /****************************************************************************************/
@@ -303,34 +322,132 @@ static const int POSICION_MEMORIA = 0x10;
 
 
 /*
- * DEFINIR VARIABLE:
+ *  FUNCION     : Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable
+ *  			  llamada identificador_variable y la registra en el Stack, retornando la posición
+ *  			  del valor de esta nueva variable del stack.
+ *  Recibe      : t_nombre_variable identificador_variable
+ *  Devuelve    : t_puntero posicion_memoria (En caso de error, retorna -1.)
  */
-//t_posicion socketes_definirVariable(t_nombre_variable identificador_variable);
-t_puntero socketes_definirVariable(t_nombre_variable variable) {
+t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 
-	/*
-	 * Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable llamada identificador_variable y la registra en el Stack, retornando la posición del valor de esta nueva variable del stack.
-El valor de la variable queda indefinido: no deberá inicializarlo con ningún valor default.
-Esta función se invoca una vez por variable, a pesar de que este varias veces en una línea. Por ejemplo, evaluar variables a, b, c llamará tres veces a esta función con los parámetros a, b y c.
-*/
+	printf("ANSISOP ------- Ejecuto Definir Variable. Variable: %c ----\n", identificador_variable);
 
-	printf("INICIO DEFINIR_VARIABLE %c -------\n", variable);
-	printf("FIN DEFINIR_VARIABLE %c -------\n", variable);
-	return POSICION_MEMORIA;
+	//Acceder al stack.
+	//Crear un nuevo nodo para el stack. Busco un espacio libre de 4 bytes.
+	//Guardo el valor en el campo vars, creando una nueva entrada /nodo con:
+	//Identificador_variable - Pagina - Offset - Size (siempre 4 bytes.)
+	//El valor de la variable queda indefinido -> No inicializarlo
+
+	int pagina = 0; //TODO cambiar offset y pagina
+	int offset = 8;
+
+	int posicion_memoria = pagina*offset;
+
+	return posicion_memoria;
 }
 
-//TODO: Cambiar t_puntero por t_posicion
+/*
+ *  FUNCION     : Devuelve el desplazamiento respecto al inicio del segmento Stack en que se encuentra
+ *  			  el valor de la variable identificador_variable del contexto actual.
+ *  Recibe      : t_nombre_variable variable
+ *  Devuelve    : t_puntero (En caso de error, retorna -1.)
+ */
+t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_variable) {
 
-//t_posicion socketes_obtenerPosicionVariable(t_nombre_variable identificador_variable);
-t_puntero socketes_obtenerPosicionVariable(t_nombre_variable variable) {
-	printf("Obtener posicion de %c\n", variable);
-	return POSICION_MEMORIA;
+	printf("ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: %c ----\n", identificador_variable);
+
+	//Buscar en el índice de stack, la entrada/nodo que pertenece a identificador_variable
+	//Devolver la posición -> Supongo que como es un t_puntero,
+	//debería devolver => 	nroPagina*tamanioPagina+offset. (el nroPagina y el offset lo obtengo del
+	//						vars del indice stack)
+
+	int pagina = 0; //TODO cambiar offset y pagina
+	int offset = 8;
+
+	int posicion_memoria = pagina*offset;
+
+	return posicion_memoria;
 }
 
-//t_valor_variable socketes_dereferenciar(t_posicion direccion_variable);
-t_valor_variable socketes_dereferenciar(t_puntero puntero) {
-	printf("Dereferenciar %d y su valor es: %d\n", puntero, CONTENIDO_VARIABLE);
-	return CONTENIDO_VARIABLE;
+/*
+ *  FUNCION     : Obtiene el valor resultante de leer a partir de direccion_variable,
+ *  			  sin importar cual fuera el contexto actual.
+ *  Recibe      : t_puntero puntero (Lugar donde buscar)
+ *  Devuelve    : t_valor_variable (Valor que se encuentra en esa posicion)
+ */
+t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
+
+	t_valor_variable valor_variable;
+	printf("ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: %d ----\n", direccion_variable);
+
+	//A partir de la puntero, obtengo el número de página y el offset de la variable que quiero leer.
+	//Pido a la umc, que lea el 4 bytes a partir del número de página y offset.
+
+	t_solicitud_lectura *solicitud_lectura = (t_solicitud_lectura *)malloc(sizeof(t_solicitud_lectura));
+
+	//Calculo la página y el offset a partir de puntero
+	solicitud_lectura->nroPagina = direccion_variable / tamanio_pagina;
+	solicitud_lectura->offset = direccion_variable - solicitud_lectura->nroPagina * tamanio_pagina;
+	solicitud_lectura->size = sizeof(int);
+	solicitud_lectura->pid = 123; //TODO Obtener PID del PCB
+
+	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_lectura->nroPagina,
+			solicitud_lectura->offset, direccion_variable);
+
+	//Armo el paquete solicitar una lectura a la UMC
+	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_lectura);
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje,'\0',mensaje_tamanio);
+	int header = LEER;
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &solicitud_lectura->nroPagina, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), &solicitud_lectura->offset, sizeof(int));
+	memcpy(mensaje + 3*sizeof(int), &solicitud_lectura->size, sizeof(int));
+	memcpy(mensaje + 4*sizeof(int), &solicitud_lectura->pid, sizeof(int));
+
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado < 0){
+		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+			solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+			exit(EXIT_FAILURE);
+	}
+
+	free(solicitud_lectura);
+	free(mensaje);
+
+	log_info(logger, "Envio mensaje a UMC para lectura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+			 solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+
+	int header_recibido;
+	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
+
+	if(resultado_recv < 0){
+		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+		log_error_y_cerrar_logger(logger, "Falló en respuesta del pedido de "
+										  "lectura de la posicion %d",direccion_variable);
+		exit(EXIT_FAILURE);
+	}
+
+	if(header_recibido == LEER){
+		resultado_recv = recv(socket_nucleo, &valor_variable, sizeof(t_valor_variable), 0);
+
+		if(resultado_recv < 0){
+			printf("resultado_recv menor que 0: %d\n", resultado_recv);
+			log_error_y_cerrar_logger(logger, "Falló en obtener el valor de la variable del pedido de "
+											  "lectura de la posicion %d",direccion_variable);
+			exit(EXIT_FAILURE);
+		}
+
+		printf("Resultado pedido de lectura. Direccion: %d. | Header: %d. | valor_variable: %d\n",
+				direccion_variable, header_recibido, valor_variable);
+	}else{
+		printf("header_recibido es DISTINTO a LEER. header_recibido: %d | LEER: %d\n", header_recibido, LEER);
+	}
+
+	printf("Dereferenciar %d y su valor es: %d\n", direccion_variable, valor_variable);
+
+	return valor_variable;
 }
 
 /*
@@ -339,53 +456,145 @@ t_valor_variable socketes_dereferenciar(t_puntero puntero) {
  *  Devuelve    : void
  */
 void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
-	//Le solicito la página a la umc.
-	//A partir de la direccion_variable, obtengo el número de página y el offset
-	//Hago un memcpy del valor desde el offset de la página hasta un size de 4 bytes.
+
 	printf("ANSISOP ------- Ejecuto asignar: en la direccion %d, el valor %d ----\n", direccion_variable, valor);
 
+	//A partir de la direccion_variable, obtengo el número de página y el offset,
+	//para hacer la solicitud de escritura a la UMC.
+	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
+
 	//Calculo la página y el offset a partir de dirección_variable
-/*
-	int nroPagina, offset;
-	nroPagina = direccion_variable
-		(n° de pagina * tamaño de pagina) + offset;
-*/
+	solicitud_escritura->nroPagina = direccion_variable / tamanio_pagina;
+	solicitud_escritura->offset = direccion_variable - solicitud_escritura->nroPagina * tamanio_pagina;
+	solicitud_escritura->size = sizeof(int);
+	solicitud_escritura->pid = 123; //TODO Obtener PID del PCB
+	solicitud_escritura->valor = valor;
 
+	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
+			solicitud_escritura->offset, direccion_variable);
+
+	//Armo el paquete para escribir una página y envio el mensaje a la UMC
+	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje,'\0',mensaje_tamanio);
+	int header = ESCRIBIR;
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &solicitud_escritura->nroPagina, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), &solicitud_escritura->offset, sizeof(int));
+	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
+	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
+	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
+
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado > 0){
+		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+
+	}else{
+		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+		 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+		exit(EXIT_FAILURE);
+	}
+
+	free(solicitud_escritura);
+	free(mensaje);
 }
 
-//TODO: Cambiar parámetros que recibe y devuelve!
 
-//t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable);
+/*
+ *  FUNCION     : Solicita al Núcleo el valor de una variable compartida
+ *  Recibe      : t_nombre_compartida variable
+ *  Devuelve    : t_valor_variable
+ */
 t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
-	t_valor_variable valor_variable;
-	printf("Obtener Valor Compartida\n");
-	return valor_variable;
+
+	t_valor_variable valor_variableCompartida;
+
+	printf("ANSISOP ------- Ejecuto ObtenerValorCompartida. Variable: %s ----\n", variable);
+
+	int header_mensaje = ANSISOP_OBTENER_VALOR_COMPARTIDO;
+
+	char *mensaje = (char *)malloc(sizeof(int));
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+
+	printf("Envio mensaje al Núcleo para obtener el valor de la variable compartida.\n");
+
+	send(socket_nucleo, &mensaje, sizeof(int), 0);
+
+	//TODO esperar la respuesta: el valor de la variable compartida
+
+	int status = 0;
+
+	int header_recibido;
+	while(status == 0){
+		//Espero respuesta del nucleo...
+		//TODO: Averiguar si el recv es bloqueante...
+		status = recv(socket_umc, &header_recibido, sizeof(int), 0);
+		sleep(2); //TODO: Sacar
+		if (status != 0) printf("Header recibido: %d.\n", header_recibido);
+	}
+
+	//TODO: Cambiar si usa un id diferente para la respuesta de la solicitud de lectura.
+	if(header_recibido == ANSISOP_OBTENER_VALOR_COMPARTIDO){
+		//Recibo valor de la variable compartida
+		int resultado = recv(socket_umc, &valor_variableCompartida, sizeof(int), 0);
+		if(resultado <= 0){
+			printf("Resultado del recv de la variable compartida %s dio: %d\n", variable,resultado);
+		}
+	}
+
+	return valor_variableCompartida;
 }
 
-//t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor)
-t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
-	t_valor_variable valor_variable;
-	printf("Asignar Valor Compartida\n");
-	return valor_variable;
+
+/*
+ *  FUNCION     : Solicita al Núcleo asignar el valor a la variable compartida. Devuelve el valor asignado.
+ *  Recibe      : t_nombre_compartida variable, t_valor_variable valor_asignado
+ *  Devuelve    : t_valor_variable valor_asignado
+ */
+t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor_asignado){
+
+	t_valor_variable valor_variableCompartida;
+
+	printf("ANSISOP ------- Ejecuto asignarValorCompartida. Variable: %s. | Valor asignado: %d. ----\n", variable, valor_asignado);
+
+	int header_mensaje = ANSISOP_ASIGNAR_VALOR_COMPARTIDO;
+
+	int tamanio_mensaje = sizeof(int)+sizeof(t_nombre_compartida)+sizeof(t_valor_variable);
+	char *mensaje = (char *)malloc(tamanio_mensaje);
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje, &variable, sizeof(t_nombre_compartida));
+	memcpy(mensaje, &valor_asignado, sizeof(t_valor_variable));
+
+	printf("Envio mensaje al Núcleo para asignar el valor a la variable compartida.\n");
+
+	send(socket_nucleo, &mensaje, tamanio_mensaje, 0);
+
+	//TODO: Tengo que esperar un ok del nucleo por cada vez que le asigno algo a una variable?
+
+	return valor_asignado;
 }
 
 /*
- * Devuelve el número de la primer instrucción ejecutable de etiqueta y -1 en caso de error.
- * t_puntero_instruccion irAlLabel(t_nombre_etiqueta etiqueta)
-*/
-
-//t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
-t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+ *  FUNCION     : Cambia la linea de ejecucion a la correspondiente de la etiqueta buscada.
+ *  Recibe      : t_nombre_etiqueta etiqueta
+ *  Devuelve    : void
+ */
+void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+	//Del pcb voy a recurrir al campo etiquetas.
+	//Ahí aplico  metadata_buscar_etiqueta.
+	//Obtengo la posición de la etiqueta en el código y....
+	//actualizo el campo ret pos para saber a donde tiene que volver al terminar de ejecutar
+	//lo que corresponde a esa etiqueta
 	t_puntero_instruccion puntero_instruccion;
 	printf("Ir al Label\n");
-	return puntero_instruccion;
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	printf("Llamar con retorno:\n");
 }
 
-//t_puntero_instruccion socketes_retornar(t_valor_variable retorno);
 t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 	t_puntero_instruccion puntero_instruccion;
 	printf("Retornar\n");
@@ -434,28 +643,100 @@ void socketes_imprimirTexto(char* texto) {
 
 	send(socket_nucleo, &buffer, sizeof(buffer)+1, 0);
 
+	int mensaje_recibido;
+	int resultado_recv = recv(socket_nucleo, &mensaje_recibido, sizeof(int), 0);
+
+	if(resultado_recv > 0){
+		printf("resultado_recv mayor que 0: %d. | mensaje_recibido: %d\n", resultado_recv, mensaje_recibido);
+	}else{
+		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+	}
 }
 
-//TODO: Modificar funciones!!
-
-//int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo);
+/*
+ *  FUNCION     : Informa al Núcleo que el Programa actual pretende utilizar el dispositivo
+ *  			  durante tiempo unidades de tiempo.
+ *  Recibe      : t_nombre_dispositivo dispositivo, int tiempo
+ *  Devuelve    : void
+ */
 void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
-	int nro_entero = 17;
-	printf("Entrada Salida\n");
-	//return nro_entero;
+
+	printf("ANSISOP ------- Ejecuto Entrada-Salida. Dispositivo :%s | Unidades de tiempo: %d ----\n", dispositivo, tiempo);
+
+	int header_mensaje = ANSISOP_ENTRADA_SALIDA;
+
+	char *mensaje = (char *)malloc(sizeof(int)*2+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &dispositivo, sizeof(t_nombre_dispositivo));
+	memcpy(mensaje + sizeof(int) + sizeof(t_nombre_dispositivo), &tiempo, sizeof(int));
+
+	//TODO Mandar la estructura del pcb después del tiempo.
+	//Proceso va a la cola de bloqueados. CPU no haria espera activa.
+	//La liberaría para que pueda ocuparse de otro proceso.
+
+	printf("Envio mensaje de entrada y salida al Núcleo con el identificador del semaforo y la cantidad de unidades de tiempo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
 }
 
-//int socketes_wait(t_nombre_semaforo identificador_semaforo);
+/*
+ *  FUNCION     : Informa al Núcleo que ejecute la función wait para el semáforo indicado.
+ *  Recibe      : t_nombre_semaforo identificador_semaforo
+ *  Devuelve    : void
+ */
 void socketes_wait(t_nombre_semaforo identificador_semaforo){
-	int nro_entero = 17;
-	printf("Wait \n");
-	//return nro_entero;
+
+	printf("ANSISOP ------- Ejecuto WAIT: %s ----\n", identificador_semaforo);
+
+	int header_mensaje = ANSISOP_WAIT;
+
+	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
+
+	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
+
+	printf("Envio mensaje wait al Núcleo con el identificador del semaforo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
+	//TODO esperar la respuesta.
+	//(?)Qué es lo que tiene que devolver? Se tiene que quedar esperando hasta que el wait de 0?
+	//Tb tengo que usar wait/signal en estas funciones, para simular el wait/signal de las primitivas?
+	//Si me manda que se tiene que bloquear, devuelvo el pcb actualizado no?
 }
 
-//int socketes_signal(t_nombre_semaforo identificador_semaforo);
-void socketes_signal(t_nombre_semaforo identificador_semaforo){
-	int nro_entero = 17;
-	printf("Signal \n");
 
-	//return nro_entero;
+/*
+ *  FUNCION     : Informa al Núcleo que ejecute la función signal para el semáforo indicado.
+ *  Recibe      : t_nombre_semaforo identificador_semaforo
+ *  Devuelve    : void
+ */
+void socketes_signal(t_nombre_semaforo identificador_semaforo){
+
+	printf("ANSISOP ------- Ejecuto SIGNAL: %s ----\n", identificador_semaforo);
+
+	int header_mensaje = ANSISOP_SIGNAL;
+
+	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
+
+	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
+
+	memcpy(mensaje, &header_mensaje, sizeof(int));
+	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
+
+	printf("Envio mensaje SIGNAL al Núcleo con el identificador del semaforo\n");
+
+	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
+
+	//TODO esperar la respuesta.
+	//(?)Qué es lo que tiene que devolver? Yo tengo que almacenar el valor del semaforo?
+}
+
+
+void socketes_finalizar(){
+	printf("ANSISOP ------- Finalizar Programa. ----\n");
 }

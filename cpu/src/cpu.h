@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -39,8 +40,23 @@ typedef struct {
 	char* umc_ip;
 	char* umc_puerto;
 	int *cpu_id;
-
 }t_configuracion_cpu;
+
+typedef struct{
+	int nroPagina;
+	int offset;
+	int size;
+	int pid;
+	int valor;
+}__attribute__ ((__packed__)) t_solicitud_escritura;
+
+
+typedef struct{
+	int nroPagina;
+	int offset;
+	int size;
+	int pid;
+}__attribute__ ((__packed__)) t_solicitud_lectura;
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -59,6 +75,7 @@ void handshakeUMC(int cpu_id);
 void recibirPCB(char* message);
 void enviarPaqueteAUMC(char* package);
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion);
+void handler_seniales(int senial);
 
 /****************************************************************************************/
 /*                                PRIMITIVAS ANSISOP								    */
@@ -69,18 +86,15 @@ t_valor_variable socketes_dereferenciar(t_puntero puntero);
 void socketes_asignar(t_puntero puntero, t_valor_variable variable);
 t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable);
 t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor);
-t_puntero_instruccion socketes_irAlLabel(t_nombre_etiqueta etiqueta);
+void socketes_irAlLabel(t_nombre_etiqueta etiqueta);
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar);
 t_puntero socketes_retornar(t_valor_variable retorno);
 void socketes_imprimir(t_valor_variable valor_mostrar);
-//int socketes_imprimirTexto(char* texto); TODO: ver definiciones
 void socketes_imprimirTexto(char* texto);
-//int socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo); TODO: ver definiciones
 void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo);
-//int socketes_wait(t_nombre_semaforo identificador_semaforo); TODO: ver definiciones
 void socketes_wait(t_nombre_semaforo identificador_semaforo);
-//int socketes_signal(t_nombre_semaforo identificador_semaforo); TODO: ver definiciones
 void socketes_signal(t_nombre_semaforo identificador_semaforo);
+void socketes_finalizar();
 
 
 /****************************************************************************************/
@@ -95,11 +109,10 @@ AnSISOP_funciones funciones = {
 		.AnSISOP_obtenerValorCompartida	= socketes_obtenerValorCompartida,
 		.AnSISOP_asignarValorCompartida = socketes_asignarValorCompartida,
 		.AnSISOP_irAlLabel				= socketes_irAlLabel,
-		//.AnSISOP_llamarSinRetorno		= socketes_asignar,
 		.AnSISOP_llamarConRetorno		= socketes_llamarConRetorno,
-		//.AnSISOP_finalizar				= socketes_asignar,
+		.AnSISOP_finalizar				= socketes_finalizar,
 		.AnSISOP_imprimir				= socketes_imprimir,
-		.AnSISOP_imprimirTexto				= socketes_imprimirTexto,
+		.AnSISOP_imprimirTexto			= socketes_imprimirTexto,
 		.AnSISOP_entradaSalida			= socketes_entradaSalida
 };
 
