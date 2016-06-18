@@ -20,6 +20,9 @@ int main(int argc, char *argv[]) {
 	char *ip_UMC, *puerto_UMC;
 	fd_set listen;
 
+	listaReady = list_create();
+	listaCPUs = list_create();
+
 	//valida los parametros de entrada del main
 	if (argc != 2) {
 		fprintf(stderr, "Uso: nucleo config_path\n");
@@ -27,7 +30,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	FD_ZERO(&listen);
-
 
 	crearConfiguracion(argv[1]);
 
@@ -38,15 +40,15 @@ int main(int argc, char *argv[]) {
 	FD_SET(cons_fd, &listen);
 	printf("socket escucha consola: %d \n", cons_fd);
 	printf("Esperando conexiones de consolas.. (PUERTO: %s)\n", puerto_cons);
-	cant_cpus = 0;
-	max_cpu = 0;
+
 
 	stack_size = config_get_int_value(config, "STACK_SIZE");
-
 	quantum = config_get_int_value(config, "QUANTUM");
 
 
 	//Conexion CPUs
+	cant_cpus = 0;
+	max_cpu = 0;
 	puerto_cpu = config_get_string_value(config, "PUERTO_CPU");
 	cpu_fd = conectarPuertoDeEscucha(puerto_cpu);
 	maximoFileDescriptor(cpu_fd,&max_fd);
@@ -62,7 +64,7 @@ int main(int argc, char *argv[]) {
 	socket_umc = conectarseA(ip_UMC, puerto_UMC);
 	validacionUMC(socket_umc);
 
-
+	//escucha actividad de sockets - nuevas CPUs, consolas, recepción msjs -
  	trabajarConexionesSockets(&listen, &max_fd, cpu_fd, cons_fd);
 
 	return EXIT_SUCCESS;
@@ -144,7 +146,6 @@ void validacionUMC(int socket_umc){
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
 	int i;
-	int recvPaquete;
 
 	//creo un set gral de sockets
 	fd_set readyListen;
@@ -181,13 +182,12 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 
 				}else if (i == cpu_fd) {
 					//Agrego la nueva conexion de CPU
-					agregarConexion(i, max_fd, listen, &cpu_fd_set, 3000);
 					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 				}else{
 					//Recibo el mensaje
 					int codMensaje = recibirMensaje(i);
 
-					if (recvPaquete <= 0) {
+					if (codMensaje <= 0) {
 						// recibio 0 bytes, cierro la conexion y remuevo del set
 						close(i);
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
@@ -252,12 +252,12 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
-	int nuevo_fd;
+	int nuevaCPU;
 	int msj_recibido;
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 
-	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
+	nuevaCPU = accept(fd, (struct sockaddr *) &addr, &addrlen);
 
 	printf("Se ha conectado una nueva CPU.\n");
 
@@ -266,83 +266,72 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 	buffer[0] = SOY_NUCLEO;
 	buffer[1] = quantum;
 
-	send(nuevo_fd, &buffer, 2*sizeof(int),0);
-	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
+	send(nuevaCPU, &buffer, 2*sizeof(int),0);
+	recv(nuevaCPU, &msj_recibido, sizeof(int),0);
 
 	if(msj_recibido == SOY_CPU){
 
-		if(nuevo_fd > *max_fd){
-			*max_fd = nuevo_fd;
+		if(nuevaCPU > *max_fd){
+			*max_fd = nuevaCPU;
 		}
 
-		FD_SET(nuevo_fd,listen);
-		FD_SET(nuevo_fd,cpus);
+		FD_SET(nuevaCPU,listen);
+		FD_SET(nuevaCPU,cpus);
 
 		//Agrego la cpu a la lista de cpus
 		t_cpu cpu_nueva;
 
-		cpu_nueva.fd = nuevo_fd;
+		cpu_nueva.id = nuevaCPU;
+		cpu_nueva.socket = nuevaCPU;
 		cpu_nueva.libre = true;
-		cpu_nueva.num = max_cpu;
+		cpu_nueva.pcb = 0;
+
 		max_cpu++;
 
 		cant_cpus++;
 		//Necesito un array con 1 cpu mas de espacio
 		listaCpu = realloc(listaCpu, cant_cpus * sizeof(t_cpu));
+		list_add(listaCPUs, listaCpu);
 
 		listaCpu[cant_cpus - 1] = cpu_nueva;
+		printf("CPUs disponibles %d\n", cant_cpus);
+
+		if (cant_cpus > 0){
+			t_cpu * nodoCPU = list_get(listaCPUs, 0);
+			enviarPaqueteACPU(nodoCPU);
+		}
+
 	}else{
 		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
-		close(nuevo_fd);
+		close(nuevaCPU);
 	}
 }
 
-void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj){
-	//msj Es el mensaje de autentificacion.
-
-	int soy_nucleo = SOY_NUCLEO;
-	int nuevo_fd;
-	int msj_recibido;
-	struct sockaddr_in addr; // Para recibir nuevas conexiones
-	socklen_t addrlen = sizeof(addr);
-
-	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
-
-	printf("Se ha conectado un nuevo usuario.\n");
-
-	send(nuevo_fd, &soy_nucleo, sizeof(int), 0);
-	recv(nuevo_fd, &msj_recibido, sizeof(int), 0);
-	printf("socket: %d, mensaje %d", nuevo_fd,msj_recibido);
-
-	if(msj_recibido == msj){
-
-		//Actualiza el máximo
-		if (nuevo_fd > *max_fd) {
-			*max_fd = nuevo_fd;
-		}
-
-		if(msj == SOY_CONSOLA){
-			socket_consola = nuevo_fd;
-			printf("El nuevo usuario es una consola, socket %d\n", socket_consola);
-
-
-		}else if(msj == SOY_CPU){
-			socket_CPU = nuevo_fd;
-			printf("El nuevo usuario es una cpu, socket %d\n", socket_CPU);
-		}
-
-		FD_SET(nuevo_fd, listen);
-		FD_SET(nuevo_fd, particular);
-
-	}else{
-		printf("No se verifico la autenticidad del usuario, cerrando la conexion. \n");
-		close(nuevo_fd);
-	}
-
-}
 
 void hacerAlgoCPU(int codigoMensaje, int fd){
-	printf("hacerAlgoCPU.%d\n",codigoMensaje);
+	printf("hacerAlgoCPU con el msj.%d\n",codigoMensaje);
+
+	switch(codigoMensaje){
+
+	case ENTRADA_SALIDA:
+		 //agrego el proceso en listaBloqueados, trato el sleep corresp
+	break;
+
+	case FIN_QUANTUM:
+		// saco el proceso de listaEjecutado, lo muevo donde corresponda
+	break;
+
+	case FINALIZAR:
+		//saco de listaEjecutado, envio msj a consola
+	break;
+
+	case OPERACION_PRIVILEGIADA:
+		//proceso según la operación que se haya solicitado
+	break;
+
+	default:
+		printf("mensaje Erroneo");
+	}
 }
 
 void hacerAlgoConsola(int codigoMensaje, int fd){
@@ -369,7 +358,7 @@ void hacerAlgoUmc(int codigoMensaje){
 
 	case ACEPTO_PROGRAMA:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
-		moverDeNewA(msj_recibido,&ready);
+		moverDeNewA(msj_recibido,&listaReady);
 		break;
 
 	}
@@ -390,7 +379,10 @@ void moverDeNewA(int pid, t_queue *destino){
 
 void iniciarNuevaConsola (int fd){
 
-	t_pcb *pcb;
+	//1.recibe pgm de Consola
+	//2.crea el PCB lo agrega a la lista de listos
+	//3.envia el pgm a UMC -(si fue aceptado, agrego el PCB a la lista)
+
 
 	//recibo archivo de Consola
 	char *buffer, *source;
@@ -422,56 +414,88 @@ void iniciarNuevaConsola (int fd){
 	//Creo la estructura del PCB
 	crearPCB(source_size, source);
 
-	//solicito paginas necesarias a UMC
-	solicitarPaginasUMC(source_size, buffer, source);
-
-	//Ya hice los pedidos necesarios a la UMC, agrego el proceso a la lista de nuevos.
-	list_add(&new, pcb);
+	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
+	int solicitudOK = solicitarPaginasUMC(source_size, buffer, source);
+	if (solicitudOK){
+		printf("solicitud de paginas ok \n");
+		//list_add(&ready, paquete);
+	}else{
+		printf("no hay espacio, solicitud rechazada\n");
+		list_remove(&new, 0);
+	}
 
 	//Libero la memoria
 	free(buffer);
-	free(source);
 
 }
 
 
-
 void crearPCB(int source_size,char *source){
-	//Creo el PCB
-	t_pcb * pcb;
+
+	char *paquete;
+
+	t_indice_codigo * indiceCodigo;
+	t_indice_etiquetas * indiceEtiquetas;
+	t_indice_stack * indiceStack;
+
 	pcb = malloc(sizeof(t_pcb));
+	indiceCodigo = malloc(sizeof(t_indice_codigo));
+	indiceEtiquetas = malloc(sizeof(t_indice_etiquetas));
+	indiceStack = malloc(sizeof(t_indice_stack));
+
+	// pcb + indiceCodigo + indiceEtiquetas (ver estructura de Etiquetas que tiene el tamaño segun el size_etiqueta) + indiceStack
+	paquete = malloc(sizeof(t_pcb) + sizeof(t_indice_codigo) +  sizeof(t_indice_etiquetas) + sizeof(t_indice_stack));
 
 	pcb->pid = ++max_pid;
 	pcb->PC = 0;
 	pcb->cant_pag = source_size;
+	pcb->idCPU = 0;
 
 	t_metadata_program* metadata;
 	metadata = metadata_desde_literal(source);
 
-	t_indice_codigo * indiceCodigo;
-	t_indice_etiquetas * indiceEtiquetas;
-	int i;
+	indiceCodigo->instrucciones_size = metadata->instrucciones_size;
+	indiceCodigo->instrucciones = metadata->instrucciones_serializado;
+	indiceCodigo->instruccion_inicio = metadata->instruccion_inicio;
 
+	/*	int i;
 	for(i=0; i < metadata->instrucciones_size; i++){
 		t_intructions instr = metadata->instrucciones_serializado[i];
 		indiceCodigo->byte_inicio[i] = instr.start;
 		indiceCodigo->long_instruccion[i] = instr.offset;
-	}
+	}*/
 
-/*
-	indiceEtiquetas->etiquetas = (char*)malloc(sizeof(char)*metadata->etiquetas_size);
-	memcpy(indiceEtiquetas->etiquetas, metadata->etiquetas, metadata->etiquetas_size);
+	indiceEtiquetas->etiquetas_size =  metadata->etiquetas_size;
+	indiceEtiquetas->etiquetas = metadata->etiquetas;
 
-	indiceEtiquetas->etiquetas_size = metadata->etiquetas_size;
-*/
+	indiceStack->argumentos = 0;
+	indiceStack->dirRetorno = 0;
+	indiceStack->posVariable = 0;
+	indiceStack->variables = 0;
+
+	pcb->indice_cod = indiceCodigo;
+	pcb->indice_etiquetas = indiceEtiquetas;
+	pcb->indice_stack = indiceStack;
+
+	//Armo el paquete
+	//memcpy(paquete, &mensaje, sizeof(int));
+	memcpy(paquete, &pcb, sizeof(t_pcb));
+	//memcpy(paquete + sizeof(int) + sizeof(t_pcb), &indiceCodigo, sizeof(t_indice_codigo));
+	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo), &indiceEtiquetas, sizeof(t_indice_etiquetas));
+	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo) + sizeof(t_indice_etiquetas), &indiceStack, sizeof(indiceStack));
+
+	list_add(listaReady, pcb);
+	printf("elementos lista: %d\n", listaReady->elements_count);
 
 }
 
-void solicitarPaginasUMC(int source_size, char *buffer, char *source){
+
+int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 
 	int mensaje;
 	int cant_enviada = 0;
 	int aux;
+
 	//Pido paginas para almacenar el codigo y el stack
 	mensaje = INICIALIZAR_PROGRAMA;
 	//Armo el paquete a enviar
@@ -490,45 +514,48 @@ void solicitarPaginasUMC(int source_size, char *buffer, char *source){
 	memcpy(buffer + 4*sizeof(int), source, source_size);
 
 	while(cant_enviada < buffer_size){
-		aux = send(umc_fd, buffer + cant_enviada, buffer_size - cant_enviada, 0);
+		aux = send(socket_umc, buffer + cant_enviada, buffer_size - cant_enviada, 0);
 
 		if(aux == -1){
 			printf("Error al enviar el archivo a UMC.\n");
-			exit(1);
+			return -1;
 		}
 
 		cant_enviada += aux;
 	}
-	printf("Archivo enviado satisfactoriamente.\n");
+	printf("Archivo enviado satisfactoriamente a UMC. %s\n", source);
+	return cant_enviada;
 
 }
 
 
+void enviarPaqueteACPU(t_cpu * nodoCPU){
 
-void procesoMensajeRecibidoConsola(char *package, int socket){
-	printf("Mensaje recibido Consola: %s\n",package);
-	//send a CPU
-	if (strlen(package) >0){
+	t_pcb * nodoPCB =  list_get(listaReady, 0);
+	nodoPCB->idCPU= nodoCPU->id;
 
-		if (socket_CPU != 0){
-			enviarPaqueteACPU(package, socket_CPU);
-		}else{
-			printf("no hay CPU conectada");
-		}
-	}
-}
+	int mensaje = ENVIO_PCB;
+	char *buffer;
+	//Armo el paquete a enviar
+	int buffer_size = sizeof(int) + sizeof(t_pcb);
+	buffer = malloc(buffer_size);
 
-void enviarPaqueteACPU(char* package, int socket){
-	//Envio el archivo entero
+	memcpy(buffer, &mensaje, sizeof(int));
+	memcpy(buffer + sizeof(int), nodoPCB, sizeof(t_pcb));
 
-	int resultSend = send(socket, package, PACKAGESIZE, 0);
-	printf("resultado send %d, a socket %d \n",resultSend, socket);
-	if(resultSend == -1){
-		printf ("Error al enviar archivo.\n");
+	int envioPCB = send(nodoCPU->socket,buffer,sizeof(buffer),0);
+
+	if(envioPCB <= 0){
+		printf("Error en el envio del PCB");
 		exit(1);
 	}else {
-		printf ("Archivo enviado a CPU.\n");
-		printf ("mensaje enviado a CPU: %s\n", package);
+		//envio correcto:  cambio estado cpu y asigno id pcb. muevo a la lista correspondiente
+		nodoCPU->pcb = nodoPCB->pid;
+		nodoCPU->libre = false;
+		//list_remove(listaDeListo, 0);
+		//list_add(listaDeEjecutado,nodoPCB);
+		printf ("PCB enviado a CPU.%d\n", nodoPCB->pid);
+
 	}
 }
 
@@ -555,7 +582,7 @@ void planificar(){
 	int i;
 
 	//Miro que no este vacia la lista de ready
-	if(queue_is_empty(&ready)){
+	if(queue_is_empty(listaReady)){
 
 		for(i=0; i<cant_cpus; i++){
 

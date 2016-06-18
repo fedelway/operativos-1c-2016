@@ -30,8 +30,9 @@
 
 
 typedef struct{
-	int byte_inicio[10];
-	int long_instruccion[10];
+	t_intructions*	instrucciones;
+	t_size			instrucciones_size;
+	t_puntero_instruccion instruccion_inicio;
 }t_indice_codigo;
 
 typedef struct{
@@ -50,16 +51,18 @@ typedef struct{
 	int pid;
 	int PC;			//program counter
 	int cant_pag;
-	t_indice_codigo indice_cod;
-	t_indice_etiquetas indice_etiquetas;
-	t_indice_stack indice_stack;
+	int idCPU;
+	t_indice_codigo *indice_cod;
+	t_indice_etiquetas *indice_etiquetas;
+	t_indice_stack *indice_stack;
 }t_pcb;
 
 
 typedef struct{
-	int num;
-	int fd;
+	int id;
+	int socket;
 	bool libre;
+	int pcb;
 }t_cpu;
 
 typedef struct{
@@ -78,6 +81,7 @@ int max_cpu;
 int quantum;
 int cant_cpus;
 t_cpu *listaCpu;
+t_pcb *pcb;
 
 
 //agregamos sockets provisorios para cpu y consola
@@ -88,8 +92,10 @@ int socket_escucha;
 int cpu_fd, cons_fd;
 
 //Las colas con los dif estados de los pcb
-t_queue ready, running, blocked, finished;
+t_queue running, blocked, finished;
 t_list new;
+t_list * listaReady;
+t_list * listaCPUs;
 
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
@@ -100,23 +106,20 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 void procesoMensajeRecibidoConsola(char* paquete, int socket);
 void hacerAlgoCPU(int codigoMensaje, int fd);
 void hacerAlgoConsola(int codigoMensaje, int fd);
-void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 int recibirMensaje(int socket);
 
-void enviarPaqueteACPU(char* package, int socket);
 void iniciarNuevaConsola(int fd);
 void validacionUMC();
 void hacerAlgoUmc(int codigoMensaje);
-void agregarConexion(int fd, int *max_fd, fd_set *listen, fd_set *particular, int msj);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
-void enviarPaqueteACPU(char* package, int socket);
+void enviarPaqueteACPU(t_cpu * nodoCPU);
 void limpiarTerminados();
 void planificar();
 void moverDeNewA(int pid, t_queue *destino);
 
 void crearPCB(int source_size,char *source);
-void solicitarPaginasUMC(int source_size, char *buffer, char *source);
+int solicitarPaginasUMC(int source_size, char *buffer, char *source);
 
 #endif /* NUCLEO_H_ */
