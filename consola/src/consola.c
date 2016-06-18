@@ -130,16 +130,17 @@ bool validarParametrosDeConfiguracion(t_config* config){
 void handshakeConNucleo(int nucleo_fd){
 
 	int msj_recibido;
-	int soy_consola = 2000;
+	int mensaje = SOY_CONSOLA;
 
 	recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
-	printf("socket: %d, mensaje %d\n", nucleo_fd,msj_recibido);
 
-	if(msj_recibido == 1000){
+
+	if(msj_recibido == SOY_NUCLEO){
 		log_info(logger, "Nucleo validado.");
-		send(nucleo_fd, &soy_consola, sizeof(int), 0);
-		printf("send socket: %d, mensaje %d\n", nucleo_fd,soy_consola);
+		send(nucleo_fd, &mensaje, sizeof(int), 0);
+		printf("send socket: %d, mensaje %d\n", nucleo_fd, mensaje);
 	}else{
+		printf("socket: %d, mensaje %d\n", nucleo_fd,msj_recibido);
 	    log_error_y_cerrar_logger(logger, "El nucleo no pudo ser validado.");
 		exit(0);
 	}
@@ -192,20 +193,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	int cant_leida;
 	int cant_enviada = 0;
 	int aux;
-	int mandoArchivo = 2001;
-
-	//prueba envio mensaje simple a nucleo
-	/*
-	//char* mensaje = "Hello\0";
-	if (mensaje[0] != '\0'){
-		aux = send(nucleo_fd, mensaje, 7, 0);
-		printf("msj a enviar %s",mensaje);
-		if(aux == -1){
-	    	log_error_y_cerrar_logger(logger, "Error al enviar archivo.");
-			exit(1);
-		}
-
-	}*/
+	int mandoArchivo = ENVIO_FUENTE;
 
 	cant_leida = fread(archivo, sizeof(char), source_size, source);
 

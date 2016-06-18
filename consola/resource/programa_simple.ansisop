@@ -1,7 +1,16 @@
 #!../Debug/consola ../resource/config.cfg
 begin
-	variables a, b
+	variables a, b, i
+	:prueba
 	a = 3
 	b = 5
 	a = b + 12
+	jnz a prueba
+	i = 1
+	:inicio_for
+	i = i+1
+	print i
+	b = i - 10
+	jnz	b	inicio_for
+	#fuera	del	for
 end
