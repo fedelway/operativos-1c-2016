@@ -74,9 +74,19 @@ int paginaDisponible(int tamanio);
 int  ubicacionEnSwap(int pid);
 char* crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog,char* archivoMapeado);
 void leerUnaPagina(int pid,int pag);
-void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado);
+void modificarPagina(int pid, int pagina, char* nuevoCodigo);
 int espaciosLibres(int cantidad);
-bool hayFragmentacion(int pid, int tamanio);
-
-
+bool hayFragmentacion(int tamanio);
+void prepararLugar( int pid, int tamanio);
+void intercambioEnBitmap(int posicionVacia, int posicionOcupada);
+void obtenerPrograma(int posicionEnSwap);
+//nodo_proceso obtenerPrograma(int posicionEnSwap);
+void actualizoListaDeProcesos(void posicioAIntercambiar, int j);
+bool posicionVacia(int posicion);
+void presenteEnLIsta(int posicion);
+void intercambioEnBitmap(int posicionAnterior, int posicionActual);
+void actualizarEstructuras(int posicionNueva, int posicionAnterior);
+void modificarArchivoSwap(nodo_proceso * nodoPrograma);
+void modificarPosicionEnSwap(int posicionNueva, int posicionAnterior);
+void comenzarCompactacion();
 #endif /* SWAP_H_ */

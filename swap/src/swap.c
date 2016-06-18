@@ -58,7 +58,7 @@ int main(int argc,char *argv[]) {
 	printf("La ubicacion dl programa 1 en swap es: %d \n", ubicacion);
 
 
-
+/*
 	//prueba para crear 2° programa
 	int disponible2 = paginaDisponible(3);
 	printf("la pagina disponible para el segundo programa es: %d \n", disponible2);
@@ -71,25 +71,21 @@ int main(int argc,char *argv[]) {
 	int ubicacion2 = ubicacionEnSwap(2);
 	printf("La ubicacion en swap del segundo programa es: %d \n", ubicacion2);
 
-/*
-	int disponible3 = paginaDisponible(4);
-	printf("la pagina disponible para el segundo programa es: %d \n", disponible3);
 
 	//prueba para crear 3° programa
 	int disponible3 = paginaDisponible(2);
 	printf("la pagina disponible para el tercer programa es: %d \n", disponible3);
 
-	char* resultadoCreacion3; // lo hago así pero dsp cambia, porque unificocon compactacion y frag exter
+	char* resultadoCreacion3; // lo hago así pero dsp cambia, porque unifico con compactacion y frag exter
 	char* codigo_prog3 = "ES";
 	char* resultadoDeCreacionPrograma3 = crearProgramaAnSISOP(3,2,resultadoCreacion3,codigo_prog3,archivoMapeado); //para probar que devuelve
 	printf("El resultado de la creación del programa %d es: %s \n",3, resultadoDeCreacionPrograma3); // probado cuando no hay espacio tambien y funciona ok
-
-	int ubicacion3 = ubicacionEnSwap(3);
-	printf("La ubicacion en swap del tercer programa es: %d \n", ubicacion3);
 */
 
+
+	//leerUnaPagina(1,1);
+	//modificarPagina(1,1, "ana");
 	leerUnaPagina(1,1);
-	//modificarPagina(1, "a + c", archivoMapeado);
 
 	puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", puerto_escucha);
@@ -326,7 +322,7 @@ void leerUnaPagina(int pid, int pagina){
 
 	if (posSwap != -1){
 		char* bytes = malloc(tamanio_pagina);
-		memcpy(bytes, archivoMapeado +  posSwap, tamanio_pagina);
+		memcpy(bytes, archivoMapeado +  posSwap*tamanio_pagina, tamanio_pagina);
 		printf("El contenido de la página es: %s\n ", bytes);
 	}else{
 
@@ -334,20 +330,25 @@ void leerUnaPagina(int pid, int pagina){
 	}
 }
 
-void modificarPagina(int pid, char* nuevoCodigo, char* archivoMapeado){
+void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 
 	printf("entra a modificar\n");
 	int posSwap = ubicacionEnSwap(pid);
 
-	archivoMapeado = malloc(posSwap + strlen(nuevoCodigo));
+	int cant_Escribir = strlen(nuevoCodigo);
 
-	if (ubicacionEnSwap(pid) != -1){
-		memcpy(&archivoMapeado[posSwap], &nuevoCodigo, strlen(nuevoCodigo));
-		printf("la modificacion en la pagina n° %d es: %c", posSwap, *archivoMapeado);
+	int posEscribir = posSwap*pagina*tamanio_pagina;
+
+
+	if (posSwap != -1 && cant_Escribir <= tamanio_pagina){
+		memcpy(archivoMapeado + posEscribir, nuevoCodigo, cant_Escribir);
+		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, strlen(nuevoCodigo));
+		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
 	}else{
-		printf("PAGINA NO ENCONTRADA EN SWAP");
+		printf("Error al escribir la pagina");
 	}
 }
+
 //------------------------------------------------------------------------------------------------//
 int espaciosLibres(int cantidad){
 
@@ -360,9 +361,7 @@ int espaciosLibres(int cantidad){
 	}return cantLibres;
 }
 
-
-
-bool hayFragmentacion(int pid, int tamanio){
+bool hayFragmentacion( int tamanio){
 
 	if(!paginaDisponible(tamanio) && (espaciosLibres(tamanio) >= tamanio)){
 		return 0;
@@ -370,13 +369,124 @@ bool hayFragmentacion(int pid, int tamanio){
 		return 1;
 	}
 }
-/*
+
 //compactación al ingresar un programa,
-void verificarEspacio( char* bitMap, int pid, int tamanio){
+void prepararLugar( int pid, int tamanio){
 	//No hay espacio contiguo y hay espacio separado
-	if(hayFragmentacion(pid, tamanio)){ // ver resolverlo sin depender
+	if(hayFragmentacion(tamanio)){
+		//AGREGAR SEMÁFORO MIENTRAS COMPACTO
 		comenzarCompactacion(); //AGREGAR SEMÁFORO Y ADD A LISTA DE ESPERA MIENTRAS SE COMPACTE
 
 	}
 }
+//-------------------------- FUNCIONES PARA COMPACTACION --------------------------//
+
+void modificarArchivoSwap( nodo_proceso * nodoPrograma){
+	/*
+	char* buffer = malloc(tamanio_pagina);
+	memcpy( ,tamanio_pagina);  GUARDO EN BUFFER TEMPORALMENTE- VARIABLE LOCAL -
+	------ 					   DEJO ESPACIO EN \0
+	memcpy();                  GUARDO EN LA NUEVA POSICION
+	nodoPrograma->pid;
+	nodoPrograma->cantidad_paginas;
+	nodoPrograma->posSwap;
+	*/
+}
+
+
+void modificarPosicionEnSwap(int posicionNueva, int posicionAnterior){
+
+	//ACA TENGO QUE MODIFICAR EL NODO DE LA LISTA DE PROCESOS
+}
+
+// VER EL RETORNO QUE DA ERROR
+void  obtenerPrograma(int posicionEnSwap){
+	//nodo_proceso* obtenerPrograma(int posicionEnSwap){
+
+
+	int i;
+	int cantidadNodos = listaProcesos->elements_count;
+	nodo_proceso *nodo;
+	for(i = 0; i < cantidadNodos; i++ ){
+		nodo = list_get(listaProcesos, i);
+		if(nodo->posSwap == posicionEnSwap){
+			//return nodo;
+		}
+	}
+}
+
+//FALTA TERMINAR ÉSTO
+void actualizarEstructuras(int posicionNueva, int posicionAnterior){
+
+	nodo_proceso * nodoPrograma;
+	//nodoPrograma = obtenerPrograma(posicionAnterior); COMENTADO PORQUE HAY QUE MODIFICAR EL RETORNO
+
+	modificarPosicionEnSwap(posicionNueva, posicionAnterior);
+	modificarArchivoSwap(nodoPrograma);
+
+}
+/* VER SI AYUDA
+
+nodo_proceso nodo = obtenerPrograma(j);
+
+if(nodo.cantidad_paginas = cantidad){
+
+	modificarLista();
+	modificarArchivo();
+}
 */
+
+bool presenteEnLista(int posicionEnSwap){ // ver error, no retorna booleano
+	int i;
+	int cantidadNodos = listaProcesos->elements_count;
+	nodo_proceso * nodo;
+	for(i = 0; i < cantidadNodos; i++ ){
+
+		nodo = list_get(listaProcesos, i);
+		if(nodo->posSwap == posicionEnSwap){
+			return 1;
+		}else{
+			return 0;
+		}
+	}
+}
+
+void intercambioEnBitmap(int posicionVacia, int posicionOcupada){
+
+	bitarray_set_bit(bitMap,posicionVacia);
+	bitarray_set_bit(bitMap,posicionOcupada);
+}
+
+bool posicionVacia(int posicionBitMap){
+
+	return(bitarray_test_bit(bitMap, posicionBitMap) == 0);
+}
+
+//COMPACTACION
+void comenzarCompactacion(){
+	int i,j;
+	int posicionAIntercambiar = -1;
+
+	for(i = 0; i <= cantidad_paginas; i++){
+		if(posicionVacia(i)){
+			posicionAIntercambiar = i;
+			//ver condicion para cerrar el segundo for
+			for(j = i+1; j <= cantidad_paginas  && posicionAIntercambiar == i ; j++){
+
+				if(!posicionVacia(j)){
+					//INTERCAMBIO VALORES EN BITMAP
+					intercambioEnBitmap(posicionAIntercambiar,j);
+
+					if(presenteEnLista(j)){
+						//ACTUALIZO LISTA DE PROCESOS Y ARCHIVO
+						actualizarEstructuras(j, posicionAIntercambiar);
+					}
+					posicionAIntercambiar++;
+				}
+			}
+		}
+	}
+}
+
+
+
