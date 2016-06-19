@@ -31,8 +31,8 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
- 	swap_fd = conectarseA(swap_ip, swap_puerto);
- 	handshakeSWAP();
+ 	//swap_fd = conectarseA(swap_ip, swap_puerto);
+ 	//handshakeSWAP();
 
 	//conexion a cpu
 	char* cpu_puerto;
@@ -55,10 +55,27 @@ int main(int argc,char *argv[]) {
 
 	aceptarNucleo();
 
+	lanzarTerminal();
+
 	//Ciclo principal
 	recibirConexiones(socket_CPU, max_fd);
 
 	return EXIT_SUCCESS;
+}
+
+void lanzarTerminal()
+{
+	pthread_t thread_terminal;
+	pthread_attr_t atributos;
+
+	pthread_attr_init(&atributos);
+	pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
+
+	pthread_create(&thread_terminal, &atributos, (void*)terminal, NULL);
+
+	printf("Terminal inicializada correctamente.\n");
+
+	return;
 }
 
 //Esta funcion va a ser el ciclo principal. Va a estar aceptando nuevas conexiones y creando hilos con cada nueva conexion
@@ -945,6 +962,7 @@ void flushTlb(){
 void flushPid(int pid){
 
 	int i;
+	pthread_mutex_lock(&mutex_tlb);
 	for(i=0;i<cache_tlb.cant_entradas;i++){
 
 		//Solo reseteo aquellos que coincidan con el pid dato
@@ -964,7 +982,7 @@ void flushPid(int pid){
 			cache_tlb.entradas[i].pid = -1;
 		}
 	}
-
+	pthread_mutex_unlock(&mutex_tlb);
 
 }
 
@@ -1045,37 +1063,51 @@ void terminal(){
 	char buffer[buffer_size + 1];//1 mas para el \0
 	char comando[buffer_size/2];
 	char parametro[buffer_size/2];
+	int cant_parametros;
 
 	//Vars auxiliares
 	int i,j,k, pid;
 	t_prog *programa;
 
 	for(;;){
-		//Limpio el buffer
+		//Limpio los buffers
 		fflush(stdin);
+		//while ((i = getchar()) != '\n' && c != EOF);
+		memset(buffer,'\0',buffer_size);
+		memset(comando,'\0',buffer_size/2);
+		memset(parametro,'\0',buffer_size/2);
 
 		//obtengo los datos de stdin
 		fgets(buffer, buffer_size, stdin);
 		//Formateo los datos
-		sscanf(buffer, "%s %s", comando, parametro);
+		cant_parametros = sscanf(buffer, "%s %s", comando, parametro);
 
 		//El switch
-		if(strcmp(comando, "flushTlb") )
+		if(!strcmp(comando, "flushTlb") )
 		{
-			if(parametro == NULL){
+			if(cant_parametros == 1){
 				//No hay segundo parametro
 				flushTlb();
+
+				printf("flush exitoso.\n");
 			}
 			else{
 				pid = atoi(parametro);
 
-				flushPid(pid);
+				if(pidValido(pid) ){
+					flushPid(pid);
+
+					printf("flush exitoso.\n");
+				}else{
+					printf("pid incorrecto.\n");
+				}
 			}
 
-			printf("flush exitoso.\n");
 		}
-		else if(strcmp(comando, "flushMemory") )
+		else if(!strcmp(comando, "flushMemory") )
 		{
+			printf("Iniciando flush.\n");
+
 			pthread_mutex_lock(&mutex_listaProgramas);
 
 			for(i=0;i<list_size(programas);i++){
@@ -1091,9 +1123,9 @@ void terminal(){
 
 			printf("flush exitoso.\n");
 		}
-		else if(strcmp(comando, "retardo") )
+		else if(!strcmp(comando, "retardo") )
 		{
-			if(parametro == NULL){
+			if(cant_parametros == 1){
 				printf("Mal uso de comando. Uso: retardo valor.\n");
 			}
 			else{
@@ -1101,11 +1133,13 @@ void terminal(){
 
 				retardo = ret;
 
-				printf("Retardo cambiado exitosamente.\n");
+				printf("\nRetardo cambiado exitosamente.\n");
 			}
 		}
-		else if(strcmp(comando, "dump") )
+		else if(!strcmp(comando, "dump") )
 		{
+			printf("\nComenzando con el dump.\n");
+
 			//Primero necesito abrir el archivo
 			FILE *dump_log = fopen("../resource/dump_log", "a");
 
@@ -1114,7 +1148,7 @@ void terminal(){
 				printf("Error al abrir el archivo.\n");
 			}
 
-			if(parametro == NULL){
+			if(cant_parametros == 1){
 				//No se introdujo parametro. Se imprimen todas las tablas.
 				pthread_mutex_lock(&mutex_listaProgramas);
 				pthread_mutex_lock(&mutex_memoria);
@@ -1163,34 +1197,78 @@ void terminal(){
 			{//Hay algo en parametro
 				pid = atoi(parametro);
 
-				printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
+				if(pidValido(pid))
+				{
+					printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-				pthread_mutex_lock(&mutex_memoria);
+					//Para el archivo seria interesante agregarle el dia y hora del dump.
+					time_t rawtime;
+					struct tm *timeinfo;
 
-				programa = buscarPrograma(pid);
+					time(&rawtime);
+					timeinfo = localtime(&rawtime);
 
-				for(j=0;j<fpp;j++)
-				{//Itero sobre cada pagina de la tabla
-					printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
+					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
+					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					if(frames[programa->paginas[j].frame].libre){
-						printf("Pagina libre.\n");
-					}else{
-						int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
-						for(k=0;k<frame_size;k++)
-						{//Escribo el contenido de cada caracter en pantalla
-							fputc(memoria[pos_en_memoria + k], stdout);
+					pthread_mutex_lock(&mutex_memoria);
+
+					programa = buscarPrograma(pid);
+
+					for(j=0;j<fpp;j++)
+					{//Itero sobre cada pagina de la tabla
+						printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
+						fprintf(dump_log,"Pagina nro %d: ", programa->paginas[j].nro_pag);
+
+						if(frames[programa->paginas[j].frame].libre){
+							printf("Pagina libre.\n");
+							fprintf(dump_log,"Pagina libre.\n");
+						}else{
+							int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
+							for(k=0;k<frame_size;k++)
+							{//Escribo el contenido de cada caracter en pantalla
+								fputc(memoria[pos_en_memoria + k], stdout);
+								fputc(memoria[pos_en_memoria + k], dump_log);
+							}
 						}
-					}
 
-					printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
+						printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
+						fprintf(dump_log, "\n");
+						pthread_mutex_unlock(&mutex_memoria);
+					}
+				}else{
+					printf("Pid invalido.\n");
 				}
 			}
-			pthread_mutex_unlock(&mutex_memoria);
+
+			printf("\nDump finalizado exitosamente.\n");
 
 			fclose(dump_log);
+		}
+		else if(!strcmp(comando, "exit") )
+		{
+			printf("Terminando ejecucion del sistema...\n");
+
+			exit(0);
+		}
+		else
+		{
+			printf("\nComando erroneo.\nComandos disponibles: flushTlb [pid]\nflushMemory\ndump [pid]\nretardo [ret en segundos]\nexit\n");
 		}
 
 	}
 
+}
+
+bool pidValido(int pid)
+{
+	int i;
+
+	for(i=0;i<cache_tlb.cant_entradas;i++)
+	{
+		if(cache_tlb.entradas[i].pid == pid)
+			return true;
+	}
+
+	return false;
 }

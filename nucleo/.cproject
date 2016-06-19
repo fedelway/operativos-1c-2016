@@ -43,6 +43,7 @@
 								</option>
 								<option id="gnu.c.link.option.paths.1331954300" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/bibliotecaCompartida/Debug}&quot;"/>
+									<listOptionValue builtIn="false" value="/home/utnso/proyecto/tp-2016-1c-Socketes/bibliotecaCompartida/Debug"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1322327771" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>

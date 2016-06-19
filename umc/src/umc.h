@@ -115,6 +115,8 @@ void escribirParaCpu(int cpu_fd);
 t_prog *buscarPrograma(int pid);
 int sendAll(int fd, void *cosa, int size, int flags);
 int recvAll(int fd, char *buffer, int size, int flags);
+void lanzarTerminal();
 void terminal();
+bool pidValido(int pid);
 
 #endif /* UMC_H_ */
