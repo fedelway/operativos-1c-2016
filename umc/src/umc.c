@@ -1187,6 +1187,8 @@ void terminal(){
 				}
 			}
 			pthread_mutex_unlock(&mutex_memoria);
+
+			fclose(dump_log);
 		}
 
 	}
