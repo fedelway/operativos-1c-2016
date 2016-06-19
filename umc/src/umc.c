@@ -921,6 +921,8 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 void flushTlb(){
 
 	int i;
+
+	pthread_mutex_lock(&mutex_tlb);
 	for(i=0;i<cache_tlb.cant_entradas;i++){
 
 		//Actualizo bits de modificado en tabla de paginas
@@ -936,6 +938,8 @@ void flushTlb(){
 		//Limpio la entrada
 		cache_tlb.entradas[i].pid = -1;
 	}
+	pthread_mutex_unlock(&mutex_tlb);
+
 }
 
 void flushPid(int pid){
@@ -983,7 +987,7 @@ t_prog *buscarPrograma(int pid){
 	}
 
 	pthread_mutex_lock(&mutex_listaProgramas);
-	t_prog *programa_a_buscar = list_find(programas,igualPid);
+	t_prog *programa_a_buscar = list_find(programas,(void*)igualPid);
 	pthread_mutex_unlock(&mutex_listaProgramas);
 
 	return programa_a_buscar;
@@ -1032,4 +1036,159 @@ int recvAll(int fd, char *buffer, int size, int flags){
 	}
 
 	return 0;
+}
+
+void terminal(){
+
+	//variables
+	const int buffer_size = 20;
+	char buffer[buffer_size + 1];//1 mas para el \0
+	char comando[buffer_size/2];
+	char parametro[buffer_size/2];
+
+	//Vars auxiliares
+	int i,j,k, pid;
+	t_prog *programa;
+
+	for(;;){
+		//Limpio el buffer
+		fflush(stdin);
+
+		//obtengo los datos de stdin
+		fgets(buffer, buffer_size, stdin);
+		//Formateo los datos
+		sscanf(buffer, "%s %s", comando, parametro);
+
+		//El switch
+		if(strcmp(comando, "flushTlb") )
+		{
+			if(parametro == NULL){
+				//No hay segundo parametro
+				flushTlb();
+			}
+			else{
+				pid = atoi(parametro);
+
+				flushPid(pid);
+			}
+
+			printf("flush exitoso.\n");
+		}
+		else if(strcmp(comando, "flushMemory") )
+		{
+			pthread_mutex_lock(&mutex_listaProgramas);
+
+			for(i=0;i<list_size(programas);i++){
+
+				programa = list_get(programas, i);
+
+				for(j=0;j<fpp;j++){
+					programa->paginas[j].modificado = true;
+				}
+			}
+
+			pthread_mutex_unlock(&mutex_listaProgramas);
+
+			printf("flush exitoso.\n");
+		}
+		else if(strcmp(comando, "retardo") )
+		{
+			if(parametro == NULL){
+				printf("Mal uso de comando. Uso: retardo valor.\n");
+			}
+			else{
+				int ret = atoi(parametro);
+
+				retardo = ret;
+
+				printf("Retardo cambiado exitosamente.\n");
+			}
+		}
+		else if(strcmp(comando, "dump") )
+		{
+			//Primero necesito abrir el archivo
+			FILE *dump_log = fopen("../resource/dump_log", "a");
+
+			//Checkeo de errores
+			if(dump_log == NULL){
+				printf("Error al abrir el archivo.\n");
+			}
+
+			if(parametro == NULL){
+				//No se introdujo parametro. Se imprimen todas las tablas.
+				pthread_mutex_lock(&mutex_listaProgramas);
+				pthread_mutex_lock(&mutex_memoria);
+				for(i=0;i<list_size(programas);i++)
+				{//Itero sobre todos los programas
+					programa = list_get(programas, i);
+
+					pid = programa->pid;
+					printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
+
+					//Para el archivo seria interesante agregarle el dia y hora del dump.
+					time_t rawtime;
+					struct tm *timeinfo;
+
+					time(&rawtime);
+					timeinfo = localtime(&rawtime);
+
+					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
+					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
+
+					for(j=0;j<fpp;j++)
+					{//Itero sobre cada pagina de la tabla
+						printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
+						fprintf(dump_log, "Pagina nro %d: ", programa->paginas[j].nro_pag);
+
+						if(frames[programa->paginas[j].frame].libre){
+							printf("Pagina libre.\n");
+							fprintf(dump_log, "Pagina libre.\n");
+						}else{
+							int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
+							for(k=0;k<frame_size;k++)
+							{//Escribo el contenido de cada caracter en pantalla
+								fputc(memoria[pos_en_memoria + k], stdout);
+								fputc(memoria[pos_en_memoria + k], dump_log);
+							}
+						}
+
+						printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
+						fprintf(dump_log, "\n");
+					}
+				}
+				pthread_mutex_unlock(&mutex_listaProgramas);
+				pthread_mutex_unlock(&mutex_memoria);
+			}
+			else
+			{//Hay algo en parametro
+				pid = atoi(parametro);
+
+				printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
+
+				pthread_mutex_lock(&mutex_memoria);
+
+				programa = buscarPrograma(pid);
+
+				for(j=0;j<fpp;j++)
+				{//Itero sobre cada pagina de la tabla
+					printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
+
+					if(frames[programa->paginas[j].frame].libre){
+						printf("Pagina libre.\n");
+					}else{
+						int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
+						for(k=0;k<frame_size;k++)
+						{//Escribo el contenido de cada caracter en pantalla
+							fputc(memoria[pos_en_memoria + k], stdout);
+						}
+					}
+
+					printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
+				}
+			}
+			pthread_mutex_unlock(&mutex_memoria);
+		}
+
+	}
+
 }

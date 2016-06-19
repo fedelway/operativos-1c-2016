@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "commons/log.h"
@@ -68,6 +69,7 @@ int stack_size;
 int timer_reset_mem;
 t_tlb cache_tlb;
 
+int retardo;
 
 t_list *programas;
 
@@ -77,6 +79,7 @@ char *memoria;
 //Mutexes
 pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_listaProgramas = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_tlb = PTHREAD_MUTEX_INITIALIZER;
 
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
@@ -111,5 +114,7 @@ void leerParaCpu(int cpu_fd);
 void escribirParaCpu(int cpu_fd);
 t_prog *buscarPrograma(int pid);
 int sendAll(int fd, void *cosa, int size, int flags);
+int recvAll(int fd, char *buffer, int size, int flags);
+void terminal();
 
 #endif /* UMC_H_ */
