@@ -302,9 +302,54 @@ void trabajarNucleo(){
 
 		case INICIALIZAR_PROGRAMA :
 			inicializarPrograma();
+			break;
+
+		case FINALIZAR_PROGRAMA:
+			finalizarPrograma();
+			break;
 		}
 	}
 
+}
+
+void finalizarPrograma()
+{
+	//Recibo el pid
+	int pid;
+	recv(nucleo_fd, &pid, sizeof(int),0);
+
+	t_prog *programa = buscarPrograma(pid);
+
+	pthread_mutex_lock(mutex_listaProgramas);
+	//Funcion auxiliar para remover de la lista
+	bool encontrarPrograma(t_prog *elemento){
+		if(elemento->pid == pid)
+			return true;
+		else return false;
+	}
+
+	programa = list_remove_by_condition(programas, encontrarPrograma);
+	pthread_mutex_unlock(mutex_listaProgramas);
+
+	//Marco todos los frames como libres
+	int i;
+	for(i=0;i<fpp;i++)
+	{
+		frames[programa->paginas[i].frame].libre = true;
+	}
+
+	//Libero la memoria pedida
+	free(programa->paginas);
+	free(programa->pag_en_memoria);
+	free(programa);
+
+	//Aviso a swap que finalice el programa
+	int buffer[2];
+	buffer[0] = UMC_FINALIZAR_PROGRAMA;
+	buffer[1] = pid;
+	send(swap_fd, &buffer, 2*sizeof(int),0);
+
+	return;
 }
 
 void inicializarPrograma(){
@@ -746,6 +791,11 @@ void trabajarCpu(int cpu_listen_fd){
 			case ESCRIBIR:
 				escribirParaCpu(cpu_fd);
 				break;
+
+			case DESCONEXION_CPU:
+				printf("Desconexion de una cpu.\n");
+				close(cpu_fd);
+				return; //Con el return finalizo el thread
 		}
 	}
 

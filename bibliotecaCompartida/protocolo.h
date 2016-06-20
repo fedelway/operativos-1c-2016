@@ -12,7 +12,7 @@
 #define SOY_NUCLEO 1000
 #define NUCLEO_OK 1010
 #define INICIALIZAR_PROGRAMA 1020
-#define FINALIZAR_PROGRAMA 1030
+#define FINALIZAR_PROGRAMA 1030		//A umc le deberia enviar el pid.
 #define ENVIO_PCB 1040
 #define ENTRADA_SALIDA 1050
 #define FIN_QUANTUM 1060
@@ -36,6 +36,7 @@
 #define ANSISOP_ENTRADA_SALIDA 3090
 #define ANSISOP_OBTENER_VALOR_COMPARTIDO 3100
 #define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3110
+#define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D )
 
 
 //Mensajes de Umc
@@ -45,6 +46,7 @@
 #define ACEPTO_PROGRAMA 4021
 #define GUARDA_PAGINA 4030 		//(int pag, int pid, char* contenido) Pido a swap que guarde la pagina indicada
 #define SOLICITUD_PAGINA 4031 	//(int pag, int pid) Pido a swap que me de la pagina indicada
+#define UMC_FINALIZAR_PROGRAMA 4090 //(int pid) Le aviso a swap que tiene que borrar el programa y liberar sus recursos
 
 //Mensajes de Swap
 #define SOY_SWAP 5000

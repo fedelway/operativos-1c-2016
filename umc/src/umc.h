@@ -94,6 +94,7 @@ void trabajarCpu();
 int aceptarCpu(int cpu_fd_listen, int *cpu_num);
 void inicializarMemoria();
 void inicializarPrograma();
+void finalizarPrograma();
 void inicializarTlb();
 int buscarEnTlb(int pag, int pid);
 void actualizarTlb(int pag, int pid, int traduccion);
