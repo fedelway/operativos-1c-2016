@@ -582,7 +582,7 @@ void planificar(){
 	int i;
 
 	//Miro que no este vacia la lista de ready
-	if(queue_is_empty(listaReady)){
+	if(!queue_is_empty(listaReady)){
 
 		for(i=0; i<cant_cpus; i++){
 
