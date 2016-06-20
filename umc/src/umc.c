@@ -320,7 +320,7 @@ void finalizarPrograma()
 
 	t_prog *programa = buscarPrograma(pid);
 
-	pthread_mutex_lock(mutex_listaProgramas);
+	pthread_mutex_lock(&mutex_listaProgramas);
 	//Funcion auxiliar para remover de la lista
 	bool encontrarPrograma(t_prog *elemento){
 		if(elemento->pid == pid)
@@ -328,8 +328,8 @@ void finalizarPrograma()
 		else return false;
 	}
 
-	programa = list_remove_by_condition(programas, encontrarPrograma);
-	pthread_mutex_unlock(mutex_listaProgramas);
+	programa = list_remove_by_condition(programas, (void*)encontrarPrograma);
+	pthread_mutex_unlock(&mutex_listaProgramas);
 
 	//Marco todos los frames como libres
 	int i;
