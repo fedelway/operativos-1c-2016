@@ -102,7 +102,7 @@ void reemplazarEntradaTlb(int pag, int pid, int traduccion);
 int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa);
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa);
 void terminarPrograma(int pid);
-int enviarCodigoASwap(char *source, int source_size);
+int enviarCodigoASwap(char *source, int source_size, int pid);
 void traerPaginaDeSwap(int pag, t_prog *programa);
 void enviarPagina(int pag, int pid, int pos_a_enviar);
 int recibirPagina(int pag, int pid); //Devuelve el frame en donde escribio la pagina

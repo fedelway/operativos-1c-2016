@@ -417,7 +417,7 @@ void inicializarPrograma(){
 	pthread_mutex_unlock(&mutex_listaProgramas);
 
 	//Le mando a swap el archivo para que lo guarde
-	if( enviarCodigoASwap(source,source_size) == -1 ){
+	if( enviarCodigoASwap(source,source_size, pid) == -1 ){
 		//Error en envio de archivo, aviso a nucleo que termine el programa.
 		terminarPrograma(pid);
 
@@ -443,49 +443,64 @@ void inicializarPrograma(){
 	return;
 }
 
-int enviarCodigoASwap(char *source, int source_size){
+int enviarCodigoASwap(char *source, int source_size, int pid){
 
-	int cant_enviada_total = 0;
-	int cant_enviada_parcial;
-	int mensaje = GUARDA_PAGINA;
-	int aux;
-	int pag = 0;//El codigo va siempre en las primeras n paginas.
-	char *buffer;
+	int mensaje[3];
 
-	buffer = malloc(2*sizeof(int) + frame_size);
+	mensaje[0] = RESERVA_ESPACIO;
+	mensaje[1] = pid;
+	mensaje[2] = (source_size / frame_size) + 1;
 
-	if(buffer == NULL){
-		printf("Error de malloc.\n");
-	}
+	send(swap_fd,&mensaje,3*sizeof(int),0);
 
-	//Armo el paquete
-	memcpy(buffer,&mensaje,sizeof(int));
+	//Espero el ok de swap que pudo reservar el espacio para el programa.
+	int respuesta;
+	recv(swap_fd,&respuesta,sizeof(int),0);
 
-	while(cant_enviada_total < source_size){
-		cant_enviada_parcial = 0;
+	if(respuesta == SWAP_PROGRAMA_RECHAZADO)
+	{
+		//Swap no tiene espacio para guardar esto en memoria
+		return -1;
+	}else if(respuesta == SWAP_PROGRAMA_OK)
+	{//Envio el programa pagina a pagina
 
-		memcpy(buffer + sizeof(int),&pag,sizeof(int));
-		memcpy(buffer+2*sizeof(int),source + cant_enviada_total,frame_size);
+		//Armo el buffer
+		char *buffer = malloc(frame_size + 3*sizeof(int) );
 
-		//Ya tengo el paquete armado, lo envio
-		while(cant_enviada_parcial < frame_size){
-			aux = send(swap_fd,buffer,2*sizeof(int) + frame_size,0);
+		mensaje[0] = GUARDA_PAGINA;
+		mensaje[1] = pid;
 
-			if(aux <= 0){
-				printf("Error en el envio del archivo");
-				return -1;//Error de swap, le digo a nucleo que mande el proceso a finished
+		//Esto es igual en todos los mensajes
+		memcpy(buffer, &mensaje, 2*sizeof(int));
+
+		int cant_enviada = 0;
+		int pag = 0;
+		int aux;
+		while(cant_enviada < source_size)
+		{
+			//Termino de armar el buffer
+			memcpy(buffer + 2*sizeof(int), &pag, sizeof(int));
+			memcpy(buffer + 3*sizeof(int), source + cant_enviada, frame_size);
+
+			aux = sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0);
+
+			if(aux == -1)
+			{
+				printf("Error en el envio del archivo a swap. Podria haber estado inconsistente.\n");
+				return -1;
 			}
 
-			cant_enviada_parcial += aux;
+			cant_enviada += aux;
+			pag++;
 		}
-		//Ya envie una pagina, la cant enviada total es la anterior + una pagina
-		cant_enviada_total += frame_size;
 
-		pag++;//Para que swap sepa que es otra pagina
+		printf("Programa enviado a swap exitosamente.\n");
+		return 0;
+	}else{
+		printf("Quilombo con los recv, recibi un mensaje de otro thread...\n");
+		return -1;
 	}
 
-	//Codigo enviado correctamente, devuelvo 0
-	return 0;
 }
 
 void traerPaginaDeSwap(int pag, t_prog *programa){
