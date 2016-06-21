@@ -538,7 +538,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
 
 			//Avanzo el puntero
-			programa->puntero = (programa->puntero +1) & fpp;
+			programa->puntero = (programa->puntero +1) % fpp;
 
 			return;
 		}
