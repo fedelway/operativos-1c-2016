@@ -9,7 +9,6 @@
  */
 
 #include "swap.h"
-#include <string.h>
 
 t_config* config;
 t_log* logger;
@@ -17,9 +16,9 @@ char *archivoMapeado;
 
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
-void crearParticionSwap();
 
-int main(int argc, char *argv[]) {
+
+int main(int argc, char *argv[]){
 
 	char message[PACKAGESIZE];
 	memset(message, '\0', PACKAGESIZE);
@@ -104,7 +103,7 @@ int main(int argc, char *argv[]) {
 
 //----------------------------CONFIGURACION -------------------------------------------//
 
-void crearConfiguracion(char *config_path) {
+void crearConfiguracion(char *config_path){
 
 	config = config_create(config_path);
 	PUERTO_ESCUCHA = config_get_string_value(config, "PUERTO_ESCUCHA");
@@ -113,11 +112,11 @@ void crearConfiguracion(char *config_path) {
 	TAMANIO_PAGINA = config_get_int_value(config, "TAMANIO_PAGINA");
 	RETARDO_COMPACTACION = config_get_int_value(config, "RETARDO_COMPACTACION");
 
-	if (validarParametrosDeConfiguracion()) {
+	if(validarParametrosDeConfiguracion()){
 		log_info(logger,
 				"El archivo de configuración tiene todos los parametros requeridos.");
 		return;
-	} else {
+	}else{
 		log_error(logger, "Configuración no válida");
 		log_destroy(logger);
 		exit(EXIT_FAILURE);
@@ -125,7 +124,7 @@ void crearConfiguracion(char *config_path) {
 }
 
 //Valida que todos los parámetros existan en el archivo de configuración
-bool validarParametrosDeConfiguracion() {
+bool validarParametrosDeConfiguracion(){
 
 	return (config_has_property(config, "PUERTO_ESCUCHA")
 			&& config_has_property(config, "NOMBRE_SWAP")
@@ -137,7 +136,7 @@ bool validarParametrosDeConfiguracion() {
 //----------------------------------- CONEXIONES ---------------------------------------//
 
 //Acá implementamos el handshake del lado del servidor
-void handshakeUMC() {
+void handshakeUMC(){
 
 	int msj_recibido;
 	int soy_swap = SOY_SWAP;
@@ -147,27 +146,27 @@ void handshakeUMC() {
 	send(socket_umc, &soy_swap, sizeof(int), 0);
 	recv(socket_umc, &msj_recibido, sizeof(int), 0);
 
-	if (msj_recibido == SOY_UMC) {
+	if(msj_recibido == SOY_UMC){
 		log_info(logger, "UMC validado.");
 		printf("Se ha validado correctamente la UMC. \n");
-	} else {
+	}else{
 		log_error(logger, "La UMC no pudo ser validada.");
 		log_destroy(logger);
 		exit(0);
 	}
 }
 
-void recibirMensajeUMC(char* message, int socket_umc) {
+void recibirMensajeUMC(char* message, int socket_umc){
 
 	printf("voy a recibir mensaje de %d\n", socket_umc);
 	int status = 0;
 	//while(status == 0){
 	status = recv(socket_umc, message, PACKAGESIZE, 0);
-	if (status != 0) {
+	if(status != 0){
 		printf("recibo mensaje de UMC %d\n", status);
 		printf("recibi este mensaje: %s\n", message);
 		status = 0;
-	} else {
+	}else{
 		sleep(1);
 		printf(".\n");
 	}
@@ -175,7 +174,7 @@ void recibirMensajeUMC(char* message, int socket_umc) {
 
 //------------------------------ ALMACENAMIENTO EN SWAP ---------------------------//
 
-void crearParticionSwap() {
+void crearParticionSwap(){
 
 	char comando[50];
 	printf("Creando archivo Swap: \n");
@@ -184,17 +183,16 @@ void crearParticionSwap() {
 	system(comando);
 }
 
-char* cargarArchivo() {
+char* cargarArchivo(){
 
 	FILE *file = fopen(NOMBRE_SWAP, "r+");// falta verificar
 	int fd =fileno(file);  // Esto traduce a entero el fd
 
 
 	int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS; // 512 CANT PAGINAS
-	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ | PROT_WRITE,
-			MAP_SHARED, fd, 0);
+	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-	if (accesoAMemoria == (caddr_t) (-1)) {
+	if(accesoAMemoria == (caddr_t) (-1)){
 		perror("mmap");
 		exit(1);
 	}
@@ -205,17 +203,17 @@ char* cargarArchivo() {
 //------------------------------ FUNCIONES SOBRE EL BITMAP ----------------------------//
 
 //Creo BitMap usando bitarray
-void crearBitMap() {
+void crearBitMap(){
 
 	bitMap = bitarray_create(bitarray, CANTIDAD_PAGINAS);
 }
 
 //Paso cada página del BITMAP a ocupada
-void actualizarBitMap(int pid, int pagina, int cant_paginas) {
+void actualizarBitMap(int pid, int pagina, int cant_paginas){
 
 	int i;
 	int cant = 0;
-	for (i = 1; i <= cant_paginas; i++) {
+	for (i = 1; i <= cant_paginas; i++){  // ver =0 o =1
 
 		bitarray_set_bit(bitMap, pagina + cant);
 		cant = cant + 1;
@@ -225,7 +223,7 @@ void actualizarBitMap(int pid, int pagina, int cant_paginas) {
 
 //--------------------------- CREACION DE NODOS DE LAS LISTAS -------------------------//
 
-static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap) {
+static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap){
 	nodo_proceso *proceso = malloc(sizeof(nodo_proceso));
 	proceso->pid = pid;
 	proceso->cantidad_paginas = cantidad_paginas;
@@ -233,7 +231,7 @@ static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwa
 	return proceso;
 }
 
-static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas) {
+static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
 	nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
 	enEspera->pid = pid;
 	enEspera->cantidad_paginas = cantidad_paginas;
@@ -251,39 +249,39 @@ void adregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap){
 	list_add(listaProcesos, crearNodoDeProceso(pid, cantidadPaginas , posicionSwap));
 
 }
-int cantPaginas(nodo_proceso nodo){
-	return nodo.cantidad_paginas;
+int cantPaginas(nodo_proceso *nodo){
+	return nodo->cantidad_paginas;
 }
 
-int pid(nodo_proceso nodo){
-	return nodo.pid;
+int pid(nodo_proceso *nodo){
+	return nodo->pid;
 }
 
-int posicionSwap(nodo_proceso nodo){
-	return nodo.posSwap;
+int posicionSwap(nodo_proceso *nodo){
+	return nodo->posSwap;
 }
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
-bool hayEspacioContiguo(int pagina, int tamanio) {
+bool hayEspacioContiguo(int pagina, int tamanio){
 	int i;
 	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
 
-	for (i = pagina; i <= pagina + tamanio; i++) {
+	for (i = pagina; i <= pagina + tamanio; i++){
 		if (bitarray_test_bit(bitMap, i) == 0
-				&& i + tamanio <= CANTIDAD_PAGINAS) { //== 0 libre == 1 ocupado
+				&& i + tamanio <= CANTIDAD_PAGINAS){ //== 0 libre == 1 ocupado
 			return 1;
 		}
 	}
 	return 0; // retorna F, No hay espacio disponible
 }
 
-int paginaDisponible(int tamanio) {
+int paginaDisponible(int tamanio){
 	printf("pasó por pagina disponible \n");
 	int i;
 	//Recorro todo el bitMap buscando espacios contiguos
 	//devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
-	for (i = 0; i <= CANTIDAD_PAGINAS; i++) {
-		if (bitarray_test_bit(bitMap, i) == 0) {	// 1 VER, 0 FALSO
-			if (hayEspacioContiguo(i, tamanio)) {
+	for(i = 0; i <= CANTIDAD_PAGINAS; i++){
+		if(bitarray_test_bit(bitMap, i) == 0){	// 1 VER, 0 FALSO
+			if(hayEspacioContiguo(i, tamanio)){
 				return i;
 
 			}
@@ -293,24 +291,40 @@ int paginaDisponible(int tamanio) {
 }
 
 //Recorrer la lista de procesos en swap y devolver (int) la ubicación // resuelto con list_find()!
-int ubicacionEnSwap(int pid) { //FUNCIONA
+int ubicacionEnSwap(int pid){ //FUNCIONA
+
+	bool igualPid(nodo_proceso *nodo){
+		return nodo->pid == pid;
+	}
+
+	nodo_proceso *nodo = list_find(listaProcesos,(void*)igualPid);
+	if (nodo != NULL){
+		int posSwap = nodo->posSwap;
+		return posSwap;
+	}else{
+		return -1;
+		puts("No se encontró el proceso solicitado\n");
+	}
+}
+
+	/*
 	int i;
 	nodo_proceso *nodo;
 	int cantidadNodos = listaProcesos->elements_count;
 	for (i = 0; i < cantidadNodos; i++) {
 		nodo = list_get(listaProcesos, i);
-		if (nodo->pid == pid) {
+		if(nodo->pid == pid){
 			return nodo->posSwap;
 		}
 	}
 	return -1;
-}
+	*/
 
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
-void crearProgramaAnSISOP(int pid, int cant_paginas, char* resultadoCreacion,char* codigo_prog) {
+void crearProgramaAnSISOP(int pid, int cant_paginas, char* resultadoCreacion,char* codigo_prog){
 
 	int pagina = paginaDisponible(cant_paginas);
-	if (pagina != -1) {
+	if(pagina != -1){
 		//copia codigo_prog a archivoMapeado a partir de pagina*tamanio_pagina
 		memcpy(archivoMapeado + pagina * TAMANIO_PAGINA, codigo_prog,cant_paginas*TAMANIO_PAGINA);
 		adregarNodoProceso(pid, cant_paginas, pagina);
@@ -326,11 +340,11 @@ void crearProgramaAnSISOP(int pid, int cant_paginas, char* resultadoCreacion,cha
 	//return resultadoCreacion;
 }
 
-void leerUnaPagina(int pid, int pagina) {
+void leerUnaPagina(int pid, int pagina){
 
 	int posSwap = ubicacionEnSwap(pid);
 
-	if (posSwap != -1) {
+	if(posSwap != -1){
 
 		char* bytes = malloc(TAMANIO_PAGINA);
 		//memcpy(bytes, archivoMapeado + posSwap * tamanio_pagina,tamanio_pagina);
@@ -338,18 +352,18 @@ void leerUnaPagina(int pid, int pagina) {
 		printf("El contenido de la página es: %s\n ", bytes);
 	} else {
 
-		printf("No se encontro el contenido");
+		puts("No se encontró el contenido de la página solicitada");
 	}
 }
 
-void modificarPagina(int pid, int pagina, char* nuevoCodigo) {
+void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 
 	printf("entra a modificar\n");
 	int posSwap = ubicacionEnSwap(pid);
 
 	int posEscribir = (pagina - 1) * TAMANIO_PAGINA;
 
-	if (posSwap != -1) {
+	if(posSwap != -1){
 		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
 		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, tamanio_pagina));
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
@@ -360,41 +374,43 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo) {
 
 //------------------------------------------------------------------------------------------------//
 
-int espaciosLibres(int cantidad) {
+int espaciosLibres(int cantidad){
 
 	int i, cantLibres = 0;
 	//Recorro todo el bitMap buscando espacios separados
-	for (i = 0; i <= TAMANIO_PAGINA * CANTIDAD_PAGINAS; i++) {
-		if (bitarray_test_bit(bitMap, i) == 0) {//0 libre,  1 ocupado (no libre)
+	for(i = 0; i <= TAMANIO_PAGINA * CANTIDAD_PAGINAS; i++){
+		if(bitarray_test_bit(bitMap, i) == 0){//0 libre,  1 ocupado (no libre)
 			cantLibres++;
 		}
 	}
 	return cantLibres;
 }
 
-bool hayFragmentacion(int tamanio) {
+//No hay espacio contiguo y hay espacio separado
+bool hayFragmentacion(int tamanio){
 
-	if (!paginaDisponible(tamanio) && (espaciosLibres(tamanio) >= tamanio)) {
+	if(!paginaDisponible(tamanio) && (espaciosLibres(tamanio) >= tamanio)){
 		return 0;
 	} else {
 		return 1;
 	}
 }
 
-//compactación al ingresar un programa,
-void prepararLugar(int pid, int tamanio) {
-	//No hay espacio contiguo y hay espacio separado
-	if (hayFragmentacion(tamanio)) {
-		//AGREGAR SEMÁFORO MIENTRAS COMPACTO
+//COMPACTACION AL INGRESAR UN PROGRAMA
+void prepararLugar(int pid, int tamanio){
+
+	if(hayFragmentacion(tamanio)){
+		//SEMÁFORO MIENTRAS COMPACTO
 		pthread_mutex_lock(&mutexListaEnEspera);
-		comenzarCompactacion(); //AGREGAR SEMÁFORO Y ADD A LISTA DE ESPERA MIENTRAS SE COMPACTE
 		agregarNodoEnEspera(pid, tamanio);
+		comenzarCompactacion();
 		pthread_mutex_unlock(&mutexListaEnEspera);
 	}
 }
+
 //-------------------------- FUNCIONES PARA COMPACTACION --------------------------//
 
-void modificarArchivoSwap(int posicionAnterior, int posicionActual) {
+void modificarArchivoSwap(int posicionAnterior, int posicionActual){
 
 	 memcpy( archivoMapeado + posicionActual,archivoMapeado + posicionAnterior ,TAMANIO_PAGINA);
 	 memset(archivoMapeado+ posicionAnterior, '\0', TAMANIO_PAGINA);// DEJO ESPACIO EN \0
@@ -411,19 +427,19 @@ nodo_proceso *obtenerPrograma(int posicionEnSwap){
 		return nodo;
 }
 
-void modificarLista(int posicionNueva, int posicionAnterior) {
+void modificarLista(int posicionNueva, int posicionAnterior){
 
 	nodo_proceso *nodoProceso = obtenerPrograma(posicionAnterior);
 	nodoProceso->posSwap = posicionNueva;
 }
 
-void intercambioEnBitmap(int posicionVacia, int posicionOcupada) {
+void intercambioEnBitmap(int posicionVacia, int posicionOcupada){
 
 	bitarray_set_bit(bitMap, posicionVacia);
 	bitarray_set_bit(bitMap, posicionOcupada);
 }
 
-bool posicionVacia(int posicionBitMap) {
+bool posicionVacia(int posicionBitMap){
 
 	return (bitarray_test_bit(bitMap, posicionBitMap) == 0);
 }
@@ -439,22 +455,22 @@ void comenzarCompactacion(){
 
 	for(i = 0; i <= CANTIDAD_PAGINAS; i++) {
 
-		if(posicionVacia(i)) {
+		if(posicionVacia(i)){
 			posicionAIntercambiar = i;
 			//ver condicion para cerrar el segundo for
-			for(j = i + 1; j <= CANTIDAD_PAGINAS && posicionAIntercambiar == i; j++) {
+			for(j = i + 1; j <= CANTIDAD_PAGINAS && posicionAIntercambiar == i; j++){
 
 				if(!posicionVacia(j)){
-					//INTERCAMBIO VALORES EN BITMAP
+					//INTERCAMBIO PAGINAS EN BITMAP
 					intercambioEnBitmap(posicionAIntercambiar, j);
-					//ACTUALIZO ARCHIVO
+					//ACTUALIZO PAGINAS EN ARCHIVO
 					modificarArchivoSwap(j, posicionAIntercambiar);
 
 					cantidad ++;
-					int cantidadPaginas = cantPaginas(*obtenerPrograma(j));
+					int cantidadPaginas = cantPaginas(obtenerPrograma(j));
 
 					if(cantidad == cantidadPaginas){
-
+						//ACTUALIZO LISTA DE PROCESOS
 						modificarLista(j, posicionAIntercambiar);
 					}
 					posicionAIntercambiar++;
@@ -477,3 +493,55 @@ void comenzarCompactacion(){
 	}
 }
 */
+
+//-----------------------------Eliminar Proceso -----------------------//
+
+void borrarDeArchivoSwap(nodo_proceso *nodo){
+
+	int posicion = posicionSwap(nodo);
+	int totalABorrar = TAMANIO_PAGINA*cantPaginas(nodo);
+
+	memset(archivoMapeado + posicion, '\0', totalABorrar);
+}
+
+void borrarDeListaDeProcesos(nodo_proceso *nodo){
+
+	bool igualPid(nodo_proceso *nodoProceso){  // ver como funciona ésto que lo hice con dos nodos
+			return nodoProceso->pid == pid(nodo);
+		}
+	list_remove_by_condition(listaProcesos, (void*)igualPid);
+}
+
+void liberarPosicion(nodo_proceso *nodo){
+
+	int i;
+
+	for(i = posicionSwap(nodo); i <= cantPaginas(nodo); i++){
+		bitarray_set_bit(bitMap, i);
+	}
+}
+
+void liberarEstructuras(nodo_proceso *nodo){
+
+	borrarDeArchivoSwap(nodo);
+	borrarDeListaDeProcesos(nodo);
+	liberarPosicion(nodo);
+
+}
+
+void terminarProceso( nodo_proceso *nodo){
+
+	int posicion = ubicacionEnSwap(pid(nodo));
+
+	if(posicion != -1){
+		liberarEstructuras(nodo);
+	}else{
+		puts("No se ha encontrado el programa");
+	}
+}
+
+//---------------------------- TERMINAR ------------------------------//
+void cerrarArchivo(){
+
+	fclose(file);
+}

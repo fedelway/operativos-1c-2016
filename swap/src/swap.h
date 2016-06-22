@@ -59,6 +59,7 @@ pthread_mutex_t mutexListaEnEspera;
 
 int socket_escucha,socket_umc,tamanioBitMap;
 int socket_swap;
+FILE *file;
 
 
 
@@ -71,25 +72,35 @@ static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSw
 static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas);
 void inicializarBitMap();
 char* cargarArchivo();
-void inicializarArchivo(char* archivoAMemoria);
 void crearBitMap();
+void crearParticionSwap();
 bool hayEspacioContiguo(int pagina, int tamanio);
 int paginaDisponible(int tamanio);
 int  ubicacionEnSwap(int pid);
 void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog);
 void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, int pagina, char* nuevoCodigo);
+
+//----------------------------------------------------------------------------------//
+
 int espaciosLibres(int cantidad);
 bool hayFragmentacion(int tamanio);
 void prepararLugar( int pid, int tamanio);
 void intercambioEnBitmap(int posicionVacia, int posicionOcupada);
 nodo_proceso *obtenerPrograma(int posicionEnSwap);
-//nodo_proceso obtenerPrograma(int posicionEnSwap);
-void actualizoListaDeProcesos(void posicioAIntercambiar, int j);
+void actualizoListaDeProcesos(int posicioAIntercambiar, int j);
 bool posicionVacia(int posicion);
 void intercambioEnBitmap(int posicionAnterior, int posicionActual);
 void modificarArchivoSwap(int posicionNueva, int posicionAnterior);
 void modificarLista(int posicionNueva, int posicionAnterior);
 void comenzarCompactacion();
+
+//------------------------------------------------------------------------------------//
+void liberarEstructuras(nodo_proceso *nodo);
+void borrarDeArchivoSwap(nodo_proceso *nodo);
+void borrarDeListaDeProcesos(nodo_proceso *nodo);
+void liberarPosicion(nodo_proceso *nodo);
+void terminarProceso(nodo_proceso *nodo);
+
 
 #endif /* SWAP_H_ */
