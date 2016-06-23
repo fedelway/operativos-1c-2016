@@ -14,6 +14,7 @@
 #include "commons/log.h"
 #include "commons/collections/list.h"
 #include "socketServidor.h"
+#include "generales.c"
 #include "protocolo.h"
 #include "commons/bitarray.h"
 #include <sys/mman.h> //para trabajar con el mmap()
@@ -21,7 +22,7 @@
 #include <fcntl.h>
 
 
-//------------------------------- VARIABLES GLOBALES--------------------------------//
+//------------------------------- VARIABLES GLOBALES-------------------------------------//
 
 //parámetros de configuración
     char* PUERTO_ESCUCHA;
@@ -60,6 +61,7 @@ pthread_mutex_t mutexListaEnEspera;
 int socket_escucha,socket_umc,tamanioBitMap;
 int socket_swap;
 FILE *file;
+int pagesize;
 
 
 
@@ -70,10 +72,17 @@ bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracio
 void recibirMensajeUMC(char* message, int socket_umc);
 static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap);
 static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas);
+
+
+//---------------------- INICIALIZACIÓN -------------------------------------------//
+
 void inicializarBitMap();
 char* cargarArchivo();
 void crearBitMap();
 void crearParticionSwap();
+
+//------------------- PETICIONES UMC -------------------------------------------------//
+
 bool hayEspacioContiguo(int pagina, int tamanio);
 int paginaDisponible(int tamanio);
 int  ubicacionEnSwap(int pid);
@@ -81,7 +90,7 @@ void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codi
 void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, int pagina, char* nuevoCodigo);
 
-//----------------------------------------------------------------------------------//
+//------------------------------- COMPACTACION -----------------------------------------------//
 
 int espaciosLibres(int cantidad);
 bool hayFragmentacion(int tamanio);
@@ -95,12 +104,18 @@ void modificarArchivoSwap(int posicionNueva, int posicionAnterior);
 void modificarLista(int posicionNueva, int posicionAnterior);
 void comenzarCompactacion();
 
-//------------------------------------------------------------------------------------//
+//--------------------------- TERMINAR PROGRAMA	 --------------------------------------------//
+
 void liberarEstructuras(nodo_proceso *nodo);
 void borrarDeArchivoSwap(nodo_proceso *nodo);
 void borrarDeListaDeProcesos(nodo_proceso *nodo);
 void liberarPosicion(nodo_proceso *nodo);
 void terminarProceso(nodo_proceso *nodo);
 
+//--------------------------- ELIMINAR ESTRUCTURAS -----------------------------------------//
+
+void eliminarArchivoMapeado();
+void cerrarArchivo();
+void eliminarEstructuras();
 
 #endif /* SWAP_H_ */

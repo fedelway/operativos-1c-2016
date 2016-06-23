@@ -339,6 +339,15 @@ void crearProgramaAnSISOP(int pid, int cant_paginas, char* resultadoCreacion,cha
 	}
 	//return resultadoCreacion;
 }
+/*
+//Recibo leer pagina
+void recibirLecturaPAgina(){
+
+	char* buffer = malloc(TAMANIO_PAGINA);
+
+	recv(socket_swap, buffer, TAMANIO_PAGINA, 0);
+}
+*/
 
 void leerUnaPagina(int pid, int pagina){
 
@@ -350,7 +359,16 @@ void leerUnaPagina(int pid, int pagina){
 		//memcpy(bytes, archivoMapeado + posSwap * tamanio_pagina,tamanio_pagina);
 		memcpy(bytes,archivoMapeado +posSwap + pagina*TAMANIO_PAGINA, TAMANIO_PAGINA);
 		printf("El contenido de la página es: %s\n ", bytes);
-	} else {
+
+		//Enviar contenido de pagina leida
+		int resultado = send(socket_umc, bytes, TAMANIO_PAGINA, 0);
+
+		if(resultado < 0){
+			log_error_y_cerrar_logger(logger, "Falló envío de mensaje de lectura a UMC  . | Nro de programa: %d | Nro de pagina: %d", pid, pagina);
+			exit(EXIT_FAILURE);
+		}
+
+	}else{
 
 		puts("No se encontró el contenido de la página solicitada");
 	}
@@ -365,6 +383,8 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 
 	if(posSwap != -1){
 		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
+
+
 		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, tamanio_pagina));
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
 	} else {
@@ -540,8 +560,18 @@ void terminarProceso( nodo_proceso *nodo){
 	}
 }
 
-//---------------------------- TERMINAR ------------------------------//
-void cerrarArchivo(){
+//---------------------------- ELIMINAR ESTRUCTURAS ------------------------------//
 
+void eliminarArchivoMapeado(){
+	munmap(archivoMapeado, pagesize);
+}
+
+void cerrarArchivo(){
 	fclose(file);
+}
+
+void eliminarEstructuras(){
+
+	eliminarArchivoMapeado();
+	cerrarArchivo();
 }
