@@ -14,6 +14,7 @@ t_log* logger;
 int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
 
+
 /****************************************************************************************/
 /*                                   FUNCION MAIN									    */
 /****************************************************************************************/
@@ -42,11 +43,35 @@ int main(int argc,char *argv[]) {
 	signal(SIGUSR1, handler_seniales);
 
 	//Otro que vaya procesando las instrucciones que corresponden
+	//Recibo mensaje del nucleo.
+	//Primeros 4 bytes del id de la función (sacar de la definicion de los protocolos)
 
-	char message[PACKAGESIZE];
-	memset (message,'\0',PACKAGESIZE);
-	//recibirPCB(message);
-	printf("recibido del nucleo: %s\n", message);
+	int header;
+	int status = 0;
+	t_pcb *pcb_actual;
+
+	printf("voy a recibir mensaje de %d\n", socket_nucleo);
+
+	//TODO revisar condición... Agregar lo del signal?
+	while(1){
+		status = recv(socket_nucleo, &header, sizeof(int), 0);
+
+		if(status > 0){
+			switch (header) {
+				case ENVIO_PCB:
+					recibirPCB(pcb_actual);
+					ejecutoInstrucciones(pcb_actual);
+					devuelvoPcbActualizadoAlNucleo(pcb_actual);
+					liberarEspacioDelPCB(pcb_actual);
+					break;
+				default:
+					printf("obtuve otro id %d\n", header);
+					sleep(3);
+					break;
+			}
+		}
+	}
+
 
 	//Reenviar el msj recibido del nucleo a la UMC
 //	enviarPaqueteAUMC(message);
@@ -54,7 +79,7 @@ int main(int argc,char *argv[]) {
 	//TODO - Ejecutar siguiente instrucción a partir del program counter del pcb
 	//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
 	//TODO - Después, eliminar el metadata_desde_literal de la cpu. Tiene que obtener el pcb del nucleo.
-
+/*
 	//Levanto un archivo ansisop de prueba
 	char* programa_ansisop;
 
@@ -84,7 +109,7 @@ int main(int argc,char *argv[]) {
 
 	int enviar = 1;
 	int status = 1;
-
+*/
 	/*
 	while(enviar && status !=0){
 	 	fgets(message, PACKAGESIZE, stdin);
@@ -97,12 +122,9 @@ int main(int argc,char *argv[]) {
 		if (status != 0) printf("%s", message);
 	}*/
 
-	//Doy de baja la CPU, cierro las conexiones.
-	log_info(logger, "Cierro conexiones.",socket_nucleo);
-	cerrarConexionSocket(socket_nucleo);
-	cerrarConexionSocket(socket_umc);
-
+	finalizarCpu();
 	log_destroy(logger);
+
 
 	return EXIT_SUCCESS;
 }
@@ -235,29 +257,33 @@ void handshakeUMC(int cpu_id){
 	}
 }
 
+void finalizarCpuPorError(){
+	finalizarCpu();
+	log_destroy(logger);
+}
+
 /****************************************************************************************/
 /*                                   FUNCIONES CPU									    */
 /****************************************************************************************/
-void recibirPCB(char* message){
+void recibirPCB(t_pcb* pcb){
 
-	//Recibo mensaje del nucleo.
-	//Primeros 4 bytes del id de la función (sacar de la definicion de los protocolos)
+	int tamanio_pcb, status;
 
-	int header;
+	status = recv(socket_nucleo, &tamanio_pcb, sizeof(int), 0);
 
-	printf("voy a recibir mensaje de %d\n", socket_nucleo);
-	int status = 0;
-	while(status == 0){
-		status = recv(socket_nucleo, &header, sizeof(int), 0);
+	if(status <= 0){
+		log_error(logger, "Error al recibir el tamaño del PCB. Bytes recibidos: %d",
+				status);
+		finalizarCpuPorError();
+	}
 
-		switch (header) {
-			case ENVIO_PCB:
-				printf("obtuve el pcb\n");
-				break;
-			default:
-				printf("obtuve otro id %d\n", header);
-				break;
-		}
+	pcb = malloc(tamanio_pcb);
+	status = recv(socket_nucleo, &pcb, tamanio_pcb, 0);
+
+	if(status <= 0){
+		log_error(logger, "Error al recibir el PCB. Bytes recibidos: %d",
+				status);
+		finalizarCpuPorError();
 	}
 }
 
@@ -290,15 +316,17 @@ void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, in
 	free(instruccion);
 }
 
-void reciboPcbDeNucleo(){
-
+void ejecutoInstrucciones(t_pcb *pcb_actual){
+	printf("Ejecuto instrucciones después de recibir PCB\n");
 }
 
-void reciboMensaje(){
-	//Estructura para crear el header + paiload
-
+void devuelvoPcbActualizadoAlNucleo(t_pcb *pcb_actual){
+	printf("Devuelvo PCB Actualizado al nucleo.\n");
 }
 
+void liberarEspacioDelPCB(t_pcb *pcb_actual){
+	printf("Libero espacio del PCB\n");
+}
 
 void handler_seniales(int senial) {
 	switch (senial) {
@@ -311,6 +339,15 @@ void handler_seniales(int senial) {
 			sleep(3);
 	}
 	exit(EXIT_FAILURE);
+}
+
+
+void finalizarCpu(){
+	//Doy de baja la CPU, cierro las conexiones.
+	log_info(logger, "Cierro conexiones.",socket_nucleo);
+	cerrarConexionSocket(socket_nucleo);
+	cerrarConexionSocket(socket_umc);
+
 }
 
 
