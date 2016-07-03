@@ -40,7 +40,7 @@ int main(int argc, char *argv[]){
 	crearParticionSwap();
 	crearBitMap();
 	archivoMapeado = cargarArchivo();
-
+	/*
 	//prueba para crear 1° programa
 	int disponible1 = paginaDisponible(5);
 	printf("la pagina disponible para el primer programa es: %d \n",
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
 
 
 
-	/*
+
 	 //prueba para crear 3° programa
 	 int disponible3 = paginaDisponible(2);
 	 printf("la pagina disponible para el tercer programa es: %d \n", disponible3);
@@ -81,19 +81,24 @@ int main(int argc, char *argv[]){
 	 char* codigo_prog3 = "ES";
 	 char* resultadoDeCreacionPrograma3 = crearProgramaAnSISOP(3,2,resultadoCreacion3,codigo_prog3,archivoMapeado); //para probar que devuelve
 	 printf("El resultado de la creación del programa %d es: %s \n",3, resultadoDeCreacionPrograma3); // probado cuando no hay espacio tambien y funciona ok
-	 */
+
 
 	leerUnaPagina(1,1);
 	//modificarPagina(2,1, "XXXXXXXXXX");
 	//leerUnaPagina(1, 1);
-
+	 */
 	PUERTO_ESCUCHA = config_get_string_value(config, "PUERTO_ESCUCHA");
 	log_info(logger, "Mi puerto escucha es: %s", PUERTO_ESCUCHA);
 	socket_escucha = conectarPuertoDeEscucha(PUERTO_ESCUCHA);
+
+	printf(" aun no Se ha conectado una umc.\n");
 	socket_umc = aceptarConexion(socket_escucha);
+
+	printf("Socket umc %d\n", socket_umc);
 	handshakeUMC();
 
-	recibirMensajeUMC(message, socket_umc);
+	trabajarUmc();
+	//recibirMensajeUMC(message, socket_umc);
 
 	log_destroy(logger);
 
@@ -156,11 +161,46 @@ void handshakeUMC(){
 	}
 }
 
+//---------------------------- PROBAR DESCONEXIÓN DE LA Umc --trabaja nucleo--
+/*
+void trabajarUmc(){
+	printf("Trabajar con UMC \n");
+	int msj_recibido;
+
+	//Ciclo infinito
+	for(;;){
+		//Recibo mensajes de nucleo y hago el switch
+		recv(socket_umc , &msj_recibido, sizeof(int), 0);
+
+		//Chequeo que no haya una desconexion
+		if(msj_recibido <= 0){
+			printf("Desconexion de la umc. Terminando...\n");
+			exit(1);
+		}
+
+		switch(msj_recibido){
+
+		case INICIALIZAR_PROGRAMA :
+			crearProgramaAnSISOP(int pid, int cant_paginas);
+			break;
+
+		case TERMINAR_PROGRAMA:
+			//terminarProceso();/*( nodo_proceso *nodo)
+			break;
+		}
+
+	}
+
+}
+ */
+//---------------------------------------------------------------------------------------------
+/*
 void recibirMensajeUMC(char* message, int socket_umc){
 
 	printf("voy a recibir mensaje de %d\n", socket_umc);
 	int status = 0;
 	//while(status == 0){
+
 	status = recv(socket_umc, message, PACKAGESIZE, 0);
 	if(status != 0){
 		printf("recibo mensaje de UMC %d\n", status);
@@ -169,6 +209,67 @@ void recibirMensajeUMC(char* message, int socket_umc){
 	}else{
 		sleep(1);
 		printf(".\n");
+	}
+}
+
+ */
+
+//----------------------------- HACER ALGO-------------------
+
+void trabajarUmc(){
+
+	printf("Trabajar con UMC \n");
+	int msj_recibido, pid, tamanio, numeroPagina;
+	char* contenido;
+
+	//Ciclo infinito
+	for(;;){
+		//Recibo mensajes de nucleo y hago el switch
+		recv(socket_umc , &msj_recibido, sizeof(int), 0);
+
+		//Chequeo que no haya una desconexion
+		if(msj_recibido <= 0){
+			printf("Desconexion de la umc. Terminando...\n");
+			exit(1);
+		}
+
+		switch(msj_recibido){
+
+		case INICIALIZAR_PROGRAMA :
+
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &tamanio, sizeof(int), 0);
+			crearProgramaAnSISOP(pid,tamanio);
+			break;
+
+		case LEER_PAGINA:
+
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &numeroPagina, sizeof(int), 0);
+
+			leerUnaPagina(pid, numeroPagina);
+
+			break;
+
+		case MODIFICAR_PAGINA:
+
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &tamanio, sizeof(int), 0);
+			recv(socket_umc , &contenido, TAMANIO_PAGINA, 0); // VER SI ESTÁ OK
+
+			modificarPagina(pid, numeroPagina, contenido);
+			break;
+
+		case TERMINAR_PROGRAMA:
+
+			recv(socket_umc , &pid, sizeof(int), 0);
+
+			//terminarProceso(nodo_proceso *nodo); aca tengo que re acomodar la funcion para tener los parámetros
+			break;
+
+		default:
+			printf("Mensaje Erroneo");
+		}
 	}
 }
 
@@ -223,7 +324,7 @@ void actualizarBitMap(int pid, int pagina, int cant_paginas){
 
 //--------------------------- CREACION DE NODOS DE LAS LISTAS -------------------------//
 
-static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap){
+nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap){
 	nodo_proceso *proceso = malloc(sizeof(nodo_proceso));
 	proceso->pid = pid;
 	proceso->cantidad_paginas = cantidad_paginas;
@@ -231,7 +332,7 @@ static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwa
 	return proceso;
 }
 
-static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
+nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
 	nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
 	enEspera->pid = pid;
 	enEspera->cantidad_paginas = cantidad_paginas;
@@ -244,22 +345,24 @@ void agregarNodoEnEspera(int pid, int cantidadPaginas){
 
 }
 
-void adregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap){
+void agregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap){
 
 	list_add(listaProcesos, crearNodoDeProceso(pid, cantidadPaginas , posicionSwap));
 
 }
+
 int cantPaginas(nodo_proceso *nodo){
 	return nodo->cantidad_paginas;
 }
 
-int pid(nodo_proceso *nodo){
+int numeroPid(nodo_proceso *nodo){
 	return nodo->pid;
 }
 
 int posicionSwap(nodo_proceso *nodo){
 	return nodo->posSwap;
 }
+
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
 bool hayEspacioContiguo(int pagina, int tamanio){
 	int i;
@@ -307,7 +410,7 @@ int ubicacionEnSwap(int pid){ //FUNCIONA
 	}
 }
 
-	/*
+/*
 	int i;
 	nodo_proceso *nodo;
 	int cantidadNodos = listaProcesos->elements_count;
@@ -318,36 +421,51 @@ int ubicacionEnSwap(int pid){ //FUNCIONA
 		}
 	}
 	return -1;
-	*/
+ */
 
+// VERSION NUEVA
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
-void crearProgramaAnSISOP(int pid, int cant_paginas, char* resultadoCreacion,char* codigo_prog){
+void crearProgramaAnSISOP(int pid, int cant_paginas){
+
+	int pagina = paginaDisponible(cant_paginas);
+	if(pagina != -1){
+		//ACTUALIZO LAS ESTRUCTURAS
+		agregarNodoProceso(pid, cant_paginas, pagina);
+
+		actualizarBitMap(pid, pagina, cant_paginas);
+		//resultadoCreacion = "Se ha creado correctamente el programa \n";
+		printf("Se ha reservado espacio para el programa n°: %d", pid);
+
+	} else {
+
+		if(hayFragmentacion(cant_paginas)){
+			prepararCompactacion(cant_paginas);
+		}else{
+			cancelarInicializacion();
+		}
+	}
+}
+
+//	VERSION 1
+//Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
+void crearPragramaAnSISO(int pid, int cant_paginas, char* codigo_prog){
 
 	int pagina = paginaDisponible(cant_paginas);
 	if(pagina != -1){
 		//copia codigo_prog a archivoMapeado a partir de pagina*tamanio_pagina
 		memcpy(archivoMapeado + pagina * TAMANIO_PAGINA, codigo_prog,cant_paginas*TAMANIO_PAGINA);
-		adregarNodoProceso(pid, cant_paginas, pagina);
+		agregarNodoProceso(pid, cant_paginas, pagina);
 
 		actualizarBitMap(pid, pagina, cant_paginas);
 		//resultadoCreacion = "Se ha creado correctamente el programa \n";
 		printf("Codigo copiado al archivo Swap:  %s \n",archivoMapeado + pagina * TAMANIO_PAGINA);
 
 	} else {
-		//En este caso no tenemos paginas disponibles para crear el programa
-		resultadoCreacion = "Inicializacion Cancelada";
+		//En este caso no tenemos paginas disponibles para  el programa
+		//resultadoCreacion = "Inicializacion Cancelada";
 	}
 	//return resultadoCreacion;
 }
-/*
-//Recibo leer pagina
-void recibirLecturaPAgina(){
-
-	char* buffer = malloc(TAMANIO_PAGINA);
-
-	recv(socket_swap, buffer, TAMANIO_PAGINA, 0);
-}
-*/
 
 void leerUnaPagina(int pid, int pagina){
 
@@ -366,11 +484,9 @@ void leerUnaPagina(int pid, int pagina){
 		if(resultado < 0){
 			log_error_y_cerrar_logger(logger, "Falló envío de mensaje de lectura a UMC  . | Nro de programa: %d | Nro de pagina: %d", pid, pagina);
 			exit(EXIT_FAILURE);
+		}else{
+			puts("No se encontró el contenido de la página solicitada");
 		}
-
-	}else{
-
-		puts("No se encontró el contenido de la página solicitada");
 	}
 }
 
@@ -384,11 +500,11 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 	if(posSwap != -1){
 		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
 
-
 		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, tamanio_pagina));
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
 	} else {
 		printf("Error al escribir la pagina");
+	// send modif ok
 	}
 }
 
@@ -417,23 +533,23 @@ bool hayFragmentacion(int tamanio){
 }
 
 //COMPACTACION AL INGRESAR UN PROGRAMA
-void prepararLugar(int pid, int tamanio){
+void prepararCompactacion(int tamanio){
+	//SEMÁFORO MIENTRAS COMPACTO
+	pthread_mutex_lock(&mutexListaEnEspera);
 
-	if(hayFragmentacion(tamanio)){
-		//SEMÁFORO MIENTRAS COMPACTO
-		pthread_mutex_lock(&mutexListaEnEspera);
-		agregarNodoEnEspera(pid, tamanio);
-		comenzarCompactacion();
-		pthread_mutex_unlock(&mutexListaEnEspera);
-	}
+	//agregarNodoEnEspera(pid, tamanio);
+	comenzarCompactacion();
+
+	pthread_mutex_unlock(&mutexListaEnEspera);
+
 }
 
 //-------------------------- FUNCIONES PARA COMPACTACION --------------------------//
 
 void modificarArchivoSwap(int posicionAnterior, int posicionActual){
 
-	 memcpy( archivoMapeado + posicionActual,archivoMapeado + posicionAnterior ,TAMANIO_PAGINA);
-	 memset(archivoMapeado+ posicionAnterior, '\0', TAMANIO_PAGINA);// DEJO ESPACIO EN \0
+	memcpy( archivoMapeado + posicionActual,archivoMapeado + posicionAnterior ,TAMANIO_PAGINA);
+	memset(archivoMapeado + posicionAnterior, '\0', TAMANIO_PAGINA);// DEJO ESPACIO EN \0
 
 }
 
@@ -444,7 +560,7 @@ nodo_proceso *obtenerPrograma(int posicionEnSwap){
 	}
 
 	nodo_proceso *nodo = list_find(listaProcesos,(void*)igualPosSwap);
-		return nodo;
+	return nodo;
 }
 
 void modificarLista(int posicionNueva, int posicionAnterior){
@@ -500,10 +616,31 @@ void comenzarCompactacion(){
 	}
 }
 
+void cancelarInicializacion(){
+
+	printf("Se ha cancelado la incicializacion \n");
+	log_error(logger, "Se ha cancelado la incicializacion");
+	informarAUmc();
+
+}
+
+void informarAUmc(){
+	int mensaje = SWAP_PROGRAMA_RECHAZADO;
+
+	int enviado = send(socket_umc, &mensaje, sizeof(int), 0);
+
+	if(enviado < 0){
+		log_error(logger, "Falló envío de mensaje de rechazo de programa");
+		exit(EXIT_FAILURE);
+	}else{
+		printf("Se informa a la Umc rechazo de programa \n");
+	}
+}
+
 
 //------------------- PROCESOS EN ESPERA -----------------------------//
 //terminar
-/*void procesarProcesosEnEspera(){
+void procesarProcesosEnEspera(){
 
 	int i;
 	int cantidadNodos = listaEnEspera->elements_count;
@@ -512,7 +649,7 @@ void comenzarCompactacion(){
 		nodo_proceso *nodo = list_get(listaProcesos, i);
 	}
 }
-*/
+
 
 //-----------------------------Eliminar Proceso -----------------------//
 
@@ -527,8 +664,8 @@ void borrarDeArchivoSwap(nodo_proceso *nodo){
 void borrarDeListaDeProcesos(nodo_proceso *nodo){
 
 	bool igualPid(nodo_proceso *nodoProceso){  // ver como funciona ésto que lo hice con dos nodos
-			return nodoProceso->pid == pid(nodo);
-		}
+		return nodoProceso->pid == numeroPid(nodo);
+	}
 	list_remove_by_condition(listaProcesos, (void*)igualPid);
 }
 
@@ -549,11 +686,12 @@ void liberarEstructuras(nodo_proceso *nodo){
 
 }
 
-void terminarProceso( nodo_proceso *nodo){
+void terminarProceso( int pid){
 
-	int posicion = ubicacionEnSwap(pid(nodo));
+	int posicion = ubicacionEnSwap(pid);
 
 	if(posicion != -1){
+		nodo_proceso *nodo = obtenerPrograma(posicion);
 		liberarEstructuras(nodo);
 	}else{
 		puts("No se ha encontrado el programa");
@@ -570,8 +708,10 @@ void cerrarArchivo(){
 	fclose(file);
 }
 
+
 void eliminarEstructuras(){
 
 	eliminarArchivoMapeado();
 	cerrarArchivo();
 }
+
