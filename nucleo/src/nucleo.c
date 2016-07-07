@@ -20,8 +20,13 @@ int main(int argc, char *argv[]) {
 	char *ip_UMC, *puerto_UMC;
 	fd_set listen;
 
-	listaReady = list_create();
 	listaCPUs = list_create();
+	listaConsolas = list_create();
+	listaListos = list_create();
+	listaBloqueados = list_create();
+	listaEjecutar = list_create();
+	listaFinalizados = list_create();
+
 
 	//valida los parametros de entrada del main
 	if (argc != 2) {
@@ -34,6 +39,8 @@ int main(int argc, char *argv[]) {
 	crearConfiguracion(argv[1]);
 
 	//Conexion consolas
+	cant_consolas = 0;
+	max_consolas = 0;
 	puerto_cons = config_get_string_value(config, "PUERTO_PROG");
 	cons_fd = conectarPuertoDeEscucha(puerto_cons);
 	maximoFileDescriptor(cons_fd,&max_fd);
@@ -192,12 +199,13 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 						close(i);
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
 						FD_CLR(i, &readyListen);
-					}
-					if(FD_ISSET(i, &cpu_fd_set)){
-						hacerAlgoCPU(codMensaje, i);
-					}
-					if(FD_ISSET(i, &cons_fd_set)){
-						hacerAlgoConsola(codMensaje, i);
+					}else{
+						if(FD_ISSET(i, &cpu_fd_set)){
+							procesarMensajeCPU(codMensaje, i);
+						}
+						if(FD_ISSET(i, &cons_fd_set)){
+							procesarMensajeConsola(codMensaje, i);
+						}
 					}
 				}
 			}
@@ -243,6 +251,13 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 		//Agrega a la consola al set
 		FD_SET(nuevaConsola, listen);
 		FD_SET(nuevaConsola, consolas);
+
+		if (nuevaConsola > 0){
+			pthread_t hiloConsola;
+			int thread2;
+			thread2 = pthread_create(&hiloConsola, NULL, iniciarNuevaConsola, (void*) nuevaConsola);
+		}
+
 
 	}else{
 		printf("No se verifico la autenticidad de la consola, cerrando la conexion. \n");
@@ -296,9 +311,14 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 		listaCpu[cant_cpus - 1] = cpu_nueva;
 		printf("CPUs disponibles %d\n", cant_cpus);
 
+
 		if (cant_cpus > 0){
+
 			t_cpu * nodoCPU = list_get(listaCPUs, 0);
-			enviarPaqueteACPU(nodoCPU);
+			pthread_t hiloCPU;
+			int thread1;
+			thread1 = pthread_create(&hiloCPU, NULL, enviarPaqueteACPU, (void*) nodoCPU);
+
 		}
 
 	}else{
@@ -308,33 +328,102 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 }
 
 
-void hacerAlgoCPU(int codigoMensaje, int fd){
-	printf("hacerAlgoCPU con el msj.%d\n",codigoMensaje);
+void procesarMensajeCPU(int codigoMensaje, int fd){
+	printf("procesarMensajeCPU con el msj.%d\n",codigoMensaje);
 
 	switch(codigoMensaje){
 
 	case ENTRADA_SALIDA:
+		printf("mensaje recibido CPU Entrada-Salida");
 		 //agrego el proceso en listaBloqueados, trato el sleep corresp
 	break;
 
 	case FIN_QUANTUM:
+		printf("mensaje recibido CPU Fin Quantum");
 		// saco el proceso de listaEjecutado, lo muevo donde corresponda
 	break;
 
 	case FINALIZAR:
+		printf("mensaje recibido CPU Finalizar");
 		//saco de listaEjecutado, envio msj a consola
 	break;
 
 	case OPERACION_PRIVILEGIADA:
+		printf("mensaje recibido CPU Operacion privilegiada");
 		//proceso según la operación que se haya solicitado
 	break;
 
+	case ANSISOP_IMPRIMIR:
+		printf("mensaje recibido CPU imprimir\n");
+		//busco la consola del proceso y le reenvio el mensaje a imprimir
+
+		int mensajeAimprimir;
+
+		int mensaje = recv(fd, &mensajeAimprimir, sizeof(int), 0);
+
+		if (mensaje <= 0){
+			printf("Error mensaje recibido %d\n", mensajeAimprimir);
+
+		}else{
+			printf("mensaje recibido %d\n", mensajeAimprimir);
+			enviarMensajeConsola(fd, mensajeAimprimir);
+		}
+	break;
+
+	case ANSISOP_IMPRIMIR_TEXTO:
+		printf("mensaje recibido CPU imprimir texto\n");
+		//busco la consola del proceso y le reenvio el mensaje a imprimir
+	break;
+
 	default:
-		printf("mensaje Erroneo");
+		printf("mensaje recibido CPU Erroneo");
 	}
 }
 
-void hacerAlgoConsola(int codigoMensaje, int fd){
+
+void enviarMensajeConsola(int socketCPU, t_valor_variable mensaje){
+
+	//obtener relacion socketCPU -idProceso - SocketConsola
+	//enviar el mensaje al Socket consola obtenido
+
+
+	bool buscarCPUporSocket(t_cpu * nodoCPU) {
+			return (nodoCPU->socket == socketCPU);
+	}
+
+	t_cpu * nodoDeCPU = NULL;
+	//busca hasta que lo encuentra
+	while (nodoDeCPU == NULL) {
+		nodoDeCPU = list_find(listaCPUs,(void*)buscarCPUporSocket);
+	}
+
+
+	bool buscarConsolaporPCB(t_consola * nodoConsola) {
+			return (nodoConsola->pcb == nodoDeCPU->pcb);
+	}
+
+	t_consola* nodoDeConsola=NULL;
+	//busca hasta que lo encuentra
+	while (nodoDeConsola == NULL) {
+		nodoDeConsola = list_find(listaConsolas,(void*)buscarConsolaporPCB);
+	}
+
+	int socketConsola = nodoDeConsola->socketConsola;
+	int buffer[2];
+
+	buffer[0] = ANSISOP_IMPRIMIR;
+	buffer[1] = mensaje;
+
+	int envioMensaje = send(socketConsola, &buffer, 2*sizeof(int), 0);
+
+	if(envioMensaje == -1){
+		printf("Error al enviar el mensaje a la consola\n");
+	}else{
+		printf("Mensaje enviado a la consola\n");
+	}
+}
+
+void procesarMensajeConsola(int codigoMensaje, int fd){
 
 	printf("codigoMensaje%d\n", codigoMensaje);
 
@@ -345,7 +434,7 @@ void hacerAlgoConsola(int codigoMensaje, int fd){
 	}
 }
 
-void hacerAlgoUmc(int codigoMensaje){
+/*void hacerAlgoUmc(int codigoMensaje){
 
 	int msj_recibido;
 
@@ -353,31 +442,31 @@ void hacerAlgoUmc(int codigoMensaje){
 
 	case RECHAZO_PROGRAMA:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
-		moverDeNewA(msj_recibido,&finished);
+		moverDeNewA(msj_recibido,&listaFinalizados);
 		break;
 
 	case ACEPTO_PROGRAMA:
 		recv(umc_fd,&msj_recibido,sizeof(int),0);
-		moverDeNewA(msj_recibido,&listaReady);
+		moverDeNewA(msj_recibido,&listaListos);
 		break;
 
 	}
-}
+}*/
 
-void moverDeNewA(int pid, t_queue *destino){
+void moverDeNewA(int pid, t_list *destino){
 
 	bool igualPid(t_pcb *elemento){
 		return elemento->pid == pid;
 	}
 
-	t_pcb *pcb_a_mover = list_find(&new, (void*)igualPid);
+	t_pcb *pcb_a_mover = list_find(listaListos, (void*)igualPid);
 
-	queue_push(destino, pcb_a_mover);
+	list_add(destino, pcb_a_mover);
 
-	list_remove_and_destroy_by_condition(&new, (void*)igualPid, (void*)free);
+	list_remove_and_destroy_by_condition(listaListos, (void*)igualPid, (void*)free);
 }
 
-void iniciarNuevaConsola (int fd){
+void* iniciarNuevaConsola (int fd){
 
 	//1.recibe pgm de Consola
 	//2.crea el PCB lo agrega a la lista de listos
@@ -412,7 +501,21 @@ void iniciarNuevaConsola (int fd){
 	printf("%s\n", source);
 
 	//Creo la estructura del PCB
-	crearPCB(source_size, source);
+	int idPCB = crearPCB(source_size, source);
+
+	//Agrego la consola a la lista de consolas
+	t_consola consola_nueva;
+
+	consola_nueva.socketConsola = fd;
+	consola_nueva.pcb = idPCB;
+
+	max_consolas++;
+
+	cant_consolas++;
+	//Necesito un array con 1 cpu mas de espacio
+	listaConsola = realloc(listaConsola, cant_consolas * sizeof(t_consola));
+	list_add(listaConsolas, listaConsola);
+
 
 	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
 	int solicitudOK = solicitarPaginasUMC(source_size, buffer, source);
@@ -421,16 +524,15 @@ void iniciarNuevaConsola (int fd){
 		//list_add(&ready, paquete);
 	}else{
 		printf("no hay espacio, solicitud rechazada\n");
-		list_remove(&new, 0);
+		list_remove(listaListos, 0);
 	}
 
 	//Libero la memoria
 	free(buffer);
-
 }
 
 
-void crearPCB(int source_size,char *source){
+int crearPCB(int source_size,char *source){
 
 	char *paquete;
 
@@ -450,6 +552,7 @@ void crearPCB(int source_size,char *source){
 	pcb->PC = 0;
 	pcb->cant_pag = source_size;
 	pcb->idCPU = 0;
+
 
 	t_metadata_program* metadata;
 	metadata = metadata_desde_literal(source);
@@ -484,11 +587,12 @@ void crearPCB(int source_size,char *source){
 	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo), &indiceEtiquetas, sizeof(t_indice_etiquetas));
 	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo) + sizeof(t_indice_etiquetas), &indiceStack, sizeof(indiceStack));
 
-	list_add(listaReady, pcb);
-	printf("elementos lista: %d\n", listaReady->elements_count);
+	list_add(listaListos, pcb);
+	printf("elementos lista: %d\n", listaListos->elements_count);
+
+	return pcb->pid;
 
 }
-
 
 int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 
@@ -529,33 +633,51 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 }
 
 
-void enviarPaqueteACPU(t_cpu * nodoCPU){
+void* enviarPaqueteACPU(void *nodo){
 
-	t_pcb * nodoPCB =  list_get(listaReady, 0);
-	nodoPCB->idCPU= nodoCPU->id;
+	t_cpu * nodoCPU = nodo;
 
-	int mensaje = ENVIO_PCB;
-	char *buffer;
-	//Armo el paquete a enviar
-	int buffer_size = sizeof(int) + sizeof(t_pcb);
-	buffer = malloc(buffer_size);
+	while(1){
+		t_pcb * nodoPCB =  list_get(listaListos, 0);
+		nodoPCB->idCPU= nodoCPU->id;
 
-	memcpy(buffer, &mensaje, sizeof(int));
-	memcpy(buffer + sizeof(int), nodoPCB, sizeof(t_pcb));
+		int mensaje = ENVIO_PCB;
+		//int sizePCB = sizeof(nodoPCB);
+		int sizePCB = 1024;
+		char *buffer;
+		//Armo el paquete a enviar
+		int buffer_size = sizeof(int) + sizeof(int) + sizeof(t_pcb);
+		buffer = malloc(buffer_size);
 
-	int envioPCB = send(nodoCPU->socket,buffer,sizeof(buffer),0);
+		memcpy(buffer, &mensaje, sizeof(int));
+		memcpy(buffer + sizeof(int), &sizePCB, sizeof(int));
+		memcpy(buffer +2*sizeof(int), nodoPCB, sizeof(t_pcb));
 
-	if(envioPCB <= 0){
-		printf("Error en el envio del PCB");
-		exit(1);
-	}else {
-		//envio correcto:  cambio estado cpu y asigno id pcb. muevo a la lista correspondiente
-		nodoCPU->pcb = nodoPCB->pid;
-		nodoCPU->libre = false;
-		//list_remove(listaDeListo, 0);
-		//list_add(listaDeEjecutado,nodoPCB);
-		printf ("PCB enviado a CPU.%d\n", nodoPCB->pid);
+		printf("mensaje a enviar: %d\n", mensaje);
+		printf("size pcb a enviar: %d\n", sizePCB);
+		printf("id pcb a enviar%d\n", pcb->pid);
 
+		//int envioPCB = send(nodoCPU->socket,buffer,sizeof(buffer),0);
+
+		int cant_enviada = 0;
+
+		while(cant_enviada < buffer_size){
+
+			int envioPCB = send(nodoCPU->socket, buffer + cant_enviada, buffer_size - cant_enviada, 0);
+
+			if(envioPCB <= 0){
+				printf("Error en el envio del PCB %d/n", nodoPCB->pid);
+				exit(1);
+			}else {
+				//envio correcto:  cambio estado cpu y asigno id pcb. muevo a la lista correspondiente
+				nodoCPU->pcb = nodoPCB->pid;
+				nodoCPU->libre = false;
+				list_remove(listaListos, 0);
+				list_add(listaEjecutar,nodoPCB);
+				printf ("PCB enviado a CPU.%d\n", nodoPCB->pid);
+			}
+			cant_enviada += envioPCB;
+		}
 	}
 }
 
@@ -564,9 +686,9 @@ void limpiarTerminados(){
 	t_consola *pcb_terminado;
 	int mensaje = FIN_PROGRAMA;
 
-	while(!queue_is_empty(&finished)){
+	while(!list_is_empty(listaFinalizados)){
 
-		pcb_terminado = queue_pop(&finished);
+		pcb_terminado = list_remove(listaFinalizados, 0);
 
 		//Le aviso a consola que termino la ejecucion del programa
 		send(pcb_terminado->socketConsola,&mensaje,sizeof(int),0);
@@ -582,7 +704,7 @@ void planificar(){
 	int i;
 
 	//Miro que no este vacia la lista de ready
-	if(!queue_is_empty(listaReady)){
+	if(!list_is_empty(listaListos)){
 
 		for(i=0; i<cant_cpus; i++){
 

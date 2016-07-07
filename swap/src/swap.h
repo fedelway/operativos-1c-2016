@@ -55,6 +55,8 @@
 t_list *listaProcesos;
 t_list *listaEnEspera;
 
+int estaCompactando = 0;
+
 //SEMÁFOROS
 pthread_mutex_t mutexListaEnEspera;
 
@@ -95,6 +97,9 @@ void crearProgramaAnSISOP(int pid, int tamanio);
 void crearProgramaAnSISO(int pid, int tamanio, char* codigo_prog);
 void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, int pagina, char* nuevoCodigo);
+void trabajarUmc();
+void atenderProcesosEnEspera();
+int hayProgramasEnEspera();
 
 //------------------------------- COMPACTACION -----------------------------------------------//
 
@@ -108,6 +113,9 @@ void intercambioEnBitmap(int posicionAnterior, int posicionActual);
 void modificarArchivoSwap(int posicionNueva, int posicionAnterior);
 void modificarLista(int posicionNueva, int posicionAnterior);
 void comenzarCompactacion();
+void informarAUmc();
+void cancelarInicializacion();
+void void encolarProgramas(int pid, int tamanio);
 
 //--------------------------- TERMINAR PROGRAMA	 --------------------------------------------//
 

@@ -194,6 +194,7 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
 	int cant_enviada = 0;
 	int aux;
 	int mandoArchivo = ENVIO_FUENTE;
+	//int mandoArchivo = ENVIO_FUENTE;
 
 	cant_leida = fread(archivo, sizeof(char), source_size, source);
 
