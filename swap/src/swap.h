@@ -55,6 +55,8 @@
 t_list *listaProcesos;
 t_list *listaEnEspera;
 
+int estaCompactando = 0;
+
 //SEMÁFOROS
 pthread_mutex_t mutexListaEnEspera;
 
@@ -70,8 +72,13 @@ int aceptarConexion(int puerto);
 void crearConfiguracion(char* config_path); //levanta el archivo de configuracion y lo asigna a una estructura t_config
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
 void recibirMensajeUMC(char* message, int socket_umc);
-static nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap);
-static nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas);
+nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap);
+nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas);
+void agregarNodoEnEspera(int pid, int cantidadPaginas);
+void agregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap);
+int cantPaginas(nodo_proceso *nodo);
+int pid(nodo_proceso *nodo);
+int posicionSwap(nodo_proceso *nodo);
 
 
 //---------------------- INICIALIZACIÓN -------------------------------------------//
@@ -86,16 +93,19 @@ void crearParticionSwap();
 bool hayEspacioContiguo(int pagina, int tamanio);
 int paginaDisponible(int tamanio);
 int  ubicacionEnSwap(int pid);
-void crearProgramaAnSISOP(int pid,int tamanio,char* resultadoCreacion,char* codigo_prog);
+void crearProgramaAnSISOP(int pid, int tamanio);
+void crearProgramaAnSISO(int pid, int tamanio, char* codigo_prog);
 void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, int pagina, char* nuevoCodigo);
+void trabajarUmc();
+void atenderProcesosEnEspera();
+int hayProgramasEnEspera();
 
 //------------------------------- COMPACTACION -----------------------------------------------//
 
 int espaciosLibres(int cantidad);
 bool hayFragmentacion(int tamanio);
-void prepararLugar( int pid, int tamanio);
-void intercambioEnBitmap(int posicionVacia, int posicionOcupada);
+void prepararCompactacion(int tamanio);
 nodo_proceso *obtenerPrograma(int posicionEnSwap);
 void actualizoListaDeProcesos(int posicioAIntercambiar, int j);
 bool posicionVacia(int posicion);
@@ -103,6 +113,9 @@ void intercambioEnBitmap(int posicionAnterior, int posicionActual);
 void modificarArchivoSwap(int posicionNueva, int posicionAnterior);
 void modificarLista(int posicionNueva, int posicionAnterior);
 void comenzarCompactacion();
+void informarAUmc();
+void cancelarInicializacion();
+void void encolarProgramas(int pid, int tamanio);
 
 //--------------------------- TERMINAR PROGRAMA	 --------------------------------------------//
 
@@ -110,7 +123,7 @@ void liberarEstructuras(nodo_proceso *nodo);
 void borrarDeArchivoSwap(nodo_proceso *nodo);
 void borrarDeListaDeProcesos(nodo_proceso *nodo);
 void liberarPosicion(nodo_proceso *nodo);
-void terminarProceso(nodo_proceso *nodo);
+void terminarProceso(int pid);
 
 //--------------------------- ELIMINAR ESTRUCTURAS -----------------------------------------//
 

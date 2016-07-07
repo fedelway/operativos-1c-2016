@@ -34,6 +34,7 @@
 /****************************************************************************************/
 #define PACKAGESIZE 1024
 
+//estructura de configuración de la cpu
 typedef struct {
 	char* nucleo_ip;
 	char* nucleo_puerto;
@@ -42,6 +43,7 @@ typedef struct {
 	int *cpu_id;
 }t_configuracion_cpu;
 
+//estructura para solicitar escritura a la umc
 typedef struct{
 	int nroPagina;
 	int offset;
@@ -50,13 +52,46 @@ typedef struct{
 	int valor;
 }__attribute__ ((__packed__)) t_solicitud_escritura;
 
-
+//estructura de solicitud de lectura a la umc
 typedef struct{
 	int nroPagina;
 	int offset;
 	int size;
 	int pid;
 }__attribute__ ((__packed__)) t_solicitud_lectura;
+
+//estructura para instrucciones del pcb
+typedef struct{
+	t_intructions*	instrucciones;
+	t_size			instrucciones_size;
+	t_puntero_instruccion instruccion_inicio;
+}t_indice_codigo;
+
+//estructura para etiquetas del pcb
+typedef struct{
+	char *etiquetas;
+	t_size etiquetas_size;
+}t_indice_etiquetas;
+
+//estructura para indice de stack del pcb
+typedef struct{
+	int argumentos;
+	int variables;
+	int dirRetorno;
+	int posVariable;
+}t_indice_stack;
+
+//estructura para el pcb
+typedef struct{
+	int pid;
+	int PC;			//program counter
+	int cant_pag;
+	int idCPU;
+	t_indice_codigo *indice_cod;
+	t_indice_etiquetas *indice_etiquetas;
+	t_indice_stack *indice_stack;
+}t_pcb;
+
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -67,15 +102,20 @@ void conectarAlNucleo(t_configuracion_cpu* configCPU);
 void conectarAUMC(t_configuracion_cpu* configCPU);
 void handshakeNucleo(void);
 void handshakeUMC(int cpu_id);
+void finalizarCpu(void);
+void finalizarCpuPorError(void);
 
 
 /****************************************************************************************/
 /*                                   FUNCIONES CPU								        */
 /****************************************************************************************/
-void recibirPCB(char* message);
+void recibirPCB(t_pcb* pcb);
 void enviarPaqueteAUMC(char* package);
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion);
 void handler_seniales(int senial);
+void ejecutoInstrucciones(t_pcb *pcb_actual);
+void devuelvoPcbActualizadoAlNucleo(t_pcb *pcb_actual);
+void liberarEspacioDelPCB(t_pcb *pcb_actual);
 
 /****************************************************************************************/
 /*                                PRIMITIVAS ANSISOP								    */
