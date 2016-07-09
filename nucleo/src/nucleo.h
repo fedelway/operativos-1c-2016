@@ -27,6 +27,7 @@
 #include "protocolo.h"
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
+#include <pthread.h>
 
 
 typedef struct{
@@ -80,7 +81,10 @@ int stack_size;
 int max_cpu;
 int quantum;
 int cant_cpus;
+int cant_consolas;
+int max_consolas;
 t_cpu *listaCpu;
+t_consola *listaConsola;
 t_pcb *pcb;
 
 
@@ -92,10 +96,16 @@ int socket_escucha;
 int cpu_fd, cons_fd;
 
 //Las colas con los dif estados de los pcb
-t_queue running, blocked, finished;
-t_list new;
-t_list * listaReady;
+//t_queue running, blocked, finished;
 t_list * listaCPUs;
+t_list * listaConsolas;
+t_list * listaListos;
+t_list * listaBloqueados;
+t_list * listaEjecutar;
+t_list * listaFinalizados;
+
+
+
 
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
@@ -103,23 +113,25 @@ bool validarParametrosDeConfiguracion();
 void maximoFileDescriptor(int socket_escucha,int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd);
-void procesoMensajeRecibidoConsola(char* paquete, int socket);
-void hacerAlgoCPU(int codigoMensaje, int fd);
-void hacerAlgoConsola(int codigoMensaje, int fd);
+void procesarMensajeCPU(int codigoMensaje, int fd);
+void procesarMensajeConsola(int codigoMensaje, int fd);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 int recibirMensaje(int socket);
 
-void iniciarNuevaConsola(int fd);
+void* iniciarNuevaConsola (int fd);
 void validacionUMC();
-void hacerAlgoUmc(int codigoMensaje);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
-void enviarPaqueteACPU(t_cpu * nodoCPU);
+void* enviarPaqueteACPU(void *nodoCPU);
 void limpiarTerminados();
 void planificar();
-void moverDeNewA(int pid, t_queue *destino);
+void moverDeNewA(int pid, t_list *destino);
 
-void crearPCB(int source_size,char *source);
+int crearPCB(int source_size,char *source);
 int solicitarPaginasUMC(int source_size, char *buffer, char *source);
+void imprimirMsjConsola(int socketCPU, t_valor_variable mensaje);
+void imprimirTextoConsola(int socketCPU, int sizeTexto);
+void enviarTextoAConsola(int socketCPU, int sizeTexto);
+void finalizarEjecucionProceso(int socket);
 
 #endif /* NUCLEO_H_ */
