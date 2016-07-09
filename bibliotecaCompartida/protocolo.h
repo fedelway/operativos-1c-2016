@@ -23,6 +23,7 @@
 #define SOY_CONSOLA 2000
 #define CONSOLA_OK 2010
 #define ENVIO_FUENTE 2020
+#define FINALIZAR_EJECUCION 2030
 
 //Mensajes de Cpu
 #define SOY_CPU 3000
