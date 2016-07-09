@@ -505,6 +505,17 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 
 void traerPaginaDeSwap(int pag, t_prog *programa){
 
+	//Funciones auxiliares
+	t_pag pag_apuntada()
+	{
+		return programa->paginas[programa->pag_en_memoria[programa->puntero]];
+	}
+
+	void avanzarPuntero()
+	{
+		programa->puntero = (programa->puntero++) % fpp;
+	}
+
 	int cant_paginas_ocupadas = 0;
 	int i;
 	int pos_a_escribir;
@@ -528,41 +539,88 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 		return;
 	}
 
-	//Todas las paginas estan ocupadas, tengo que reemplazar una.
+	//Todas las paginas estan ocupadas, tengo que reemplazar una. Aplico el algoritmo clock
 	for(i=0; i<fpp; i++){
 
-		//Si no esta referenciada, sustituyo esa pagina
-		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
+//Clock viejo
+//		//Si no esta referenciada, sustituyo esa pagina
+//		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
+//
+//			//Le cambio el bit de presencia
+//			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
+//
+//			//Me fijo el bit de modificado
+//			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
+//				//Fue modificada, la envio a swap
+//
+//				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+//				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
+//
+//				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
+//			}
+//
+//			//Recibo la pagina y salgo del ciclo
+//			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
+//
+//			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
+//
+//			//Avanzo el puntero
+//			programa->puntero = (programa->puntero +1) % fpp;
+//
+//			return;
+//		}
 
-			//Le cambio el bit de presencia
-			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
+		if(!pag_apuntada().referenciado)
+		{
+			if(!pag_apuntada().modificado)
+			{//No fue referenciada, ni modificada, se sustituye
 
-			//Me fijo el bit de modificado
-			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
-				//Fue modificada, la envio a swap
+				//pongo el bit de presencia en falso y libero el frame
+				pag_apuntada().presencia = false;
+				frames[pag_apuntada().frame].libre = true;
 
-				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
-				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
+				//recibo la pagina
+				pos_a_escribir = frames[pag_apuntada().frame].posicion;
+				pag_apuntada().frame = recibirPagina(pag, programa->pid);
 
-				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
+				//avanzo el puntero y salgo del ciclo
+				avanzarPuntero();
+				return;
 			}
-
-			//Recibo la pagina y salgo del ciclo
-			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
-
-			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
-
-			//Avanzo el puntero
-			programa->puntero = (programa->puntero +1) % fpp;
-
-			return;
 		}
+	}
 
-		//Pongo el bit de refencia en false
-		programa->paginas[ programa->pag_en_memoria[programa->puntero]].referenciado = false;
+	//Sali del ciclo, por lo tanto todas las paginas estaban referenciadas o modificadas
+	//Ahora busco paginas que esten con bit de referencia en falso, pero si modificadas
+	for(i=0;i<fpp;i++)
+	{
+		if(!pag_apuntada().referenciado)
+		{
+			if(pag_apuntada().modificado)
+			{//Encontre una pagina que no fue referencia, la reemplazo
 
-		//incremento el puntero
-		programa->puntero = (programa->puntero + 1) % fpp;
+				//Presencia en falso y libero el frame
+				pag_apuntada().presencia = false;
+				frames[pag_apuntada().frame].libre = true;
+
+				//Como fue modificada, la envio a swap
+				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+				int pos_a_enviar = frames[pag_apuntada().frame].posicion;
+
+				enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
+
+				//Recibo la pagina
+				pos_a_escribir = frames[pag_apuntada().frame].posicion;
+				pag_apuntada().frame = recibirPagina(pag, programa->pid);
+
+				//Avanzo el puntero y salgo
+				avanzarPuntero();
+				return;
+			}
+		}else{//Pagina referenciada, cambio el bit a false
+			pag_apuntada().referenciado = false;
+			avanzarPuntero();
+		}
 	}
 
 	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
