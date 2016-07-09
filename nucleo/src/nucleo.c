@@ -228,6 +228,9 @@ int recibirMensaje(int socket){
 
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
+	//1.acepto nueva conexion + handshake
+	//2.creo el hilo para procesar lo que envia la nueva consola
+
 	int soy_nucleo = SOY_NUCLEO;
 	int nuevaConsola;
 	int msj_recibido;
@@ -251,12 +254,6 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 		//Agrega a la consola al set
 		FD_SET(nuevaConsola, listen);
 		FD_SET(nuevaConsola, consolas);
-
-		if (nuevaConsola > 0){
-			pthread_t hiloConsola;
-			int thread2;
-			thread2 = pthread_create(&hiloConsola, NULL, iniciarNuevaConsola, (void*) nuevaConsola);
-		}
 
 
 	}else{
@@ -366,13 +363,25 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 
 		}else{
 			printf("mensaje recibido %d\n", mensajeAimprimir);
-			enviarMensajeConsola(fd, mensajeAimprimir);
+			imprimirMsjConsola(fd, mensajeAimprimir);
 		}
 	break;
 
 	case ANSISOP_IMPRIMIR_TEXTO:
 		printf("mensaje recibido CPU imprimir texto\n");
 		//busco la consola del proceso y le reenvio el mensaje a imprimir
+
+		int sizeTexto;
+
+		int sizeMensaje = recv(fd, &sizeTexto, sizeof(int), 0);
+
+		if (sizeMensaje <= 0){
+			printf("Error size recibido %d\n", sizeTexto);
+
+		}else{
+			printf("size recibido %d\n", sizeTexto);
+			enviarTextoAConsola(fd, sizeTexto);
+		}
 	break;
 
 	default:
@@ -380,12 +389,9 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 	}
 }
 
+int obtenerSocketConsola(int socketCPU){
 
-void enviarMensajeConsola(int socketCPU, t_valor_variable mensaje){
-
-	//obtener relacion socketCPU -idProceso - SocketConsola
-	//enviar el mensaje al Socket consola obtenido
-
+	int socketBuscado;
 
 	bool buscarCPUporSocket(t_cpu * nodoCPU) {
 			return (nodoCPU->socket == socketCPU);
@@ -408,7 +414,18 @@ void enviarMensajeConsola(int socketCPU, t_valor_variable mensaje){
 		nodoDeConsola = list_find(listaConsolas,(void*)buscarConsolaporPCB);
 	}
 
-	int socketConsola = nodoDeConsola->socketConsola;
+	socketBuscado = nodoDeConsola->socketConsola;
+	return socketBuscado;
+
+}
+
+void imprimirMsjConsola(int socketCPU, t_valor_variable mensaje){
+
+	//obtener relacion socketCPU -idProceso - SocketConsola
+	//enviar el mensaje al Socket consola obtenido
+
+	int socketConsola = obtenerSocketConsola(socketCPU);
+
 	int buffer[2];
 
 	buffer[0] = ANSISOP_IMPRIMIR;
@@ -423,6 +440,66 @@ void enviarMensajeConsola(int socketCPU, t_valor_variable mensaje){
 	}
 }
 
+
+char * recibirTexto(int socketCPU, int source_size){
+	//recibo archivo de CPU
+	char *buffer, *source;
+	int cant_recibida = 0;
+	int aux;
+
+	recv(socketCPU, &source_size, sizeof(int), 0);
+
+	buffer = malloc(source_size + 1);
+
+	while(cant_recibida < source_size){
+
+		aux = recv(socketCPU, buffer, source_size, 0);
+		if (aux == -1){
+			printf("Error al recibir texto");
+			exit(1);
+		}
+
+		cant_recibida += aux;
+	}
+	//Ya tengo el archivo recibido en buffer. Le agrego un \0 al final.
+	buffer[source_size] = '\0';
+	source = buffer;
+
+	source_size++;//Porque le agregue el \0
+	printf("%s\n", source);
+	return source;
+}
+
+void enviarTextoAConsola(int socketCPU, int sizeTexto){
+
+	int mensaje;
+	int aux;
+	char *textoAimprimir;
+
+	int socketConsola = obtenerSocketConsola(socketCPU);
+
+	textoAimprimir = recibirTexto(socketCPU, sizeTexto);
+
+	mensaje = ANSISOP_IMPRIMIR_TEXTO;
+
+	char *buffer = malloc(sizeof(int)*2+sizeTexto);
+
+	memcpy(buffer, &mensaje, sizeof(int));
+	memcpy(buffer + sizeof(int), &sizeTexto, sizeof(int));
+	memcpy(buffer + 2*sizeof(int), textoAimprimir, sizeTexto);
+
+	printf("Envio mensaje imprimir texto a consola con el valor: %s\n", textoAimprimir);
+
+	aux = send(socketConsola, &buffer, sizeof(buffer)+1, 0);
+
+	if(aux == -1){
+		printf("Error al enviar el texto a Consola.\n");
+	}else{
+		printf("Texto enviado a Consola: %s\n", textoAimprimir);
+	}
+}
+
+
 void procesarMensajeConsola(int codigoMensaje, int fd){
 
 	printf("codigoMensaje%d\n", codigoMensaje);
@@ -431,27 +508,14 @@ void procesarMensajeConsola(int codigoMensaje, int fd){
 
 	case ENVIO_FUENTE:
 		iniciarNuevaConsola(fd);
+		break;
+
+	case FINALIZAR_EJECUCION:
+		finalizarEjecucionProceso(fd);
+		break;
 	}
 }
 
-/*void hacerAlgoUmc(int codigoMensaje){
-
-	int msj_recibido;
-
-	switch(codigoMensaje){
-
-	case RECHAZO_PROGRAMA:
-		recv(umc_fd,&msj_recibido,sizeof(int),0);
-		moverDeNewA(msj_recibido,&listaFinalizados);
-		break;
-
-	case ACEPTO_PROGRAMA:
-		recv(umc_fd,&msj_recibido,sizeof(int),0);
-		moverDeNewA(msj_recibido,&listaListos);
-		break;
-
-	}
-}*/
 
 void moverDeNewA(int pid, t_list *destino){
 
@@ -466,12 +530,12 @@ void moverDeNewA(int pid, t_list *destino){
 	list_remove_and_destroy_by_condition(listaListos, (void*)igualPid, (void*)free);
 }
 
-void* iniciarNuevaConsola (int fd){
+
+void* iniciarNuevaConsola (int socket){
 
 	//1.recibe pgm de Consola
 	//2.crea el PCB lo agrega a la lista de listos
 	//3.envia el pgm a UMC -(si fue aceptado, agrego el PCB a la lista)
-
 
 	//recibo archivo de Consola
 	char *buffer, *source;
@@ -479,13 +543,13 @@ void* iniciarNuevaConsola (int fd){
 	int cant_recibida = 0;
 	int aux;
 
-	recv(fd, &source_size, sizeof(int), 0);
+	recv(socket, &source_size, sizeof(int), 0);
 
 	buffer = malloc(source_size + 1);
 
 	while(cant_recibida < source_size){
 
-		aux = recv(fd, buffer, source_size, 0);
+		aux = recv(socket, buffer, source_size, 0);
 		if (aux == -1){
 			printf("Error al recibir archivo");
 			exit(1);
@@ -500,17 +564,17 @@ void* iniciarNuevaConsola (int fd){
 	source_size++;//Porque le agregue el \0
 	printf("%s\n", source);
 
+
 	//Creo la estructura del PCB
 	int idPCB = crearPCB(source_size, source);
 
 	//Agrego la consola a la lista de consolas
-	t_consola consola_nueva;
+	t_consola * consola_nueva;
 
-	consola_nueva.socketConsola = fd;
-	consola_nueva.pcb = idPCB;
+	consola_nueva->socketConsola = socket;
+	consola_nueva->pcb = idPCB;
 
 	max_consolas++;
-
 	cant_consolas++;
 	//Necesito un array con 1 cpu mas de espacio
 	listaConsola = realloc(listaConsola, cant_consolas * sizeof(t_consola));
@@ -536,56 +600,41 @@ int crearPCB(int source_size,char *source){
 
 	char *paquete;
 
-	t_indice_codigo * indiceCodigo;
-	t_indice_etiquetas * indiceEtiquetas;
-	t_indice_stack * indiceStack;
+	t_pcb *pcb = malloc(sizeof(t_pcb));
+	t_indice_codigo *indiceCodigo = malloc(sizeof(t_indice_codigo));
+	t_indice_etiquetas *indiceEtiquetas = malloc(sizeof(t_indice_etiquetas));
+	t_list *indiceStack;
 
-	pcb = malloc(sizeof(t_pcb));
-	indiceCodigo = malloc(sizeof(t_indice_codigo));
-	indiceEtiquetas = malloc(sizeof(t_indice_etiquetas));
-	indiceStack = malloc(sizeof(t_indice_stack));
-
-	// pcb + indiceCodigo + indiceEtiquetas (ver estructura de Etiquetas que tiene el tamaño segun el size_etiqueta) + indiceStack
-	paquete = malloc(sizeof(t_pcb) + sizeof(t_indice_codigo) +  sizeof(t_indice_etiquetas) + sizeof(t_indice_stack));
-
+	//Cargo camposPCB
 	pcb->pid = ++max_pid;
 	pcb->PC = 0;
 	pcb->cant_pag = source_size;
 	pcb->idCPU = 0;
 
-
 	t_metadata_program* metadata;
 	metadata = metadata_desde_literal(source);
 
+	//Cargo indiceCodigo
 	indiceCodigo->instrucciones_size = metadata->instrucciones_size;
 	indiceCodigo->instrucciones = metadata->instrucciones_serializado;
 	indiceCodigo->instruccion_inicio = metadata->instruccion_inicio;
 
-	/*	int i;
-	for(i=0; i < metadata->instrucciones_size; i++){
-		t_intructions instr = metadata->instrucciones_serializado[i];
-		indiceCodigo->byte_inicio[i] = instr.start;
-		indiceCodigo->long_instruccion[i] = instr.offset;
-	}*/
-
+	//Cargo indiceEtiquetas
 	indiceEtiquetas->etiquetas_size =  metadata->etiquetas_size;
 	indiceEtiquetas->etiquetas = metadata->etiquetas;
 
-	indiceStack->argumentos = 0;
-	indiceStack->dirRetorno = 0;
-	indiceStack->posVariable = 0;
-	indiceStack->variables = 0;
+	//Cargo indiceStack
+	indiceStack = list_create();
 
+	//Cargo indices en PCB
 	pcb->indice_cod = indiceCodigo;
 	pcb->indice_etiquetas = indiceEtiquetas;
 	pcb->indice_stack = indiceStack;
 
 	//Armo el paquete
-	//memcpy(paquete, &mensaje, sizeof(int));
+	paquete = malloc(sizeof(t_pcb) + sizeof(t_indice_codigo) +  sizeof(t_indice_etiquetas) + sizeof(t_indice_stack));
+
 	memcpy(paquete, &pcb, sizeof(t_pcb));
-	//memcpy(paquete + sizeof(int) + sizeof(t_pcb), &indiceCodigo, sizeof(t_indice_codigo));
-	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo), &indiceEtiquetas, sizeof(t_indice_etiquetas));
-	//memcpy(paquete + sizeof(int) + sizeof(t_pcb) + sizeof(t_indice_codigo) + sizeof(t_indice_etiquetas), &indiceStack, sizeof(indiceStack));
 
 	list_add(listaListos, pcb);
 	printf("elementos lista: %d\n", listaListos->elements_count);
@@ -679,6 +728,15 @@ void* enviarPaqueteACPU(void *nodo){
 			cant_enviada += envioPCB;
 		}
 	}
+}
+
+void finalizarEjecucionProceso(int socket){
+
+	//buscar pid del proceso correspondiente al socket
+	//Si está en la lista de ejecutando, dejar que termine la ráfaga. Si esta en cualquier otro estado debe liberar recursos y frenar la ejec
+
+	printf("finalizar ejecucion proceso\n");
+
 }
 
 void limpiarTerminados(){

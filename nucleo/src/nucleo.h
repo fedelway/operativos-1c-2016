@@ -129,5 +129,9 @@ void moverDeNewA(int pid, t_list *destino);
 
 int crearPCB(int source_size,char *source);
 int solicitarPaginasUMC(int source_size, char *buffer, char *source);
+void imprimirMsjConsola(int socketCPU, t_valor_variable mensaje);
+void imprimirTextoConsola(int socketCPU, int sizeTexto);
+void enviarTextoAConsola(int socketCPU, int sizeTexto);
+void finalizarEjecucionProceso(int socket);
 
 #endif /* NUCLEO_H_ */
