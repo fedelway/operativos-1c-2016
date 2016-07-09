@@ -54,5 +54,9 @@
 #define SWAP_OK 5010
 #define SWAP_PROGRAMA_OK 5020			//El ok al pedido de reservar memoria
 #define SWAP_PROGRAMA_RECHAZADO 5021
+#define CARGAR_PROGRAMA 5030
+#define LEER_PAGINA 5040
+#define MODIFICAR_PAGINA 5050
+#define TERMINAR_PROGRAMA 5080
 
 #endif /* PROTOCOLO_H_ */
