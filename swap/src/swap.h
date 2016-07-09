@@ -58,7 +58,10 @@ t_list *listaEnEspera;
 int estaCompactando = 0;
 
 //SEMÁFOROS
-pthread_mutex_t mutexListaEnEspera;
+pthread_mutex_t peticionesActuales = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t enEspera = PTHREAD_MUTEX_INITIALIZER;
+
+
 
 int socket_escucha,socket_umc,tamanioBitMap;
 int socket_swap;
@@ -115,7 +118,7 @@ void modificarLista(int posicionNueva, int posicionAnterior);
 void comenzarCompactacion();
 void informarAUmc();
 void cancelarInicializacion();
-void void encolarProgramas(int pid, int tamanio);
+void encolarProgramas();
 
 //--------------------------- TERMINAR PROGRAMA	 --------------------------------------------//
 

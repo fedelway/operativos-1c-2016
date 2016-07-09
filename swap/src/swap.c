@@ -26,10 +26,6 @@ int main(int argc, char *argv[]){
 	logger = log_create("swap.log", "SWAP", true, LOG_LEVEL_INFO);
 	log_info(logger, "Proyecto para SWAP..");
 
-	//Inicializo semáforos
-	pthread_mutex_init(&mutexListaEnEspera,NULL);
-
-
 	listaProcesos = list_create();
 	listaEnEspera = list_create();
 
@@ -117,11 +113,56 @@ void handshakeUMC(){
 
 //---------------------------- PROBAR DESCONEXIÓN DE LA Umc --trabaja nucleo------------------
 
+void atenderPeticiones(msj_recibido){
+
+	int  pid, tamanio, numeroPagina;
+	char* contenido;
+
+	switch(msj_recibido){
+
+	case INICIALIZAR_PROGRAMA :
+
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &tamanio, sizeof(int), 0);
+		crearProgramaAnSISOP(pid,tamanio);
+
+		break;
+
+	case LEER_PAGINA:
+
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &numeroPagina, sizeof(int), 0);
+
+		leerUnaPagina(pid, numeroPagina);
+
+		break;
+
+	case MODIFICAR_PAGINA:
+
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &tamanio, sizeof(int), 0);
+		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0); // VER SI ESTÁ OK
+
+		modificarPagina(pid, numeroPagina, contenido);
+		break;
+
+	case TERMINAR_PROGRAMA:
+
+		recv(socket_umc , &pid, sizeof(int), 0);
+
+		//terminarProceso(nodo_proceso *nodo); aca tengo que re acomodar la funcion para tener los parámetros
+		break;
+
+	default:
+		printf("Mensaje Erroneo");
+	}
+}
+
+
 void trabajarUmc(){
 
 	printf("Trabajar con UMC \n");
-	int msj_recibido, pid, tamanio, numeroPagina;
-	char* contenido;
+	int msj_recibido;
 
 	//Ciclo infinito
 	for(;;){
@@ -134,57 +175,26 @@ void trabajarUmc(){
 			exit(1);
 		}
 
-		switch(msj_recibido){
+		//todo aca ver de hacer el recv o dentro del encolar
+		if(estaCompactando){ //ver si hay que poner = 1
+			encolarProgramas();
+		}else{
 
-		case INICIALIZAR_PROGRAMA :
+			if(hayProgramasEnEspera == 1){  //ver como compararlo
 
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &tamanio, sizeof(int), 0);
-
-			if(estaCompactando){ //ver si hay que poner = 1
-				encolarProgramas(pid, tamanio);
+				pthread_mutex_lock(&peticionesActuales);
+				atenderProcesosEnEspera(msj_recibido);
+				pthread_mutex_unlock(&peticionesActuales);
 
 			}else{
-
-				if(hayProgramasEnEspera == 1){
-					atenderProcesosEnEspera();
-				}else{
-					crearProgramaAnSISOP(pid,tamanio);
-				}
+				pthread_mutex_lock(&enEspera);
+				atenderPeticiones(msj_recibido);
+				pthread_mutex_lock(&enEspera);
 
 			}
-
-			break;
-
-		case LEER_PAGINA:
-
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &numeroPagina, sizeof(int), 0);
-
-			leerUnaPagina(pid, numeroPagina);
-
-			break;
-
-		case MODIFICAR_PAGINA:
-
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &tamanio, sizeof(int), 0);
-			recv(socket_umc , &contenido, TAMANIO_PAGINA, 0); // VER SI ESTÁ OK
-
-			modificarPagina(pid, numeroPagina, contenido);
-			break;
-
-		case TERMINAR_PROGRAMA:
-
-			recv(socket_umc , &pid, sizeof(int), 0);
-
-			//terminarProceso(nodo_proceso *nodo); aca tengo que re acomodar la funcion para tener los parámetros
-			break;
-
-		default:
-			printf("Mensaje Erroneo");
 		}
 	}
+
 }
 
 //------------------------------ ALMACENAMIENTO EN SWAP ---------------------------//
@@ -405,7 +415,7 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
 	} else {
 		printf("Error al escribir la pagina");
-	// send modif ok
+		// send modif ok
 	}
 }
 
@@ -435,17 +445,20 @@ bool hayFragmentacion(int tamanio){
 
 //COMPACTACION AL INGRESAR UN PROGRAMA
 void prepararCompactacion(int tamanio){
+
 	//SEMÁFORO MIENTRAS COMPACTO
-	pthread_mutex_lock(&mutexListaEnEspera);
-
-	//agregarNodoEnEspera(pid, tamanio);
+	pthread_mutex_lock(&peticionesActuales);
+	pthread_mutex_lock(&enEspera);
 	comenzarCompactacion();
-	estaCompactando = 0;
-
-	pthread_mutex_unlock(&mutexListaEnEspera);
+	pthread_mutex_unlock(&peticionesActuales);
+	pthread_mutex_unlock(&enEspera);
 
 }
-void encolarProgramas(int pid, int tamanio){
+void encolarProgramas(){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
+
+	int pid, tamanio;
+	recv(socket_umc , &pid, sizeof(int), 0);
+	recv(socket_umc , &tamanio, sizeof(int), 0);
 
 	agregarNodoEnEspera(pid, tamanio);
 }
@@ -555,18 +568,14 @@ void informarAUmc(){
 //------------------- PROCESOS EN ESPERA -----------------------------//
 
 // ver orden meparece qu efalta
-void atenderProcesosEnEspera(){
+void atenderProcesosEnEspera(msj_recibido){
 
 	int i;
-	int pagina; //ver de donde sacamos
 	int cantidadNodos = listaEnEspera->elements_count;
 
-	for (i = 0; i < cantidadNodos; i++) {
-		nodo_enEspera *nodo = list_get(listaEnEspera, i);
+	for (i = 0; i < cantidadNodos; i++){
 
-		agregarNodoProceso(numeroPidEnEspera(nodo), cantPaginasEnEspera(nodo), pagina);
-
-		actualizarBitMap(numeroPidEnEspera(nodo), pagina ,cantPaginasEnEspera(nodo));
+		atenderPeticiones(msj_recibido);
 
 	}
 }
