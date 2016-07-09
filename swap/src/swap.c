@@ -150,7 +150,7 @@ void atenderPeticiones(msj_recibido){
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 
-		//terminarProceso(nodo_proceso *nodo); aca tengo que re acomodar la funcion para tener los parámetros
+		terminarProceso(pid);
 		break;
 
 	default:
@@ -187,6 +187,7 @@ void trabajarUmc(){
 				pthread_mutex_unlock(&peticionesActuales);
 
 			}else{
+
 				pthread_mutex_lock(&enEspera);
 				atenderPeticiones(msj_recibido);
 				pthread_mutex_lock(&enEspera);
