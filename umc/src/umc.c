@@ -31,8 +31,8 @@ int main(int argc,char *argv[]) {
 	swap_ip = config_get_string_value(config,"IP_SWAP");
 	swap_puerto = config_get_string_value(config,"PUERTO_SWAP");
 
- 	//swap_fd = conectarseA(swap_ip, swap_puerto);
- 	//handshakeSWAP();
+ 	swap_fd = conectarseA(swap_ip, swap_puerto);
+ 	handshakeSWAP();
 
 	//conexion a cpu
 	char* cpu_puerto;
@@ -506,10 +506,10 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 void traerPaginaDeSwap(int pag, t_prog *programa){
 
 	//Funciones auxiliares
-	t_pag pag_apuntada()
-	{
-		return programa->paginas[programa->pag_en_memoria[programa->puntero]];
-	}
+//	t_pag pag_apuntada()
+//	{
+//		return programa->paginas[programa->pag_en_memoria[programa->puntero]];
+//	}
 
 	void avanzarPuntero()
 	{
@@ -570,18 +570,18 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 //			return;
 //		}
 
-		if(!pag_apuntada().referenciado)
+		if(!pag_apuntada.referenciado)
 		{
-			if(!pag_apuntada().modificado)
+			if(!pag_apuntada.modificado)
 			{//No fue referenciada, ni modificada, se sustituye
 
 				//pongo el bit de presencia en falso y libero el frame
-				pag_apuntada().presencia = false;
-				frames[pag_apuntada().frame].libre = true;
+				pag_apuntada.presencia = false;
+				frames[pag_apuntada.frame].libre = true;
 
 				//recibo la pagina
-				pos_a_escribir = frames[pag_apuntada().frame].posicion;
-				pag_apuntada().frame = recibirPagina(pag, programa->pid);
+				pos_a_escribir = frames[pag_apuntada.frame].posicion;
+				pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
 				//avanzo el puntero y salgo del ciclo
 				avanzarPuntero();
@@ -594,31 +594,31 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 	//Ahora busco paginas que esten con bit de referencia en falso, pero si modificadas
 	for(i=0;i<fpp;i++)
 	{
-		if(!pag_apuntada().referenciado)
+		if(!pag_apuntada.referenciado)
 		{
-			if(pag_apuntada().modificado)
+			if(pag_apuntada.modificado)
 			{//Encontre una pagina que no fue referencia, la reemplazo
 
 				//Presencia en falso y libero el frame
-				pag_apuntada().presencia = false;
-				frames[pag_apuntada().frame].libre = true;
+				pag_apuntada.presencia = false;
+				frames[pag_apuntada.frame].libre = true;
 
 				//Como fue modificada, la envio a swap
 				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
-				int pos_a_enviar = frames[pag_apuntada().frame].posicion;
+				int pos_a_enviar = frames[pag_apuntada.frame].posicion;
 
 				enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
 
 				//Recibo la pagina
-				pos_a_escribir = frames[pag_apuntada().frame].posicion;
-				pag_apuntada().frame = recibirPagina(pag, programa->pid);
+				pos_a_escribir = frames[pag_apuntada.frame].posicion;
+				pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
 				//Avanzo el puntero y salgo
 				avanzarPuntero();
 				return;
 			}
 		}else{//Pagina referenciada, cambio el bit a false
-			pag_apuntada().referenciado = false;
+			pag_apuntada.referenciado = false;
 			avanzarPuntero();
 		}
 	}
