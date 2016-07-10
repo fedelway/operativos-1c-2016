@@ -42,7 +42,7 @@ int main(int argc, char *argv[]){
 	log_info(logger, "Mi puerto escucha es: %s", PUERTO_ESCUCHA);
 	socket_escucha = conectarPuertoDeEscucha(PUERTO_ESCUCHA);
 
-	printf(" aun no Se ha conectado una umc.\n");
+	printf("Aun no Se ha conectado una umc.\n");
 	socket_umc = aceptarConexion(socket_escucha);
 	printf("Socket umc %d\n", socket_umc);
 
@@ -68,6 +68,7 @@ void crearConfiguracion(char *config_path){
 	CANTIDAD_PAGINAS = config_get_int_value(config, "CANTIDAD_PAGINAS");
 	TAMANIO_PAGINA = config_get_int_value(config, "TAMANIO_PAGINA");
 	RETARDO_COMPACTACION = config_get_int_value(config, "RETARDO_COMPACTACION");
+
 
 	if(validarParametrosDeConfiguracion()){
 		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
@@ -114,6 +115,7 @@ void handshakeUMC(){
 }
 
 //---------------------------- TRABAJAR CON LA UMC ----------------------//
+
 // HAGO DEFINE PARA SABER CUANDO ES UN PROCESO EN ESPERA
 bool esUnProcesoEnEspera(int tipoProceso){
 
@@ -123,56 +125,99 @@ bool esUnProcesoEnEspera(int tipoProceso){
 void atenderPeticiones(msj_recibido, tipoProceso){
 
 	int  pid, tamanio, numeroPagina;
-	char* contenido;
+	char* contenido = malloc(TAMANIO_PAGINA);
 
-	if(!esUnProcesoEnEspera(tipoProceso)){
+	switch(msj_recibido){
 
-		switch(msj_recibido){
-
-		case INICIALIZAR_PROGRAMA :
+	case INICIALIZAR_PROGRAMA :
 
 
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &tamanio, sizeof(int), 0);
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &tamanio, sizeof(int), 0);
 
-			crearProgramaAnSISOP(pid,tamanio);
+		crearProgramaAnSISOP(pid,tamanio);
 
-			break;
+		break;
 
-		case LEER_PAGINA:
+	case LEER_PAGINA:
 
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &numeroPagina, sizeof(int), 0);
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &numeroPagina, sizeof(int), 0);
 
-			leerUnaPagina(pid, numeroPagina);
+		leerUnaPagina(pid, numeroPagina);
 
-			break;
+		break;
 
-		case MODIFICAR_PAGINA:
+	case MODIFICAR_PAGINA:
 
-			recv(socket_umc , &pid, sizeof(int), 0);
-			recv(socket_umc , &tamanio, sizeof(int), 0);
-			recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
+		recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &tamanio, sizeof(int), 0);
+		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
 
-			modificarPagina(pid, numeroPagina, contenido);
+		modificarPagina(pid, numeroPagina, contenido);
 
-			break;
+		break;
 
-		case TERMINAR_PROGRAMA:
+	case TERMINAR_PROGRAMA:
 
-			recv(socket_umc , &pid, sizeof(int), 0);
+		recv(socket_umc , &pid, sizeof(int), 0);
 
-			terminarProceso(pid);
+		terminarProceso(pid);
 
-			break;
+		break;
 
-		default:
+	default:
 
-			printf("Mensaje Erroneo");
-
-		}
+		printf("Mensaje Erroneo");
 
 	}
+	free(contenido);
+}
+
+
+void atenderPeticionesEnspera(nodo_enEspera *nodo){
+
+	int pid = nodo->pid;
+	int tamanio= nodo->cantidad_paginas;
+	int numeroPagina = nodo->numeroPagina;
+	char* contenido = malloc(TAMANIO_PAGINA);
+	memcpy(nodo->contenido, contenido,TAMANIO_PAGINA);
+	int mensaje = nodo->mensaje;
+
+	switch(mensaje){
+
+	case INICIALIZAR_PROGRAMA :
+
+		crearProgramaAnSISOP(pid,tamanio);
+
+		break;
+
+	case LEER_PAGINA:
+
+		leerUnaPagina(pid, numeroPagina);
+
+		break;
+
+	case MODIFICAR_PAGINA:
+
+
+		modificarPagina(pid, numeroPagina, contenido);
+
+		break;
+
+	case TERMINAR_PROGRAMA:
+
+		terminarProceso(pid);
+
+		break;
+
+	default:
+
+		printf("Mensaje Erroneo");
+
+	}
+	free(contenido);
+	free(nodo);
 }
 
 
@@ -199,7 +244,7 @@ void trabajarUmc(){
 			if(hayProgramasEnEspera == 1){  //ver como compararlo
 
 				pthread_mutex_lock(&peticionesActuales);
-				atenderProcesosEnEspera(msj_recibido);
+				atenderProcesosEnEspera();
 				pthread_mutex_unlock(&peticionesActuales);
 
 			}else{
@@ -270,17 +315,21 @@ nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap){
 	return proceso;
 }
 
-nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas, int mensaje){
+nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas,int numeroPagina,char* contenido, int mensaje){
 	nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
 	enEspera->pid = pid;
 	enEspera->cantidad_paginas = cantidad_paginas;
+	enEspera->numeroPagina = numeroPagina;
+	//enEspera->contenido;
+	enEspera->contenido = malloc(TAMANIO_PAGINA);
+	memcpy(enEspera->contenido, contenido,TAMANIO_PAGINA);
 	enEspera->mensaje = mensaje;
 	return enEspera;
 }
 
-void agregarNodoEnEspera(int pid, int cantidadPaginas,  int mensaje){
+void agregarNodoEnEspera(int pid, int cantidadPaginas,  int numeroPagina, char* contenido, int mensaje){
 
-	list_add(listaEnEspera, crearNodoEnEspera(pid, cantidadPaginas, mensaje));
+	list_add(listaEnEspera, crearNodoEnEspera(pid, cantidadPaginas, numeroPagina, contenido, mensaje));
 
 }
 
@@ -454,7 +503,7 @@ bool hayFragmentacion(int tamanio){
 		return 1;
 	}
 }
-
+/*
 void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 	int pid, tamanio;
@@ -462,8 +511,60 @@ void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 	recv(socket_umc , &pid, sizeof(int), 0);
 	recv(socket_umc , &tamanio, sizeof(int), 0);
 
+
 	agregarNodoEnEspera(pid, tamanio, mensaje); // guardar Mensaje
 }
+*/
+
+//OPCION 2: ENCOLO LAS PETICIONES EN LA LISTA DE ESPERA (GUARDO TODOS LOS RECVS)
+void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
+
+	int pid, tamanio,numeroPagina;
+	char* contenido = malloc(TAMANIO_PAGINA);
+
+	recv(socket_umc , &pid, sizeof(int), 0);
+
+	switch(mensaje){
+
+	case INICIALIZAR_PROGRAMA :
+
+		recv(socket_umc , &tamanio, sizeof(int), 0);
+
+		agregarNodoEnEspera(pid, tamanio, -1,'\0', mensaje);  //tamanio = -1 inicializo
+
+		break;
+
+	case LEER_PAGINA:
+
+		recv(socket_umc , &numeroPagina, sizeof(int), 0);
+
+		agregarNodoEnEspera(pid, -1, numeroPagina,'\0', mensaje); //tamanio = -1 y contenido  \0
+
+		break;
+
+	case MODIFICAR_PAGINA:
+
+		recv(socket_umc , &numeroPagina, sizeof(int), 0);
+		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
+
+		agregarNodoEnEspera(pid, -1, numeroPagina,contenido, mensaje); // tamanio = -1
+
+		break;
+
+	case TERMINAR_PROGRAMA:
+
+
+		agregarNodoEnEspera(pid, 0, 0, NULL, mensaje); //numero de pagina y contenido  \0
+
+		break;
+
+	default:
+
+		printf("Mensaje Erroneo");
+
+	}
+}
+
 
 int hayProgramasEnEspera(){
 
@@ -569,17 +670,19 @@ void informarAUmc(){
 
 //------------------- PROCESOS EN ESPERA -----------------------------//
 
-// ver orden meparece qu efalta
-void atenderProcesosEnEspera(msj_recibido){
+// ver orden me parece que falta
+void atenderProcesosEnEspera(){
 
 	int i;
 	int cantidadNodos = listaEnEspera->elements_count;
-	int tipoProceso = PROCESO_EN_ESPERA;
 
 	for (i = 0; i < cantidadNodos; i++){
 
-		atenderPeticiones(msj_recibido, tipoProceso);
+		nodo_enEspera *nodo = list_get(listaEnEspera,i);
 
+		atenderPeticionesEnspera(nodo);
+
+		//atenderPeticiones(nodo_EnEspera, tipoProceso);
 	}
 }
 
@@ -634,6 +737,13 @@ void terminarProceso( int pid){
 
 //---------------------------- ELIMINAR ESTRUCTURAS ------------------------------//
 
+void eliminarBitmap(){
+
+	free(bitarray); // todo: ver si el destroy no hace internamente el free
+	bitarray_destroy(bitMap);
+
+}
+
 void eliminarArchivoMapeado(){
 	munmap(archivoMapeado, pagesize);
 }
@@ -646,6 +756,7 @@ void cerrarArchivo(){
 void eliminarEstructuras(){
 
 	eliminarArchivoMapeado();
+	eliminarBitmap();
 	cerrarArchivo();
 }
 

@@ -48,7 +48,9 @@
 	 typedef struct {
 		 int pid;
 		 int cantidad_paginas;
-		 char* mensaje;
+		 int numeroPagina;
+		 char* contenido;
+		 int mensaje;
 }nodo_enEspera;
 
 //listas
@@ -58,7 +60,7 @@ t_list *listaEnEspera;
 
 int estaCompactando = 0;
 #define PROCESO_EN_ESPERA 5100;
-#define PROCESO_NUEVO 5200;
+// #define PROCESO_NUEVO 5200;
 
 //SEMÁFOROS
 pthread_mutex_t peticionesActuales = PTHREAD_MUTEX_INITIALIZER;
@@ -79,8 +81,8 @@ void crearConfiguracion(char* config_path); //levanta el archivo de configuracio
 bool validarParametrosDeConfiguracion(); //Valida que el archivo de configuracion tenga todos los parametros requeridos
 void recibirMensajeUMC(char* message, int socket_umc);
 nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas, int posSwap);
-nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas, int mensaje);
-void agregarNodoEnEspera(int pid, int cantidadPaginas, int mensaje);
+nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas,int numeropPagina, char* contenido, int mensaje);
+void agregarNodoEnEspera(int pid, int cantidadPaginas, int numeroPagina, char* contenido, int mensaje);
 void agregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap);
 int cantPaginas(nodo_proceso *nodo);
 int pid(nodo_proceso *nodo);
