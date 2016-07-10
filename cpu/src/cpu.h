@@ -25,6 +25,7 @@
 #include "socketCliente.h"
 #include "generales.h"
 #include "protocolo.h"
+#include "serializacion.h"
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
 
@@ -60,38 +61,6 @@ typedef struct{
 	int pid;
 }__attribute__ ((__packed__)) t_solicitud_lectura;
 
-//estructura para instrucciones del pcb
-typedef struct{
-	t_intructions*	instrucciones;
-	t_size			instrucciones_size;
-	t_puntero_instruccion instruccion_inicio;
-}t_indice_codigo;
-
-//estructura para etiquetas del pcb
-typedef struct{
-	char *etiquetas;
-	t_size etiquetas_size;
-}t_indice_etiquetas;
-
-//estructura para indice de stack del pcb
-typedef struct{
-	int argumentos;
-	int variables;
-	int dirRetorno;
-	int posVariable;
-}t_indice_stack;
-
-//estructura para el pcb
-typedef struct{
-	int pid;
-	int PC;			//program counter
-	int cant_pag;
-	int idCPU;
-	t_indice_codigo *indice_cod;
-	t_indice_etiquetas *indice_etiquetas;
-	t_indice_stack *indice_stack;
-}t_pcb;
-
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -109,13 +78,14 @@ void finalizarCpuPorError(void);
 /****************************************************************************************/
 /*                                   FUNCIONES CPU								        */
 /****************************************************************************************/
-void recibirPCB(t_pcb* pcb);
+void recibirPCB(void);
 void enviarPaqueteAUMC(char* package);
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion);
 void handler_seniales(int senial);
-void ejecutoInstrucciones(t_pcb *pcb_actual);
-void devuelvoPcbActualizadoAlNucleo(t_pcb *pcb_actual);
-void liberarEspacioDelPCB(t_pcb *pcb_actual);
+int ejecutoInstrucciones();
+void devuelvoPcbActualizadoAlNucleo();
+void liberarEspacioDelPCB();
+char* solicitoInstruccionAUMC(int start, int offset);
 
 /****************************************************************************************/
 /*                                PRIMITIVAS ANSISOP								    */
