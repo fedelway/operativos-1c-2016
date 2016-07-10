@@ -44,7 +44,6 @@ typedef struct {
 } t_pcb;
 
 typedef struct {
-	int pid;
 	int tamanio;
 	char *data_pcb;
 } t_pcb_stream;

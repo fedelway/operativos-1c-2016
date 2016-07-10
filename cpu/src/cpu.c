@@ -13,6 +13,7 @@
 t_log* logger;
 int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
+t_pcb *pcb_actual;
 
 
 /****************************************************************************************/
@@ -39,30 +40,23 @@ int main(int argc,char *argv[]) {
 	//Conexión al umc
 	conectarAUMC(configCPU);
 
-	//TODO Trabajar con hilos. ?
 	signal(SIGUSR1, handler_seniales);
-
-	//Otro que vaya procesando las instrucciones que corresponden
-	//Recibo mensaje del nucleo.
-	//Primeros 4 bytes del id de la función (sacar de la definicion de los protocolos)
 
 	int header;
 	int status = 0;
-	t_pcb *pcb_actual;
 
-	printf("voy a recibir mensaje de %d\n", socket_nucleo);
+	printf("Me quedo escuchando mensajes del nucleo (socket:%d)\n", socket_nucleo);
 
-	//TODO revisar condición... Agregar lo del signal?
 	while(1){
 		status = recv(socket_nucleo, &header, sizeof(int), 0);
 
 		if(status > 0){
 			switch (header) {
 				case ENVIO_PCB:
-					recibirPCB(pcb_actual);
-					ejecutoInstrucciones(pcb_actual);
-					devuelvoPcbActualizadoAlNucleo(pcb_actual);
-					liberarEspacioDelPCB(pcb_actual);
+					recibirPCB();
+					ejecutoInstrucciones();
+					devuelvoPcbActualizadoAlNucleo();
+					liberarEspacioDelPCB();
 					break;
 				default:
 					printf("obtuve otro id %d\n", header);
@@ -72,9 +66,8 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-
 	//Reenviar el msj recibido del nucleo a la UMC
-//	enviarPaqueteAUMC(message);
+	//enviarPaqueteAUMC(message);
 
 	//TODO - Ejecutar siguiente instrucción a partir del program counter del pcb
 	//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
@@ -265,11 +258,12 @@ void finalizarCpuPorError(){
 /****************************************************************************************/
 /*                                   FUNCIONES CPU									    */
 /****************************************************************************************/
-void recibirPCB(t_pcb* pcb){
+void recibirPCB(){
 
-	int tamanio_pcb, status;
+	int status;
+	t_pcb_stream *pcb_stream;
 
-	status = recv(socket_nucleo, &tamanio_pcb, sizeof(int), 0);
+	status = recv(socket_nucleo, &pcb_stream->tamanio, sizeof(int), 0);
 
 	if(status <= 0){
 		log_error(logger, "Error al recibir el tamaño del PCB. Bytes recibidos: %d",
@@ -277,8 +271,10 @@ void recibirPCB(t_pcb* pcb){
 		finalizarCpuPorError();
 	}
 
-	pcb = malloc(tamanio_pcb);
-	status = recv(socket_nucleo, &pcb, tamanio_pcb, 0);
+	pcb_stream->data_pcb = malloc(pcb_stream->tamanio);
+	status = recv(socket_nucleo, pcb_stream->data_pcb, pcb_stream->tamanio, 0);
+	pcb_actual = desSerializador_PCB(pcb_stream);
+	free(pcb_stream->data_pcb);
 
 	if(status <= 0){
 		log_error(logger, "Error al recibir el PCB. Bytes recibidos: %d",
@@ -289,7 +285,6 @@ void recibirPCB(t_pcb* pcb){
 
 void enviarPaqueteAUMC(char* message){
 	//Envio el archivo entero
-
 	int resultSend = send(socket_umc, message, PACKAGESIZE, 0);
 	printf("resultado send %d, a socket %d \n",resultSend, socket_umc);
 	if(resultSend == -1){
@@ -316,18 +311,56 @@ void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, in
 	free(instruccion);
 }
 
-void ejecutoInstrucciones(t_pcb *pcb_actual){
+int ejecutoInstrucciones(){
 	printf("Ejecuto instrucciones después de recibir PCB\n");
+	int nroInstr;
+	for (nroInstr = 0; nroInstr < quantum; ++nroInstr) {
+		int nroInstruccionAEjecutar = pcb_actual->PC;
+		int start = pcb_actual->indice_cod->instrucciones[nroInstruccionAEjecutar].start;
+		int offset = pcb_actual->indice_cod->instrucciones[nroInstruccionAEjecutar].offset;
+		char* instruccion = solicitoInstruccionAUMC(start, offset);
+		analizadorLinea(instruccion, &funciones, &funciones_kernel);
+		pcb_actual->PC++;
+	}
+	return nroInstr;
 }
 
-void devuelvoPcbActualizadoAlNucleo(t_pcb *pcb_actual){
-	printf("Devuelvo PCB Actualizado al nucleo.\n");
+void devuelvoPcbActualizadoAlNucleo(){
+
+	log_info(logger, "Devuelvo PCB Actualizado al nucleo");
+
+	t_pcb_stream *stream_pcb = serializador_PCB(pcb_actual);
+	int header = ENVIO_PCB_ACTUALIZADO;
+
+	char *instruccion;
+
+	int mensaje_tamanio = sizeof(int)*2+stream_pcb->tamanio;
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje, '\0', mensaje_tamanio);
+
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &stream_pcb->tamanio, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), stream_pcb->data_pcb, stream_pcb->tamanio);
+
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado < 0){
+		log_error_y_cerrar_logger(logger, "Falló envío de PCB Actualizado al nucleo.");
+		exit(EXIT_FAILURE);
+	}
+
+	free(mensaje);
+	free(stream_pcb->data_pcb);
+
+	log_info(logger, "Se envió exitosamente el PCB actualizado al Núcleo.");
 }
 
-void liberarEspacioDelPCB(t_pcb *pcb_actual){
-	printf("Libero espacio del PCB\n");
+void liberarEspacioDelPCB(){
+	log_info(logger, "Libero espacio del PCB.");
+	free(pcb_actual); //TODO chequear si con esto alcanza
 }
 
+//TODO: Terminar Implementacion
 void handler_seniales(int senial) {
 	switch (senial) {
 		case SIGUSR1:
@@ -347,6 +380,63 @@ void finalizarCpu(){
 	log_info(logger, "Cierro conexiones.",socket_nucleo);
 	cerrarConexionSocket(socket_nucleo);
 	cerrarConexionSocket(socket_umc);
+
+}
+
+char* solicitoInstruccionAUMC(int start, int offset){
+
+	log_info(logger, "Solicito Instruccion a la UMC. Start: %d -  Offset: %d", start, offset);
+
+	int header = SOLICITUD_INSTRUCCION;
+	char *instruccion;
+
+	int mensaje_tamanio = sizeof(int)*3;
+	char *mensaje = malloc(mensaje_tamanio);
+	memset(mensaje, '\0', mensaje_tamanio);
+
+	memcpy(mensaje, &header, sizeof(int));
+	memcpy(mensaje + sizeof(int), &start, sizeof(int));
+	memcpy(mensaje + 2*sizeof(int), &offset, sizeof(int));
+
+	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+
+	if(resultado < 0){
+		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para solicitar la instruccion");
+		exit(EXIT_FAILURE);
+	}
+
+	free(mensaje);
+
+	log_info(logger, "Se envió exitosamente la solicitud de instruccion a la UMC");
+
+	int header_recibido;
+	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
+
+	if(resultado_recv < 0){
+		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+		log_error_y_cerrar_logger(logger, "Fallo en la respuesta de la solicitud de instruccion. Resultado: %d", resultado_recv);
+		exit(EXIT_FAILURE);
+	}
+
+	if(header_recibido == SOLICITUD_INSTRUCCION){
+		int tamanio_instruccion = offset - start;
+		instruccion = malloc(tamanio_instruccion);
+		memset(instruccion, '\0', tamanio_instruccion);
+
+		resultado_recv = recv(socket_umc, instruccion, tamanio_instruccion, 0);
+
+		if(resultado_recv < 0){
+			printf("resultado_recv menor que 0: %d\n", resultado_recv);
+			log_error_y_cerrar_logger(logger, "Fallo al obtener instruccion de la UMC. Resultado recv: %d\n", resultado_recv);
+			exit(EXIT_FAILURE);
+		}
+		log_info(logger, "Instruccion obtenida: %s\n",instruccion);
+
+	}else{
+		printf("header_recibido es DISTINTO a SOLICITUD_INSTRUCCION. header_recibido: %d | SOLICITUD_INSTRUCCION: %d\n", header_recibido, SOLICITUD_INSTRUCCION);
+	}
+
+	return instruccion;
 
 }
 

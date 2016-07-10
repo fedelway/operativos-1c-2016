@@ -19,6 +19,8 @@
 #include "socketServidor.h"
 #include "protocolo.h"
 
+#define pag_apuntada programa->paginas[programa->pag_en_memoria[programa->puntero]]
+
 //Definicion de estructuras
 typedef struct{
 	int nro_pag;
