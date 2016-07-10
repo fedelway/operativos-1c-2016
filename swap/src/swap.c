@@ -9,11 +9,12 @@
  */
 
 #include "swap.h"
-
+//TODO VER SI LOS PUEDO PONER EN EL .H
 t_config* config;
 t_log* logger;
 char *archivoMapeado;
 
+//TODO ver si ésto en swap cambia
 #define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
 #define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
 
@@ -43,14 +44,15 @@ int main(int argc, char *argv[]){
 
 	printf(" aun no Se ha conectado una umc.\n");
 	socket_umc = aceptarConexion(socket_escucha);
-
 	printf("Socket umc %d\n", socket_umc);
+
 	handshakeUMC();
 
 	trabajarUmc();
-	//recibirMensajeUMC(message, socket_umc);
 
 	log_destroy(logger);
+
+	eliminarEstructuras();
 
 	return EXIT_SUCCESS;
 
@@ -68,11 +70,11 @@ void crearConfiguracion(char *config_path){
 	RETARDO_COMPACTACION = config_get_int_value(config, "RETARDO_COMPACTACION");
 
 	if(validarParametrosDeConfiguracion()){
-		log_info(logger,
-				"El archivo de configuración tiene todos los parametros requeridos.");
+		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 		return;
 	}else{
 		log_error(logger, "Configuración no válida");
+		// TODO: VER SI ESTA OK DESTROY ACÁ
 		log_destroy(logger);
 		exit(EXIT_FAILURE);
 	}
@@ -90,7 +92,7 @@ bool validarParametrosDeConfiguracion(){
 
 //----------------------------------- CONEXIONES ---------------------------------------//
 
-//Acá implementamos el handshake del lado del servidor
+//Hacemos el handshake con la UMC
 void handshakeUMC(){
 
 	int msj_recibido;
@@ -111,50 +113,65 @@ void handshakeUMC(){
 	}
 }
 
-//---------------------------- PROBAR DESCONEXIÓN DE LA Umc --trabaja nucleo------------------
+//---------------------------- TRABAJAR CON LA UMC ----------------------//
+// HAGO DEFINE PARA SABER CUANDO ES UN PROCESO EN ESPERA
+bool esUnProcesoEnEspera(int tipoProceso){
 
-void atenderPeticiones(msj_recibido){
+	return tipoProceso == PROCESO_EN_ESPERA;
+}
+
+void atenderPeticiones(msj_recibido, tipoProceso){
 
 	int  pid, tamanio, numeroPagina;
 	char* contenido;
 
-	switch(msj_recibido){
+	if(!esUnProcesoEnEspera(tipoProceso)){
 
-	case INICIALIZAR_PROGRAMA :
+		switch(msj_recibido){
 
-		recv(socket_umc , &pid, sizeof(int), 0);
-		recv(socket_umc , &tamanio, sizeof(int), 0);
-		crearProgramaAnSISOP(pid,tamanio);
+		case INICIALIZAR_PROGRAMA :
 
-		break;
 
-	case LEER_PAGINA:
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &tamanio, sizeof(int), 0);
 
-		recv(socket_umc , &pid, sizeof(int), 0);
-		recv(socket_umc , &numeroPagina, sizeof(int), 0);
+			crearProgramaAnSISOP(pid,tamanio);
 
-		leerUnaPagina(pid, numeroPagina);
+			break;
 
-		break;
+		case LEER_PAGINA:
 
-	case MODIFICAR_PAGINA:
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &numeroPagina, sizeof(int), 0);
 
-		recv(socket_umc , &pid, sizeof(int), 0);
-		recv(socket_umc , &tamanio, sizeof(int), 0);
-		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0); // VER SI ESTÁ OK
+			leerUnaPagina(pid, numeroPagina);
 
-		modificarPagina(pid, numeroPagina, contenido);
-		break;
+			break;
 
-	case TERMINAR_PROGRAMA:
+		case MODIFICAR_PAGINA:
 
-		recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &pid, sizeof(int), 0);
+			recv(socket_umc , &tamanio, sizeof(int), 0);
+			recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
 
-		terminarProceso(pid);
-		break;
+			modificarPagina(pid, numeroPagina, contenido);
 
-	default:
-		printf("Mensaje Erroneo");
+			break;
+
+		case TERMINAR_PROGRAMA:
+
+			recv(socket_umc , &pid, sizeof(int), 0);
+
+			terminarProceso(pid);
+
+			break;
+
+		default:
+
+			printf("Mensaje Erroneo");
+
+		}
+
 	}
 }
 
@@ -175,9 +192,8 @@ void trabajarUmc(){
 			exit(1);
 		}
 
-		//todo aca ver de hacer el recv o dentro del encolar
 		if(estaCompactando){ //ver si hay que poner = 1
-			encolarProgramas();
+			encolarProgramas(msj_recibido);
 		}else{
 
 			if(hayProgramasEnEspera == 1){  //ver como compararlo
@@ -195,7 +211,6 @@ void trabajarUmc(){
 			}
 		}
 	}
-
 }
 
 //------------------------------ ALMACENAMIENTO EN SWAP ---------------------------//
@@ -204,18 +219,17 @@ void crearParticionSwap(){
 
 	char comando[50];
 	printf("Creando archivo Swap: \n");
-	sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",
-			CANTIDAD_PAGINAS * TAMANIO_PAGINA, NOMBRE_SWAP);
+	sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",	CANTIDAD_PAGINAS * TAMANIO_PAGINA, NOMBRE_SWAP);
 	system(comando);
 }
 
 char* cargarArchivo(){
 
-	FILE *file = fopen(NOMBRE_SWAP, "r+");// falta verificar
+	FILE *file = fopen(NOMBRE_SWAP, "r+");// todo: falta verificar
 	int fd =fileno(file);  // Esto traduce a entero el fd
 
 
-	int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS; // 512 CANT PAGINAS
+	int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS; // TAMANIO 256 Y CANT PAGINAS 512 EN NUESTRO CASO
 	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
 	if(accesoAMemoria == (caddr_t) (-1)){
@@ -244,7 +258,6 @@ void actualizarBitMap(int pid, int pagina, int cant_paginas){
 		bitarray_set_bit(bitMap, pagina + cant);
 		cant = cant + 1;
 	}
-	printf("Paginas ocupadas:  %d \n", cant);
 }
 
 //--------------------------- CREACION DE NODOS DE LAS LISTAS -------------------------//
@@ -257,16 +270,17 @@ nodo_proceso *crearNodoDeProceso(int pid, int cantidad_paginas,int posSwap){
 	return proceso;
 }
 
-nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas){
+nodo_enEspera *crearNodoEnEspera(int pid, int cantidad_paginas, int mensaje){
 	nodo_enEspera *enEspera = malloc(sizeof(nodo_enEspera));
 	enEspera->pid = pid;
 	enEspera->cantidad_paginas = cantidad_paginas;
+	enEspera->mensaje = mensaje;
 	return enEspera;
 }
 
-void agregarNodoEnEspera(int pid, int cantidadPaginas){
+void agregarNodoEnEspera(int pid, int cantidadPaginas,  int mensaje){
 
-	list_add(listaEnEspera, crearNodoEnEspera(pid, cantidadPaginas));
+	list_add(listaEnEspera, crearNodoEnEspera(pid, cantidadPaginas, mensaje));
 
 }
 
@@ -296,14 +310,15 @@ int numeroPidEnEspera(nodo_enEspera *nodo){
 	return nodo->pid;
 }
 
+//------------------------- FUNCIONES PARA DETECTAR LUGAR LIBRE ------------------//
+
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
 bool hayEspacioContiguo(int pagina, int tamanio){
 	int i;
 	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
 
 	for (i = pagina; i <= pagina + tamanio; i++){
-		if (bitarray_test_bit(bitMap, i) == 0
-				&& i + tamanio <= CANTIDAD_PAGINAS){ //== 0 libre == 1 ocupado
+		if (bitarray_test_bit(bitMap, i) == 0 && tamanio + i  <= CANTIDAD_PAGINAS){ //== 0 libre == 1 ocupado
 			return 1;
 		}
 	}
@@ -342,38 +357,35 @@ int ubicacionEnSwap(int pid){ //FUNCIONA
 		puts("No se encontró el proceso solicitado\n");
 	}
 }
+//---------------------- PETICIONES UMC --------------------------------//
 
-/*
-	int i;
-	nodo_proceso *nodo;
-	int cantidadNodos = listaProcesos->elements_count;
-	for (i = 0; i < cantidadNodos; i++) {
-		nodo = list_get(listaProcesos, i);
-		if(nodo->pid == pid){
-			return nodo->posSwap;
-		}
-	}
-	return -1;
- */
-
-// VERSION NUEVA
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
 void crearProgramaAnSISOP(int pid, int cant_paginas){
 
 	int pagina = paginaDisponible(cant_paginas);
 	if(pagina != -1){
+
 		//ACTUALIZO LAS ESTRUCTURAS
 		agregarNodoProceso(pid, cant_paginas, pagina);
-
 		actualizarBitMap(pid, pagina, cant_paginas);
-		//resultadoCreacion = "Se ha creado correctamente el programa \n";
 		printf("Se ha reservado espacio para el programa n°: %d", pid);
 
 	} else {
 
 		if(hayFragmentacion(cant_paginas)){
-			prepararCompactacion(cant_paginas);
+
+			//SEMÁFORO MIENTRAS COMPACTO
+			pthread_mutex_lock(&peticionesActuales);
+			pthread_mutex_lock(&enEspera);
+
+			comenzarCompactacion();
+
+			pthread_mutex_unlock(&peticionesActuales);
+			pthread_mutex_unlock(&enEspera);
+
+
 		}else{
+
 			cancelarInicializacion();
 		}
 	}
@@ -416,7 +428,6 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
 	} else {
 		printf("Error al escribir la pagina");
-		// send modif ok
 	}
 }
 
@@ -444,24 +455,14 @@ bool hayFragmentacion(int tamanio){
 	}
 }
 
-//COMPACTACION AL INGRESAR UN PROGRAMA
-void prepararCompactacion(int tamanio){
-
-	//SEMÁFORO MIENTRAS COMPACTO
-	pthread_mutex_lock(&peticionesActuales);
-	pthread_mutex_lock(&enEspera);
-	comenzarCompactacion();
-	pthread_mutex_unlock(&peticionesActuales);
-	pthread_mutex_unlock(&enEspera);
-
-}
-void encolarProgramas(){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
+void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 	int pid, tamanio;
+
 	recv(socket_umc , &pid, sizeof(int), 0);
 	recv(socket_umc , &tamanio, sizeof(int), 0);
 
-	agregarNodoEnEspera(pid, tamanio);
+	agregarNodoEnEspera(pid, tamanio, mensaje); // guardar Mensaje
 }
 
 int hayProgramasEnEspera(){
@@ -573,10 +574,11 @@ void atenderProcesosEnEspera(msj_recibido){
 
 	int i;
 	int cantidadNodos = listaEnEspera->elements_count;
+	int tipoProceso = PROCESO_EN_ESPERA;
 
 	for (i = 0; i < cantidadNodos; i++){
 
-		atenderPeticiones(msj_recibido);
+		atenderPeticiones(msj_recibido, tipoProceso);
 
 	}
 }
@@ -608,6 +610,7 @@ void liberarPosicion(nodo_proceso *nodo){
 		bitarray_set_bit(bitMap, i);
 	}
 }
+
 
 void liberarEstructuras(nodo_proceso *nodo){
 
