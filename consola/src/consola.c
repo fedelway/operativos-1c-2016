@@ -49,6 +49,14 @@ int main(int argc,char *argv[]) {
 		printf("Esperando mensajes..\n"); //TODO Eliminar
 
 		status = recv(socket_nucleo, &header_mensaje, sizeof(int), 0);
+
+		//Detecto desconexion
+		if(status <= 0)
+		{
+			printf("Desconexion del nucleo. Terminando...\n");
+			exit(0);
+		}
+
 		switch (header_mensaje) {
 
 			case ANSISOP_IMPRIMIR:
