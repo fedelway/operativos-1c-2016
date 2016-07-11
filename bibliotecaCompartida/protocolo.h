@@ -38,7 +38,9 @@
 #define ANSISOP_OBTENER_VALOR_COMPARTIDO 3100
 #define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3110
 #define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D )
-
+//Defines faltantes
+#define ENVIO_PCB_ACTUALIZADO 3500
+#define SOLICITUD_INSTRUCCION 3510
 
 //Mensajes de Umc
 #define SOY_UMC 4000
