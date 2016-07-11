@@ -129,7 +129,7 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 	switch(msj_recibido){
 
-	case INICIALIZAR_PROGRAMA :
+	case RESERVA_ESPACIO :
 
 
 		recv(socket_umc , &pid, sizeof(int), 0);
