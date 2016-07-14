@@ -186,7 +186,7 @@ void atenderPeticionesEnspera(nodo_enEspera *nodo){
 
 	switch(mensaje){
 
-	case INICIALIZAR_PROGRAMA :
+	case RESERVA_ESPACIO:
 
 		crearProgramaAnSISOP(pid,tamanio);
 
@@ -532,7 +532,7 @@ void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 	switch(mensaje){
 
-	case INICIALIZAR_PROGRAMA :
+	case RESERVA_ESPACIO:
 
 		recv(socket_umc , &tamanio, sizeof(int), 0);
 
