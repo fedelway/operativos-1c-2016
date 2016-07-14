@@ -437,7 +437,7 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 			pthread_mutex_unlock(&enEspera);
 
 			//Ya compacte, llamo de vuelta a crearPrograma para ver si ahora si hay espacio
-			crearProgramaAnsSISOP(pid, cant_paginas);
+			crearProgramaAnSISOP(pid, cant_paginas);
 
 		}else{
 
