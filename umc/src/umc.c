@@ -447,9 +447,16 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 
 	int mensaje[3];
 
+	int cant_paginas = (source_size / frame_size) + 1 + stack_size;
+	if(source_size % frame_size == 0)
+	{
+		//Si source_size es multiplo de frame_size entonces estaria asignando una pagina de mas.
+		cant_paginas--;
+	}
+
 	mensaje[0] = RESERVA_ESPACIO;
 	mensaje[1] = pid;
-	mensaje[2] = (source_size / frame_size) + 1;
+	mensaje[2] = cant_paginas;
 
 	send(swap_fd,&mensaje,3*sizeof(int),0);
 

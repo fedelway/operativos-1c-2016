@@ -419,6 +419,10 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 		actualizarBitMap(pid, pagina, cant_paginas);
 		printf("Se ha reservado espacio para el programa n°: %d", pid);
 
+		//Aviso a umc que se pudo reservar espacio
+		int mensaje = SWAP_PROGRAMA_OK;
+		send(socket_umc,&mensaje,sizeof(int),0);
+
 	} else {
 
 		if(hayFragmentacion(cant_paginas)){
@@ -432,6 +436,8 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 			pthread_mutex_unlock(&peticionesActuales);
 			pthread_mutex_unlock(&enEspera);
 
+			//Ya compacte, llamo de vuelta a crearPrograma para ver si ahora si hay espacio
+			crearProgramaAnsSISOP(pid, cant_paginas);
 
 		}else{
 
