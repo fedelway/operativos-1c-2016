@@ -583,6 +583,8 @@ void* iniciarNuevaConsola (int socket){
 
 	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
 	int solicitudOK = solicitarPaginasUMC(source_size, buffer, source);
+
+	//Esto no anda
 	if (solicitudOK){
 		printf("solicitud de paginas ok \n");
 		//list_add(&ready, paquete);
@@ -677,6 +679,23 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 		cant_enviada += aux;
 	}
 	printf("Archivo enviado satisfactoriamente a UMC. %s\n", source);
+
+	//Recibo la respuesta de UMC, si fue posible o no iniciar el programa
+	int respuesta[2];
+	recv(umc_fd, &respuesta, 2*sizeof(int), 0);
+
+	if(respuesta[0] == ACEPTO_PROGRAMA)
+	{
+		printf("ACEPTO_PROGRAMA\n");
+		//Hago algo al aceptar
+	}else if(respuesta[0] == RECHAZO_PROGRAMA)
+	{
+		printf("RECHAZO_PROGRAMA\n");
+		//Hago otra cosa
+	}else{
+		printf("Recibi un mensaje incorrecto de umc.\n");
+	}
+
 	return cant_enviada;
 
 }

@@ -423,7 +423,6 @@ void inicializarPrograma(){
 
 		free(programa);
 		free(buffer);
-		free(source);
 
 		return;
 	}
@@ -439,7 +438,6 @@ void inicializarPrograma(){
 	//Libero la memoria
 	free(programa);
 	free(buffer);
-	free(source);
 	return;
 }
 
@@ -481,13 +479,14 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 		memcpy(buffer, &mensaje, 2*sizeof(int));
 
 		int cant_enviada = 0;
-		int pag = 0;
+		int cant_a_copiar;
+		mensaje[2] = 0;
 		int aux;
 		while(cant_enviada < source_size)
 		{
 			//Termino de armar el buffer
-			memcpy(buffer + 2*sizeof(int), &pag, sizeof(int));
-			memcpy(buffer + 3*sizeof(int), source + cant_enviada, frame_size);
+			cant_a_copiar = min(source_size - cant_enviada, frame_size);//Hago esto para no pasarme con lo que copio
+			memcpy(buffer + 3*sizeof(int), source + cant_enviada, cant_a_copiar);
 
 			aux = sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0);
 
@@ -498,7 +497,7 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 			}
 
 			cant_enviada += aux;
-			pag++;
+			mensaje[2]++;
 		}
 
 		printf("Programa enviado a swap exitosamente.\n");
@@ -708,6 +707,7 @@ int frameLibre(){
 
 void terminarPrograma(int pid){
 	//Le aviso al nucleo que termine con la ejecucion del programa
+	printf("Terminando la ejecucion del programa pid: %d.\n",pid);
 	int bufferInt[2];
 	bufferInt[0] = RECHAZO_PROGRAMA;
 	bufferInt[1] = pid;
@@ -1147,7 +1147,7 @@ int min(int a, int b){
 	}else return b;
 }
 
-int sendAll(int fd, void *cosa, int size, int flags){
+int sendAll(int fd, char *cosa, int size, int flags){
 
 	int cant_enviada = 0;
 	int aux;
