@@ -481,7 +481,6 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 		int cant_enviada = 0;
 		int cant_a_copiar;
 		mensaje[2] = 0;
-		int aux;
 		while(cant_enviada < source_size)
 		{
 			//Termino de armar el buffer
@@ -494,16 +493,13 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 				memset(buffer + 3*sizeof(int),'\0',frame_size - cant_a_copiar);
 			}
 
-			aux = sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0);
-
-			if(aux == -1)
+			if (sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0) == -1)
 			{
-				printf("Error en el envio del archivo a swap. Podria haber estado inconsistente.\n");
-				perror("");
+				perror("Error en el envio del codigo a swap");
 				return -1;
 			}
 
-			cant_enviada += aux;
+			cant_enviada += cant_a_copiar;
 			mensaje[2]++;
 		}
 
