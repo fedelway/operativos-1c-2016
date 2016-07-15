@@ -116,7 +116,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 void procesarMensajeCPU(int codigoMensaje, int fd);
 void procesarMensajeConsola(int codigoMensaje, int fd);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
-int recibirMensaje(int socket);
+int recibirMensaje(int socket, int *ret_recv);
 
 void* iniciarNuevaConsola (int fd);
 void validacionUMC();

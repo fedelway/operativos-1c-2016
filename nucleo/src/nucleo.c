@@ -152,7 +152,7 @@ void validacionUMC(int socket_umc){
 //TODO: Todas las validaciones de errores
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
-	int i;
+	int i, ret_recv;
 
 	//creo un set gral de sockets
 	fd_set readyListen;
@@ -192,12 +192,13 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 				}else{
 					//Recibo el mensaje
-					int codMensaje = recibirMensaje(i);
+					int codMensaje = recibirMensaje(i, &ret_recv);
 
-					if (codMensaje <= 0) {
+					if (ret_recv <= 0) {
 						// recibio 0 bytes, cierro la conexion y remuevo del set
-						close(i);
+						perror("");
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
+						close(i);
 						FD_CLR(i, &readyListen);
 					}else{
 						if(FD_ISSET(i, &cpu_fd_set)){
@@ -217,11 +218,11 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 }
 
 
-int recibirMensaje(int socket){
+int recibirMensaje(int socket, int *ret_recv){
 
 	int codMensaje = 0;
-	int recvPaquete = recv(socket, &codMensaje, sizeof(int), 0);
-	printf("socket %d, recvPaquete %d, msj %d \n", socket, recvPaquete, codMensaje);
+	*ret_recv = recv(socket, &codMensaje, sizeof(int), 0);
+	printf("socket %d, recvPaquete %d, msj %d \n", socket, *ret_recv, codMensaje);
 	return codMensaje;
 }
 

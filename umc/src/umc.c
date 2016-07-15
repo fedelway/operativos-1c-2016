@@ -290,10 +290,10 @@ void trabajarNucleo(){
 	//Ciclo infinito
 	for(;;){
 		//Recibo mensajes de nucleo y hago el switch
-		recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
+		int ret_recv = recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
 
 		//Chequeo que no haya una desconexion
-		if(msj_recibido <= 0){
+		if(ret_recv <= 0){
 			printf("Desconexion del nucleo. Terminando...\n");
 			exit(1);
 		}
@@ -861,9 +861,9 @@ void trabajarCpu(int cpu_listen_fd){
 	int msj_recibido;
 
 	for(;;){
-		recv(cpu_fd, &msj_recibido,sizeof(int),0);
+		int ret_recv = recv(cpu_fd, &msj_recibido,sizeof(int),0);
 
-		if(msj_recibido <= 0){
+		if(ret_recv <= 0){
 			printf("Desconexion de la cpu");
 			close(cpu_fd);
 			return;

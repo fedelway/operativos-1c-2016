@@ -158,7 +158,7 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 		break;
 
-	case TERMINAR_PROGRAMA:
+	case UMC_FINALIZAR_PROGRAMA:
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 
@@ -205,7 +205,7 @@ void atenderPeticionesEnspera(nodo_enEspera *nodo){
 
 		break;
 
-	case TERMINAR_PROGRAMA:
+	case UMC_FINALIZAR_PROGRAMA:
 
 		terminarProceso(pid);
 
@@ -229,11 +229,10 @@ void trabajarUmc(){
 	//Ciclo infinito
 	for(;;){
 		//Recibo mensajes de nucleo y hago el switch
-		recv(socket_umc , &msj_recibido, sizeof(int), 0);
-
-		//Chequeo que no haya una desconexion
-		if(msj_recibido <= 0){
+		if (recv(socket_umc , &msj_recibido, sizeof(int), 0) <= 0)
+		{
 			printf("Desconexion de la umc. Terminando...\n");
+			perror("");
 			exit(1);
 		}
 
@@ -557,7 +556,7 @@ void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 		break;
 
-	case TERMINAR_PROGRAMA:
+	case UMC_FINALIZAR_PROGRAMA:
 
 
 		agregarNodoEnEspera(pid, 0, 0, NULL, mensaje); //numero de pagina y contenido  \0
