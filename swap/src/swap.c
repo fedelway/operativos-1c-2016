@@ -365,12 +365,26 @@ bool hayEspacioContiguo(int pagina, int tamanio){
 	int i;
 	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
 
+	printf("pagina: %d, cant paginas: %d.\n",pagina,tamanio);
+
+	if( (pagina + tamanio) >= CANTIDAD_PAGINAS)
+	{
+		printf("Pide mas paginas de las disponibles.\n");
+	}
+
+	int booleano = 1;
 	for (i = pagina; i <= pagina + tamanio; i++){
-		if (bitarray_test_bit(bitMap, i) == 0 && tamanio + i  <= CANTIDAD_PAGINAS){ //== 0 libre == 1 ocupado
-			return 1;
+		//if (bitarray_test_bit(bitMap, i) == 0 && tamanio + i  <= CANTIDAD_PAGINAS){ //== 0 libre == 1 ocupado
+		//	return 1;
+		//}
+
+		if(bitarray_test_bit(bitMap,i) != 0)
+		{
+			booleano = 0;
 		}
 	}
-	return 0; // retorna F, No hay espacio disponible
+	return booleano;
+	//return 0; // retorna F, No hay espacio disponible
 }
 
 int paginaDisponible(int tamanio){
@@ -473,7 +487,8 @@ void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 	printf("entra a modificar\n");
 	int posSwap = ubicacionEnSwap(pid);
 
-	int posEscribir = (pagina - 1) * TAMANIO_PAGINA;
+	//int posEscribir = (pagina - 1) * TAMANIO_PAGINA;
+	int posEscribir = pagina * TAMANIO_PAGINA;
 
 	if(posSwap != -1){
 		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
