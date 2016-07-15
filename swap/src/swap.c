@@ -139,7 +139,7 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 		break;
 
-	case LEER_PAGINA:
+	case SOLICITUD_PAGINA:
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
@@ -148,7 +148,7 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 		break;
 
-	case MODIFICAR_PAGINA:
+	case GUARDA_PAGINA:
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 		recv(socket_umc , &tamanio, sizeof(int), 0);
@@ -192,13 +192,13 @@ void atenderPeticionesEnspera(nodo_enEspera *nodo){
 
 		break;
 
-	case LEER_PAGINA:
+	case SOLICITUD_PAGINA:
 
 		leerUnaPagina(pid, numeroPagina);
 
 		break;
 
-	case MODIFICAR_PAGINA:
+	case GUARDA_PAGINA:
 
 
 		modificarPagina(pid, numeroPagina, contenido);
@@ -540,7 +540,7 @@ void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 		break;
 
-	case LEER_PAGINA:
+	case SOLICITUD_PAGINA:
 
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
 
@@ -548,7 +548,7 @@ void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
 
 		break;
 
-	case MODIFICAR_PAGINA:
+	case GUARDA_PAGINA:
 
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
 		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);

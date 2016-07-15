@@ -488,11 +488,18 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 			cant_a_copiar = min(source_size - cant_enviada, frame_size);//Hago esto para no pasarme con lo que copio
 			memcpy(buffer + 3*sizeof(int), source + cant_enviada, cant_a_copiar);
 
+			//Si lo que tengo que escribir es menor a la pagina, setteo el resto de la memoria con \0
+			if(cant_a_copiar < frame_size)
+			{
+				memset(buffer + 3*sizeof(int),'\0',frame_size - cant_a_copiar);
+			}
+
 			aux = sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0);
 
 			if(aux == -1)
 			{
 				printf("Error en el envio del archivo a swap. Podria haber estado inconsistente.\n");
+				perror("");
 				return -1;
 			}
 

@@ -694,6 +694,7 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 		//Hago otra cosa
 	}else{
 		printf("Recibi un mensaje incorrecto de umc.\n");
+		printf("%d %d \n", respuesta[0], respuesta[1]);
 	}
 
 	return cant_enviada;
