@@ -44,6 +44,7 @@
 								</option>
 								<option id="gnu.c.link.option.paths.1331954300" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/bibliotecaCompartida/Debug}&quot;"/>
+									<listOptionValue builtIn="false" value="/home/utnso/proyecto/tp-2016-1c-Socketes/bibliotecaCompartida/Release"/>
 									<listOptionValue builtIn="false" value="/home/utnso/proyecto/tp-2016-1c-Socketes/bibliotecaCompartida/Debug"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.1322327771" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
@@ -55,6 +56,7 @@
 							<tool id="cdt.managedbuild.tool.gnu.assembler.exe.debug.119198503" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.exe.debug">
 								<option id="gnu.both.asm.option.include.paths.493405219" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/bibliotecaCompartida}&quot;"/>
+									<listOptionValue builtIn="false" value="/home/utnso/proyecto/tp-2016-1c-Socketes/bibliotecaCompartida/Release"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.906093117" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>

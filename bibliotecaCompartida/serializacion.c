@@ -19,8 +19,8 @@ t_pcb_stream *serializador_PCB(t_pcb *pcb){
 							+ sizeof(t_puntero_instruccion) //indice_cod->instruccion_inicio
 							+ sizeof(t_size) //etiquetas_size
 							+ pcb->indice_etiquetas->etiquetas_size //*etiquetas
-							+ sizeof(int) //cantidad de nodos del indice stack
-							+ list_size(pcb->indice_stack)*sizeof(t_nodo_stack); //nodo_stack * numero de nodos
+							+ sizeof(int); //cantidad de nodos del indice stack
+	//						+ list_size(pcb->indice_stack)*sizeof(t_nodo_stack); //nodo_stack * numero de nodos
 
 	char *data_pcb = malloc(tamanio_data_pcb);
 
@@ -56,9 +56,9 @@ t_pcb_stream *serializador_PCB(t_pcb *pcb){
 	offset += tmp_size;
 	memcpy(data_pcb + offset, &pcb->indice_etiquetas->etiquetas, tmp_size = pcb->indice_etiquetas->etiquetas_size);
 
-	int cantidad_nodos_stack = list_size(pcb->indice_stack);
+	//int cantidad_nodos_stack = list_size(pcb->indice_stack);
 	offset += tmp_size;
-	memcpy(data_pcb + offset, &cantidad_nodos_stack, tmp_size = sizeof(int));
+	//memcpy(data_pcb + offset, &cantidad_nodos_stack, tmp_size = sizeof(int));
 
 	void _copiar_nodos_stack(t_nodo_stack *ns) {
 
@@ -78,7 +78,7 @@ t_pcb_stream *serializador_PCB(t_pcb *pcb){
 		//}
 	}
 
-	list_iterate(pcb->indice_stack, (void*) _copiar_nodos_stack);
+	//list_iterate(pcb->indice_stack, (void*) _copiar_nodos_stack);
 
 	t_pcb_stream *stream_pcb = malloc(sizeof(t_pcb_stream));
 	stream_pcb->tamanio = tamanio_data_pcb;
@@ -166,7 +166,7 @@ t_pcb *desSerializador_PCB(t_pcb_stream *pcb_stream){
 	//Cargo los índices al pcb
 	pcb->indice_cod = indiceCodigo;
 	pcb->indice_etiquetas = indiceEtiquetas;
-	pcb->indice_stack = indiceStack;
+	//pcb->indice_stack = indiceStack;
 
 	return pcb;
 

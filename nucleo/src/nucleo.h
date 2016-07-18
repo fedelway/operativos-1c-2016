@@ -27,6 +27,7 @@
 #include "protocolo.h"
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
+#include "pcb.h"
 #include <pthread.h>
 
 #define getListaCpu(i) ((t_cpu*)list_get(listaCpu,i))
@@ -42,40 +43,6 @@ typedef struct{
 	char *identificador;
 	int valor;
 }t_SEM;
-
-typedef struct{
-	t_intructions*	instrucciones;
-	t_size			instrucciones_size;
-	t_puntero_instruccion instruccion_inicio;
-}t_indice_codigo;
-
-typedef struct{
-	char *etiquetas;
-	t_size etiquetas_size;
-}t_indice_etiquetas;
-
-typedef struct{
-	int argumentos;
-	int variables;
-	int dirRetorno;
-	int posVariable;
-}t_entrada_stack;
-
-typedef struct t_indice_stack{
-	int cant_entradas;
-	t_entrada_stack *entradas;
-}t_indice_stack;
-
-typedef struct{
-	int pid;
-	int PC;			//program counter
-	int cant_pag;
-	int idCPU;
-	t_indice_codigo *indice_cod;
-	t_indice_etiquetas *indice_etiquetas;
-	t_indice_stack stack;
-}t_pcb;
-
 
 typedef struct{
 	int id;

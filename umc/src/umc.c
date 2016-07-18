@@ -653,7 +653,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 				if(pag_apuntada.modificado)
 				{//Si fue modificada debo enviarla a swap
 					int pag_a_enviar = pag_apuntada.nro_pag;
-					int pos_a_copiar = frames[pag_apuntada].posicion;
+					int pos_a_copiar = frames[pag_apuntada.frame].posicion;
 
 					enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
 				}

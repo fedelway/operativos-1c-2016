@@ -745,6 +745,8 @@ int crearPCB(int source_size,char *source){
 	pcb->indice_etiquetas = indiceEtiquetas;
 	pcb->stack.cant_entradas = 0;
 
+	pcb->tamanio = tamanioPcb(*pcb);
+
 	//Armo el paquete
 	paquete = malloc(sizeof(t_pcb) + sizeof(t_indice_codigo) +  sizeof(t_indice_etiquetas) + sizeof(t_entrada_stack));
 

@@ -34,15 +34,16 @@
 								<option defaultValue="gnu.c.optimization.level.none" id="gnu.c.compiler.so.debug.option.optimization.level.863870541" name="Optimization Level" superClass="gnu.c.compiler.so.debug.option.optimization.level" valueType="enumerated"/>
 								<option id="gnu.c.compiler.so.debug.option.debugging.level.138959086" name="Debug Level" superClass="gnu.c.compiler.so.debug.option.debugging.level" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.misc.pic.2081835574" name="Position Independent Code (-fPIC)" superClass="gnu.c.compiler.option.misc.pic" value="true" valueType="boolean"/>
-								<option id="gnu.c.compiler.option.include.paths.494361091" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath"/>
+								<option id="gnu.c.compiler.option.include.paths.494361091" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1677079478" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.so.debug.384916380" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.so.debug">
 								<option defaultValue="true" id="gnu.c.link.so.debug.option.shared.1731374137" name="Shared (-shared)" superClass="gnu.c.link.so.debug.option.shared" valueType="boolean"/>
 								<option id="gnu.c.link.option.paths.362400358" name="Library search path (-L)" superClass="gnu.c.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="/home/utnso/workspace/bibliotecaCompartida/Debug"/>
+									<listOptionValue builtIn="false" value="/home/utnso/proyecto/tp-2016-1c-Socketes/bibliotecaCompartida/Release"/>
 								</option>
-								<option id="gnu.c.link.option.libs.1243344492" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs"/>
+								<option id="gnu.c.link.option.libs.1243344492" name="Libraries (-l)" superClass="gnu.c.link.option.libs"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.223601355" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -52,7 +53,7 @@
 								<option defaultValue="true" id="gnu.cpp.link.so.debug.option.shared.1121321648" name="Shared (-shared)" superClass="gnu.cpp.link.so.debug.option.shared" valueType="boolean"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.assembler.so.debug.284689383" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.so.debug">
-								<option id="gnu.both.asm.option.include.paths.181532383" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths" valueType="includePath"/>
+								<option id="gnu.both.asm.option.include.paths.181532383" name="Include paths (-I)" superClass="gnu.both.asm.option.include.paths"/>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1081761096" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>

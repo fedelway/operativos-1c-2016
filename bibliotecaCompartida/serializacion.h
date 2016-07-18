@@ -41,6 +41,7 @@ typedef struct {
 	t_indice_codigo *indice_cod;
 	t_indice_etiquetas *indice_etiquetas;
 	t_list *indice_stack;
+	int tamanio;
 } t_pcb;
 
 typedef struct {
