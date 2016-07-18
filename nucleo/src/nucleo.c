@@ -152,7 +152,7 @@ void validacionUMC(int socket_umc){
 //TODO: Todas las validaciones de errores
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
-	int i, ret_recv;
+	int i, ret_recv, codMensaje;
 
 	//creo un set gral de sockets
 	fd_set readyListen;
@@ -192,9 +192,9 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 					agregarCpu(i, max_fd, listen, &cpu_fd_set);
 				}else{
 					//Recibo el mensaje
-					int codMensaje = recibirMensaje(i, &ret_recv);
+					//int codMensaje = recibirMensaje(i, &ret_recv);
 
-					if (ret_recv <= 0) {
+					if ( recv(i,&codMensaje,sizeof(int),0) <= 0) {
 						// recibio 0 bytes, cierro la conexion y remuevo del set
 						perror("");
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
@@ -682,20 +682,22 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 	printf("Archivo enviado satisfactoriamente a UMC. %s\n", source);
 
 	//Recibo la respuesta de UMC, si fue posible o no iniciar el programa
-	int respuesta[2];
-	recv(umc_fd, &respuesta, 2*sizeof(int), 0);
+	int *msj = malloc(2*sizeof(int));
 
-	if(respuesta[0] == ACEPTO_PROGRAMA)
+	recv(socket_umc,msj,2*sizeof(int),MSG_WAITALL);
+
+	if(msj[0] == ACEPTO_PROGRAMA)
 	{
 		printf("ACEPTO_PROGRAMA\n");
 		//Hago algo al aceptar
-	}else if(respuesta[0] == RECHAZO_PROGRAMA)
+	}else if(msj[0] == RECHAZO_PROGRAMA)
 	{
 		printf("RECHAZO_PROGRAMA\n");
 		//Hago otra cosa
 	}else{
 		printf("Recibi un mensaje incorrecto de umc.\n");
-		printf("%d %d \n", respuesta[0], respuesta[1]);
+		printf("%d %d \n", msj[0],msj[1]);
+		perror("");
 	}
 
 	return cant_enviada;

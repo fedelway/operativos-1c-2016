@@ -151,9 +151,10 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 	case GUARDA_PAGINA:
 
 		recv(socket_umc , &pid, sizeof(int), 0);
-		recv(socket_umc , &tamanio, sizeof(int), 0);
+		recv(socket_umc , &numeroPagina, sizeof(int), 0);
 		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
 
+		printf("ModificarPagina(pid:%d, numeroPagina:%d, contenido:%d)\n", pid, numeroPagina, contenido);
 		modificarPagina(pid, numeroPagina, contenido);
 
 		break;

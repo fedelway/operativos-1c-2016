@@ -138,7 +138,8 @@ bool validarParametrosDeConfiguracion(){
 		&& 	config_has_property(config, "ENTRADAS_TLB")
 		&& 	config_has_property(config, "RETARDO")
 		&&  config_has_property(config, "PUERTO_NUCLEO")
-		&& 	config_has_property(config, "TIMER_RESET");
+		&& 	config_has_property(config, "TIMER_RESET")
+		&&  config_has_property(config, "ALGORITMO_REEMPLAZO");
 }
 
 void recibirMensajeCPU(char* message, int socket_CPU){
@@ -290,10 +291,8 @@ void trabajarNucleo(){
 	//Ciclo infinito
 	for(;;){
 		//Recibo mensajes de nucleo y hago el switch
-		int ret_recv = recv(nucleo_fd, &msj_recibido, sizeof(int), 0);
-
-		//Chequeo que no haya una desconexion
-		if(ret_recv <= 0){
+		if(recv(nucleo_fd, &msj_recibido, sizeof(int), 0) <= 0)
+		{//Chequeo desconexion
 			printf("Desconexion del nucleo. Terminando...\n");
 			exit(1);
 		}
@@ -382,7 +381,7 @@ void inicializarPrograma(){
 
 		cant_recibida += aux;
 	}
-	printf("Archivo recibido satisfactoriamente.\n");
+	printf("Archivo recibido satisfactoriamente.%s\n",buffer);
 	source = buffer; //Me guardo el archivo en el puntero source
 
 	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
@@ -428,12 +427,21 @@ void inicializarPrograma(){
 	}
 
 	//Archivo enviado exitosamente, le doy el ok a nucleo
-	int msj[2];
-
+//	int msj[2];
+//
+//	msj[0] = ACEPTO_PROGRAMA;
+//	msj[1] = pid;
+//
+//	printf("Mensaje para nucleo: ACEPTO_PROGRAMA: %d, pid %d.\n",msj[0],msj[1]);
+//
+//	send(nucleo_fd, &msj, 2*sizeof(int),0);
+	int *msj = malloc(2*sizeof(int));
 	msj[0] = ACEPTO_PROGRAMA;
 	msj[1] = pid;
 
-	send(nucleo_fd, &msj, 2*sizeof(int),0);
+	printf("%d %d.\n",msj[0],msj[1]);
+
+	send(nucleo_fd, msj, 2*sizeof(int), 0);
 
 	//Libero la memoria
 	free(programa);
@@ -549,85 +557,111 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 	}
 
 	//Todas las paginas estan ocupadas, tengo que reemplazar una. Aplico el algoritmo clock
-	for(i=0; i<fpp; i++){
+	if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"), "CLOCK-M") )
+	{//CLOCK MODIFICADO
+		for(i=0; i<fpp; i++){
 
-//Clock viejo
-//		//Si no esta referenciada, sustituyo esa pagina
-//		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
-//
-//			//Le cambio el bit de presencia
-//			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
-//
-//			//Me fijo el bit de modificado
-//			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
-//				//Fue modificada, la envio a swap
-//
-//				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
-//				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
-//
-//				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
-//			}
-//
-//			//Recibo la pagina y salgo del ciclo
-//			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
-//
-//			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
-//
-//			//Avanzo el puntero
-//			programa->puntero = (programa->puntero +1) % fpp;
-//
-//			return;
-//		}
+			if(!pag_apuntada.referenciado)
+			{
+				if(!pag_apuntada.modificado)
+				{//No fue referenciada, ni modificada, se sustituye
 
-		if(!pag_apuntada.referenciado)
-		{
-			if(!pag_apuntada.modificado)
-			{//No fue referenciada, ni modificada, se sustituye
+					//pongo el bit de presencia en falso y libero el frame
+					pag_apuntada.presencia = false;
+					frames[pag_apuntada.frame].libre = true;
 
-				//pongo el bit de presencia en falso y libero el frame
-				pag_apuntada.presencia = false;
-				frames[pag_apuntada.frame].libre = true;
+					//recibo la pagina
+					pos_a_escribir = frames[pag_apuntada.frame].posicion;
+					pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
-				//recibo la pagina
-				pos_a_escribir = frames[pag_apuntada.frame].posicion;
-				pag_apuntada.frame = recibirPagina(pag, programa->pid);
-
-				//avanzo el puntero y salgo del ciclo
-				avanzarPuntero();
-				return;
+					//avanzo el puntero y salgo del ciclo
+					avanzarPuntero();
+					return;
+				}
 			}
 		}
-	}
-
-	//Sali del ciclo, por lo tanto todas las paginas estaban referenciadas o modificadas
-	//Ahora busco paginas que esten con bit de referencia en falso, pero si modificadas
-	for(i=0;i<fpp;i++)
-	{
-		if(!pag_apuntada.referenciado)
+		//Sali del ciclo, por lo tanto todas las paginas estaban referenciadas o modificadas
+		//Ahora busco paginas que esten con bit de referencia en falso, pero si modificadas
+		for(i=0;i<fpp;i++)
 		{
-			if(pag_apuntada.modificado)
-			{//Encontre una pagina que no fue referencia, la reemplazo
+			if(!pag_apuntada.referenciado)
+			{
+				if(pag_apuntada.modificado)
+				{//Encontre una pagina que no fue referencia, la reemplazo
 
-				//Presencia en falso y libero el frame
+					//Presencia en falso y libero el frame
+					pag_apuntada.presencia = false;
+					frames[pag_apuntada.frame].libre = true;
+
+					//Como fue modificada, la envio a swap
+					int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+					int pos_a_enviar = frames[pag_apuntada.frame].posicion;
+
+					enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
+
+					//Recibo la pagina
+					pos_a_escribir = frames[pag_apuntada.frame].posicion;
+					pag_apuntada.frame = recibirPagina(pag, programa->pid);
+
+					//Avanzo el puntero y salgo
+					avanzarPuntero();
+					return;
+				}
+			}else{//Pagina referenciada, cambio el bit a false
+				pag_apuntada.referenciado = false;
+				avanzarPuntero();
+			}
+		}
+
+		//Clock viejo
+		//		//Si no esta referenciada, sustituyo esa pagina
+		//		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
+		//
+		//			//Le cambio el bit de presencia
+		//			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
+		//
+		//			//Me fijo el bit de modificado
+		//			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
+		//				//Fue modificada, la envio a swap
+		//
+		//				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
+		//				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
+		//
+		//				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
+		//			}
+		//
+		//			//Recibo la pagina y salgo del ciclo
+		//			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
+		//
+		//			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
+		//
+		//			//Avanzo el puntero
+		//			programa->puntero = (programa->puntero +1) % fpp;
+		//
+		//			return;
+		//
+	}else if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"),"CLOCK") )
+	{//CLOCK COMUN
+		for(i=0;i<fpp;i++)
+		{
+			if(!pag_apuntada.referenciado)
+			{//No esta refenciada, por lo tanto reemplazo esta pagina
+
 				pag_apuntada.presencia = false;
 				frames[pag_apuntada.frame].libre = true;
 
-				//Como fue modificada, la envio a swap
-				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
-				int pos_a_enviar = frames[pag_apuntada.frame].posicion;
+				if(pag_apuntada.modificado)
+				{//Si fue modificada debo enviarla a swap
+					int pag_a_enviar = pag_apuntada.nro_pag;
+					int pos_a_copiar = frames[pag_apuntada].posicion;
 
-				enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
+					enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
+				}
 
 				//Recibo la pagina
-				pos_a_escribir = frames[pag_apuntada.frame].posicion;
 				pag_apuntada.frame = recibirPagina(pag, programa->pid);
-
-				//Avanzo el puntero y salgo
-				avanzarPuntero();
-				return;
 			}
-		}else{//Pagina referenciada, cambio el bit a false
-			pag_apuntada.referenciado = false;
+
 			avanzarPuntero();
 		}
 	}
