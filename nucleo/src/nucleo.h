@@ -29,6 +29,9 @@
 #include "parser/metadata_program.h"
 #include <pthread.h>
 
+#define getListaCpu(i) ((t_cpu*)list_get(listaCpu,i))
+#define getListaConsola(i) ((t_consola*)list_get(listaConsola,i))
+
 typedef struct{
 	char *identificador;
 	int sleep;
@@ -56,6 +59,11 @@ typedef struct{
 	int variables;
 	int dirRetorno;
 	int posVariable;
+}t_entrada_stack;
+
+typedef struct t_indice_stack{
+	int cant_entradas;
+	t_entrada_stack *entradas;
 }t_indice_stack;
 
 typedef struct{
@@ -65,7 +73,7 @@ typedef struct{
 	int idCPU;
 	t_indice_codigo *indice_cod;
 	t_indice_etiquetas *indice_etiquetas;
-	t_indice_stack *indice_stack;
+	t_indice_stack stack;
 }t_pcb;
 
 
@@ -73,11 +81,11 @@ typedef struct{
 	int id;
 	int socket;
 	bool libre;
-	int pcb;
+	int pid;
 }t_cpu;
 
 typedef struct{
-	int pcb;
+	int pid;
 	int socketConsola;
 }t_consola;
 
@@ -92,9 +100,8 @@ int max_cpu;
 int quantum;
 int cant_cpus;
 int cant_consolas;
-int max_consolas;
-t_cpu *listaCpu;
-t_consola *listaConsola;
+t_list *listaCpu;
+t_list *listaConsola;
 t_pcb *pcb;
 
 //Lista de IO y semaforos
@@ -135,15 +142,17 @@ void procesarMensajeCPU(int codigoMensaje, int fd);
 void procesarMensajeConsola(int codigoMensaje, int fd);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 int recibirMensaje(int socket, int *ret_recv);
+void terminarConexion(int fd);
 
-void* iniciarNuevaConsola (int fd);
+void iniciarNuevaConsola (int fd);
 void validacionUMC();
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
 void* enviarPaqueteACPU(void *nodoCPU);
 void limpiarTerminados();
 void planificar();
-void moverDeNewA(int pid, t_list *destino);
+void moverDeNewAList(int pid, t_list *destino);
+void moverDeNewAQueue(int pid, t_queue *destino);
 
 int crearPCB(int source_size,char *source);
 int solicitarPaginasUMC(int source_size, char *buffer, char *source);
