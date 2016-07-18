@@ -29,6 +29,16 @@
 #include "parser/metadata_program.h"
 #include <pthread.h>
 
+typedef struct{
+	char *identificador;
+	int sleep;
+	int pid_usando;
+}t_IO;
+
+typedef struct{
+	char *identificador;
+	int valor;
+}t_SEM;
 
 typedef struct{
 	t_intructions*	instrucciones;
@@ -87,6 +97,8 @@ t_cpu *listaCpu;
 t_consola *listaConsola;
 t_pcb *pcb;
 
+//Lista de IO y semaforos
+t_list *IO, *SEM;
 
 //agregamos sockets provisorios para cpu y consola
 int socket_consola = 0;
@@ -96,19 +108,25 @@ int socket_escucha;
 int cpu_fd, cons_fd;
 
 //Las colas con los dif estados de los pcb
-//t_queue running, blocked, finished;
-t_list * listaCPUs;
-t_list * listaConsolas;
-t_list * listaListos;
-t_list * listaBloqueados;
-t_list * listaEjecutar;
-t_list * listaFinalizados;
+t_queue *ready, *blocked, *finished;
+t_list* new;
+
+
+//t_list * listaCPUs;
+//t_list * listaConsolas;
+//t_list * listaListos;
+//t_list * listaBloqueados;
+//t_list * listaEjecutar;
+//t_list * listaFinalizados;
 
 
 
 
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
+void crearSemaforos();
+void crearIO();
+void mostrarArrays();
 bool validarParametrosDeConfiguracion();
 void maximoFileDescriptor(int socket_escucha,int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
