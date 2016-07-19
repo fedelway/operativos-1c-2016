@@ -724,7 +724,6 @@ void iniciarNuevaConsola (int socket){
 	source_size++;//Porque le agregue el \0
 	printf("%s\n", source);
 
-
 	//Creo la estructura del PCB
 	int pid = crearPCB(source_size, source);
 
@@ -737,7 +736,7 @@ void iniciarNuevaConsola (int socket){
 	list_add(listaConsola,nueva_consola);
 
 	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
-	if( solicitarPaginasUMC(source_size, buffer, source) == -1)
+	if( solicitarPaginasUMC(source_size, source, pid) == -1)
 	{//Hubo error tengo que eliminar las consolas y eso...
 
 	}
@@ -785,7 +784,7 @@ int crearPCB(int source_size,char *source){
 
 }
 
-int solicitarPaginasUMC(int source_size, char *buffer, char *source){
+int solicitarPaginasUMC(int source_size, char *source, int pid){
 
 	int mensaje;
 	int cant_enviada = 0;
@@ -795,15 +794,15 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 	mensaje = INICIALIZAR_PROGRAMA;
 	//Armo el paquete a enviar
 	int buffer_size = source_size + 4*sizeof(int);
-	buffer = malloc(source_size + 4*sizeof(int) );
+	char *buffer = malloc(source_size + 4*sizeof(int) );
 
-	int cant_paginas_requeridas = source_size / pag_size;
+	int cant_paginas_requeridas = (source_size / pag_size) + 1;
 
 	if(source_size % pag_size > 0)
-		cant_paginas_requeridas++;
+		cant_paginas_requeridas--;
 
 	memcpy(buffer, &mensaje, sizeof(int));
-	memcpy(buffer + sizeof(int), &max_pid, sizeof(int));
+	memcpy(buffer + sizeof(int), &pid, sizeof(int));
 	memcpy(buffer + 2*sizeof(int), &cant_paginas_requeridas, sizeof(int));
 	memcpy(buffer + 3*sizeof(int), &source_size, sizeof(int));
 	memcpy(buffer + 4*sizeof(int), source, source_size);
@@ -829,13 +828,13 @@ int solicitarPaginasUMC(int source_size, char *buffer, char *source){
 	{
 		printf("ACEPTO_PROGRAMA\n");
 		//Lo agrego a ready
-		moverDeNewAQueue(max_pid,ready);
+		moverDeNewAQueue(pid,ready);
 
 	}else if(msj[0] == RECHAZO_PROGRAMA)
 	{
 		printf("RECHAZO_PROGRAMA\n");
 		//Lo paso a finished
-		moverDeNewAQueue(max_pid,finished);
+		moverDeNewAQueue(pid,finished);
 	}else{
 		printf("Recibi un mensaje incorrecto de umc.\n");
 		printf("%d %d \n", msj[0],msj[1]);

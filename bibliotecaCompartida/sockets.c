@@ -23,7 +23,7 @@ int sendAll(int fd, char *cosa, int size, int flags){
 	}
 
 	//Ya envie correctamente
-	return 0;
+	return cant_enviada;
 }
 
 int recvAll(int fd, char *buffer, int size, int flags){
@@ -43,5 +43,5 @@ int recvAll(int fd, char *buffer, int size, int flags){
 		cant_recibida += aux;
 	}
 
-	return 0;
+	return cant_recibida;
 }

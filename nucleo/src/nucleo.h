@@ -131,7 +131,7 @@ void moverDeNewAList(int pid, t_list *destino);
 void moverDeNewAQueue(int pid, t_queue *destino);
 
 int crearPCB(int source_size,char *source);
-int solicitarPaginasUMC(int source_size, char *buffer, char *source);
+int solicitarPaginasUMC(int source_size, char *source, int pid);
 void imprimirMsjConsola(int socketCPU, t_valor_variable mensaje);
 void imprimirTextoConsola(int socketCPU, int sizeTexto);
 void enviarTextoAConsola(int socketCPU, int sizeTexto);

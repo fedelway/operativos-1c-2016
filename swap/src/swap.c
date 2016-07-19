@@ -99,6 +99,7 @@ void handshakeUMC(){
 	}else{
 		//log_error(logger, "La UMC no pudo ser validada.");
 		//log_destroy(logger);
+		printf("La UMC no pudo ser validada.\n");
 		exit(0);
 	}
 }
@@ -111,10 +112,15 @@ bool esUnProcesoEnEspera(int tipoProceso){
 	return tipoProceso == PROCESO_EN_ESPERA;
 }
 
-void atenderPeticiones(msj_recibido, tipoProceso){
+void atenderPeticiones(int msj_recibido){
 
 	int  pid, tamanio, numeroPagina;
-	char* contenido = malloc(TAMANIO_PAGINA);
+	char *contenido = malloc(TAMANIO_PAGINA);
+
+	if(contenido == NULL)
+	{
+		printf("Error de malloc.\n");
+	}
 
 	switch(msj_recibido){
 
@@ -141,12 +147,11 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
-		if( recvAll(socket_umc , &contenido, TAMANIO_PAGINA, MSG_WAITALL) <= 0)
+		if( recvAll(socket_umc , contenido, TAMANIO_PAGINA, 0) <= 0)
 		{
 			perror("Error al recibir el contenido de la pagina");
 		}
 
-		printf("ModificarPagina(pid:%d, numeroPagina:%d, contenido:%d)\n", pid, numeroPagina, contenido);
 		modificarPagina(pid, numeroPagina, contenido);
 
 		break;
@@ -233,19 +238,16 @@ void trabajarUmc(){
 			encolarProgramas(msj_recibido);
 		}else{
 
-			if(hayProgramasEnEspera == 1){  //ver como compararlo
+			/*if(hayProgramasEnEspera == 1){  //ver como compararlo
 
 				pthread_mutex_lock(&peticionesActuales);
 				atenderProcesosEnEspera();
 				pthread_mutex_unlock(&peticionesActuales);
 
-			}else{
+			}else{*/
 
-				pthread_mutex_lock(&enEspera);
 				atenderPeticiones(msj_recibido);
-				pthread_mutex_lock(&enEspera);
 
-			}
 		}
 	}
 }
@@ -280,18 +282,21 @@ void crearParticionSwap2(char *path)
 
 char* cargarArchivo(){
 
-	//Obtengo el directorio para ubicar el archivo de swap en la carpeta resource.
+	/*//Obtengo el directorio para ubicar el archivo de swap en la carpeta resource.
 	const int size = 100 * sizeof(char);//100 caracteres alcanzan
 	char *directorio = malloc(size);
 
-	getcwd(directorio,size);
+	//getcwd(directorio,size);
 
 	//string_append(&directorio, "/../resource/");
-	string_append(&directorio,"/");
-	string_append(&directorio, NOMBRE_SWAP);
+	//string_append(&directorio,"/");
+	string_append(&directorio, NOMBRE_SWAP);*/
+
+	char *directorio = string_from_format("../resource/");
+	string_append(&directorio,NOMBRE_SWAP);
 
 	printf("directorio: %s.\n",directorio);
-	crearParticionSwap2(directorio);
+	//crearParticionSwap2(directorio);
 
 	FILE *file = fopen(directorio, "w+");
 	if(file == NULL)
@@ -420,7 +425,6 @@ int numeroPidEnEspera(nodo_enEspera *nodo){
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
 bool hayEspacioContiguo(int pag, int cant_paginas){
 
-	bool booleano;
 	int i;
 	for(i=0;i<cant_paginas;i++)
 	{
@@ -569,22 +573,25 @@ void leerUnaPagina(int pid, int pagina){
 	}
 }
 
-void modificarPagina(int pid, int pagina, char* nuevoCodigo){
+void modificarPagina(int pid, int pagina, char *contenido){
 
-	static int i = 1;
+	printf("ModificarPagina(pid:%d, numeroPagina:%d)\n", pid, pagina);
 
-	printf("entra a modificar\n");
 	int posSwap = ubicacionEnSwap(pid);
+	printf("posSwap: %d.\n\n", posSwap);
 
 	int posEscribir = pagina * TAMANIO_PAGINA;
 
-	fwrite(nuevoCodigo,sizeof(char),TAMANIO_PAGINA,stdout);
+	fwrite(contenido,sizeof(char),TAMANIO_PAGINA,stdout);
+	printf("\n\n");
 
 	if(posSwap != -1){
-		printf("before: %d.\n",i);
-		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
-		printf("after: %d.\n", i);
-		i++;
+		memcpy(archivoMapeado + posSwap + posEscribir, contenido, TAMANIO_PAGINA);
+
+		if( msync(archivoMapeado, TAMANIO_PAGINA * CANTIDAD_PAGINAS, MS_SYNC) == -1)
+		{
+			perror("Error en el sync");
+		}
 
 		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, tamanio_pagina));
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);

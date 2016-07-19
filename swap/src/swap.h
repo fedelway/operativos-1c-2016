@@ -115,6 +115,7 @@ void crearProgramaAnSISO(int pid, int tamanio, char* codigo_prog);
 void leerUnaPagina(int pid,int pag);
 void modificarPagina(int pid, int pagina, char* nuevoCodigo);
 void trabajarUmc();
+void atenderPeticiones(int msj_recibido);
 void atenderProcesosEnEspera();
 int hayProgramasEnEspera();
 

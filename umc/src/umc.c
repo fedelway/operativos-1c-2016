@@ -435,7 +435,7 @@ void inicializarPrograma(){
 //	printf("Mensaje para nucleo: ACEPTO_PROGRAMA: %d, pid %d.\n",msj[0],msj[1]);
 //
 //	send(nucleo_fd, &msj, 2*sizeof(int),0);
-	int *msj = malloc(2*sizeof(int));
+	int msj[2];
 	msj[0] = ACEPTO_PROGRAMA;
 	msj[1] = pid;
 
@@ -453,12 +453,13 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 
 	int mensaje[3];
 
-	int cant_paginas = (source_size / frame_size) + 1 + stack_size;
-	if(source_size % frame_size == 0)
-	{
-		//Si source_size es multiplo de frame_size entonces estaria asignando una pagina de mas.
-		cant_paginas--;
-	}
+	int cant_paginas_cod = (source_size / frame_size) + 1;
+	if(source_size%frame_size == 0)
+		cant_paginas_cod--;
+
+	int cant_paginas = cant_paginas_cod + stack_size;
+
+	printf("cant_paginas: %d pag_cod: %d, pag_stack: %d", cant_paginas,cant_paginas_cod,stack_size);
 
 	mensaje[0] = RESERVA_ESPACIO;
 	mensaje[1] = pid;
@@ -486,11 +487,49 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 		//Esto es igual en todos los mensajes
 		memcpy(buffer, &mensaje, 2*sizeof(int));
 
+		printf("source size: %d, frame size: %d.\n", source_size,frame_size);
+
 		int cant_enviada = 0;
 		int cant_a_copiar;
 		mensaje[2] = 0;
-		while(cant_enviada < source_size)
+
+		int cont = 0;
+		int i;
+		for(i=0;i<cant_paginas_cod;i++)
 		{
+			//Copio la nueva pagina
+			memcpy(buffer + 2*sizeof(int), &mensaje[2], sizeof(int));
+
+			cont++;
+			cant_a_copiar = min(source_size - cant_enviada, frame_size);
+			printf("Cant faltante: %d, frame_size:%d .\n",source_size-cant_enviada,frame_size);
+			printf("Cant a copiar: %d.\n\n",cant_a_copiar);
+
+			memcpy(buffer + 3*sizeof(int), source + i*frame_size, cant_a_copiar);
+
+			if(cant_a_copiar < frame_size)
+			{
+				memset(buffer + 3*sizeof(int) + cant_a_copiar,'\0',frame_size - cant_a_copiar);
+			}
+
+			printf("Impresion del buffer:\n");
+			printf("Guarda_pagina:%d, pid:%d, pagina:%d.\n\n",*buffer,*(buffer + sizeof(int)),*(buffer+2*sizeof(int)));
+			fwrite(buffer + 3*sizeof(int), sizeof(char), cant_a_copiar, stdout);
+			printf("\n\n");
+
+
+			if( sendAll(swap_fd,buffer,frame_size+3*sizeof(int),0) <= 0)
+			{
+				perror("Error en el envio del codigo a swap");
+				return -1;
+			}
+
+			cant_enviada += cant_a_copiar;
+			mensaje[2] = mensaje[2] +1;
+		}
+		/*while(cant_enviada < source_size)
+		{
+			cont++;
 			//Termino de armar el buffer
 			cant_a_copiar = min(source_size - cant_enviada, frame_size);//Hago esto para no pasarme con lo que copio
 			memcpy(buffer + 3*sizeof(int), source + cant_enviada, cant_a_copiar);
@@ -501,6 +540,11 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 				memset(buffer + 3*sizeof(int),'\0',frame_size - cant_a_copiar);
 			}
 
+			printf("Impresion del buffer:\n");
+			fwrite(buffer,sizeof(int),3,stdout);
+			fwrite(buffer + 3*sizeof(int), sizeof(char), cant_a_copiar, stdout);
+			printf("\n");
+
 			if (sendAll(swap_fd,buffer,frame_size + 3*sizeof(int),0) == -1)
 			{
 				perror("Error en el envio del codigo a swap");
@@ -509,9 +553,9 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 
 			cant_enviada += cant_a_copiar;
 			mensaje[2]++;
-		}
+		}*/
 
-		printf("Programa enviado a swap exitosamente.\n");
+		printf("Programa enviado a swap exitosamente.%d\n",cont);
 		return 0;
 	}else{
 		printf("Quilombo con los recv, recibi un mensaje de otro thread...\n");
@@ -940,6 +984,8 @@ void leerParaCpu(int cpu_fd){
 		printf("Error en el envio de la lectura solicitada\n");
 	}
 
+	free(resultado);
+
 	return;
 }
 
@@ -1179,7 +1225,7 @@ t_prog *buscarPrograma(int pid){
 }
 
 int min(int a, int b){
-	if(a>=b){
+	if(a<=b){
 		return a;
 	}else return b;
 }
@@ -1297,7 +1343,8 @@ void terminal(){
 					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
 					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					for(j=0;j<fpp;j++)
+					printf("fpp: %d cant_total_pag: %d",fpp,programa->cant_total_pag);
+					for(j=0;j<min(fpp,programa->cant_total_pag);j++)
 					{//Itero sobre cada pagina de la tabla
 						printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
 						fprintf(dump_log, "Pagina nro %d: ", programa->paginas[j].nro_pag);
@@ -1311,11 +1358,12 @@ void terminal(){
 							{//Escribo el contenido de cada caracter en pantalla
 								fputc(memoria[pos_en_memoria + k], stdout);
 								fputc(memoria[pos_en_memoria + k], dump_log);
+
+								printf("\n");//Para lograr un salto de linea despues del texto sin formato.
+								fprintf(dump_log, "\n");
 							}
 						}
 
-						printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
-						fprintf(dump_log, "\n");
 					}
 				}
 				pthread_mutex_unlock(&mutex_listaProgramas);
