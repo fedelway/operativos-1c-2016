@@ -16,14 +16,14 @@
 #include <sys/socket.h>
 
 typedef struct{
-	t_intructions*	instrucciones;
 	t_size			instrucciones_size;
 	t_puntero_instruccion instruccion_inicio;
+	t_intructions*	instrucciones;
 }t_indice_codigo;
 
 typedef struct{
-	char *etiquetas;
 	t_size etiquetas_size;
+	char *etiquetas;
 }t_indice_etiquetas;
 
 typedef struct{
@@ -31,7 +31,7 @@ typedef struct{
 	int variables;
 	int dirRetorno;
 	int posVariable;
-}t_entrada_stack;
+}__attribute__ ((__packed__)) t_entrada_stack;
 
 typedef struct t_indice_stack{
 	int cant_entradas;
