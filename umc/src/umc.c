@@ -888,9 +888,11 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 
 		if(pos_a_leer != -1){
 			//TLB_HIT pos a leer tiene la posicion a leer
+			printf("TLB_HIT.\n");
 			pos_a_leer += offset;
 		}else{
 			//TLB_MISS
+			printf("TLB_MISS.\n");
 
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap

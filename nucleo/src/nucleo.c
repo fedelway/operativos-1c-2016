@@ -932,7 +932,15 @@ void planificar(){
 		for(i=0; i<cant_cpus; i++){
 
 			if(getListaCpu(i)->libre){
-				//Cpu libre: le asigno el proceso que esta hace mas tiempo en la cola(queue_pop)
+
+				t_pcb *pcb_a_ejecutar = queue_pop(ready);
+
+				getListaCpu(i)->libre = false;
+				getListaCpu(i)->pid = pcb_a_ejecutar->pid;
+
+				enviarPcb(*pcb_a_ejecutar, getListaCpu(i)->socket, quantum);
+
+				freePcb(pcb_a_ejecutar);
 			}
 		}
 	}

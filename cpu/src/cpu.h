@@ -61,6 +61,14 @@ typedef struct{
 	int pid;
 }__attribute__ ((__packed__)) t_solicitud_lectura;
 
+/****************************************************************************************/
+/*                            			GLOBALES										*/
+/****************************************************************************************/
+
+t_log* logger;
+int tamanio_pagina, quantum;
+int socket_umc, socket_nucleo;
+t_pcb *pcb_actual;
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -78,6 +86,10 @@ void finalizarCpuPorError(void);
 /****************************************************************************************/
 /*                                   FUNCIONES CPU								        */
 /****************************************************************************************/
+
+void ejecutar();
+void solicitarInstruccion();
+
 void recibirPCB(void);
 void enviarPaqueteAUMC(char* package);
 void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, int numeroDeInstruccion);

@@ -28,8 +28,6 @@ int sendAll(int fd, char *cosa, int size, int flags){
 
 int recvAll(int fd, char *buffer, int size, int flags){
 
-	buffer = malloc(size);
-
 	int cant_recibida = 0;
 	int aux;
 

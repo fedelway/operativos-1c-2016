@@ -170,7 +170,7 @@ int enviarPcb(t_pcb pcb, int fd, int quantum)
 
 }
 
-t_pcb recibirPcb(int fd, bool nucleo)
+t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 {
 	t_pcb_stream stream;
 
@@ -183,7 +183,7 @@ t_pcb recibirPcb(int fd, bool nucleo)
 	}else{
 		int quantum;
 
-		recv(fd, &quantum, sizeof(int), 0);
+		recv(fd, quantum, sizeof(int), 0);
 		recv(fd, &tamanio, sizeof(int), 0);
 	}
 	//A partir de aca es igual tanto para cpu como para nucleo
@@ -203,4 +203,12 @@ t_pcb recibirPcb(int fd, bool nucleo)
 	free(stream.data_pcb);
 
 	return pcb;
+}
+
+void freePcb(t_pcb *pcb)
+{
+	free(pcb->indice_cod.instrucciones);
+	free(pcb->indice_etiquetas.etiquetas);
+	free(pcb->stack.entradas);
+	free(pcb);
 }

@@ -10,11 +10,6 @@
 
 #include "cpu.h"
 
-t_log* logger;
-int tamanio_pagina, quantum;
-int socket_umc, socket_nucleo;
-t_pcb *pcb_actual;
-
 
 /****************************************************************************************/
 /*                                   FUNCION MAIN									    */
@@ -48,21 +43,25 @@ int main(int argc,char *argv[]) {
 	printf("Me quedo escuchando mensajes del nucleo (socket:%d)\n", socket_nucleo);
 
 	while(1){
-		status = recv(socket_nucleo, &header, sizeof(int), 0);
 
-		if(status > 0){
-			switch (header) {
-				case ENVIO_PCB:
-					recibirPCB();
-					ejecutoInstrucciones();
-					devuelvoPcbActualizadoAlNucleo();
-					liberarEspacioDelPCB();
-					break;
-				default:
-					printf("obtuve otro id %d\n", header);
-					sleep(3);
-					break;
-			}
+		if( recv(socket_nucleo, &header, sizeof(int), 0) <= 0)
+		{
+			perror("Desconexion del nucleo");
+			exit(0);
+		}
+
+		switch (header) {
+			case EJECUTA:
+				ejecutar();
+				recibirPCB();
+				ejecutoInstrucciones();
+				devuelvoPcbActualizadoAlNucleo();
+				liberarEspacioDelPCB();
+				break;
+			default:
+				printf("obtuve otro id %d\n", header);
+				sleep(3);
+				break;
 		}
 	}
 
@@ -122,6 +121,43 @@ int main(int argc,char *argv[]) {
 	return EXIT_SUCCESS;
 }
 
+void ejecutar()
+{
+	int quantum;
+	char *instruccion;
+
+	t_pcb pcb = recibirPcb(socket_nucleo, false, &quantum);
+
+	int i;
+	for(i=0;i<quantum;i++)
+	{
+		t_intructions instruction = pcb.indice_cod->instrucciones[pcb.PC];
+
+		instruccion = solicitarInstruccion(instruction);
+
+		analizadorLinea(instruccion, funciones, funciones_kernel);
+	}
+}
+
+char *solicitarInstruccion(t_intructions instruccion)
+{
+	int mensaje[4];
+	mensaje[0] = LEER;
+	mensaje[1] = instruccion.start / tamanio_pagina;//Pagina en la que esta el codigo
+	mensaje[2] = instruccion.start % tamanio_pagina;//Offset de la pagina
+	mensaje[4] = instruccion.offset;				//Size de la instruccion
+
+	send(socket_umc, &mensaje, sizeof(mensaje), 0);
+
+	char *resultado = malloc(instruccion.offset);
+
+	if( recvAll(socket_umc,resultado,instruccion.offset,MSG_WAITALL) <= 0)
+	{
+		perror("Error al recibir instruccion");
+	}
+
+	return resultado;
+}
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
 /****************************************************************************************/

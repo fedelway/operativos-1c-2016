@@ -147,7 +147,7 @@ void atenderPeticiones(int msj_recibido){
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
-		if( recvAll(socket_umc , contenido, TAMANIO_PAGINA, 0) <= 0)
+		if( recvAll(socket_umc , contenido, TAMANIO_PAGINA, MSG_WAITALL) <= 0)
 		{
 			perror("Error al recibir el contenido de la pagina");
 		}
@@ -298,10 +298,13 @@ char* cargarArchivo(){
 	printf("directorio: %s.\n",directorio);
 	//crearParticionSwap2(directorio);
 
+	directorio = "/home/utnso/proyecto/tp-2016-1c-Socketes/swap/resource/SWAP.DATA";
+
 	FILE *file = fopen(directorio, "w+");
 	if(file == NULL)
 	{
 		perror("Error al abrir el archivo de swap.\n");
+		exit(-1);
 	}
 	//Necesito el fd
 	data_fd =fileno(file);
@@ -531,14 +534,7 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 
 		if(hayFragmentacion(cant_paginas)){
 
-			//SEMÁFORO MIENTRAS COMPACTO
-			pthread_mutex_lock(&peticionesActuales);
-			pthread_mutex_lock(&enEspera);
-
 			comenzarCompactacion();
-
-			pthread_mutex_unlock(&peticionesActuales);
-			pthread_mutex_unlock(&enEspera);
 
 			//Ya compacte, llamo de vuelta a crearPrograma para ver si ahora si hay espacio
 			crearProgramaAnSISOP(pid, cant_paginas);
@@ -554,23 +550,23 @@ void leerUnaPagina(int pid, int pagina){
 
 	int posSwap = ubicacionEnSwap(pid);
 
-	if(posSwap != -1){
-
-		char* bytes = malloc(TAMANIO_PAGINA);
-		//memcpy(bytes, archivoMapeado + posSwap * tamanio_pagina,tamanio_pagina);
-		memcpy(bytes,archivoMapeado +posSwap + pagina*TAMANIO_PAGINA, TAMANIO_PAGINA);
-		printf("El contenido de la página es: %s\n ", bytes);
-
-		//Enviar contenido de pagina leida
-		int resultado = send(socket_umc, bytes, TAMANIO_PAGINA, 0);
-
-		if(resultado < 0){
-			//log_error_y_cerrar_logger(logger, "Falló envío de mensaje de lectura a UMC  . | Nro de programa: %d | Nro de pagina: %d", pid, pagina);
-			exit(EXIT_FAILURE);
-		}else{
-			puts("No se encontró el contenido de la página solicitada");
-		}
+	if(posSwap == -1)
+	{
+		printf("Error ubicacionSwap.\n");
 	}
+
+	char *pos_a_leer = archivoMapeado + posSwap + pagina * TAMANIO_PAGINA;
+
+	printf("El contenido de la página es: ");
+	fwrite(pos_a_leer,sizeof(char),TAMANIO_PAGINA,stdout);
+	printf("\n");
+
+	//Enviar contenido de pagina leida
+	if( sendAll(socket_umc, pos_a_leer, TAMANIO_PAGINA, 0) <= 0 )
+	{
+		perror("Error al enviar el contenido de la pagina.\n");
+	}
+
 }
 
 void modificarPagina(int pid, int pagina, char *contenido){
@@ -694,6 +690,11 @@ int hayProgramasEnEspera(){
 
 //-------------------------- FUNCIONES PARA COMPACTACION --------------------------//
 
+void compactar()
+{
+
+}
+
 void modificarArchivoSwap(int posicionAnterior, int posicionActual){
 
 	memcpy( archivoMapeado + posicionActual,archivoMapeado + posicionAnterior ,TAMANIO_PAGINA);
@@ -735,8 +736,8 @@ void comenzarCompactacion(){
 	int posicionAIntercambiar = -1;
 	int cantidad = 0;
 
-	puts("Compactación en curso");
-	usleep(RETARDO_COMPACTACION * 1000); //ver cantidad - 60 segundos
+	puts("Compactación en curso.\n");
+	usleep(RETARDO_COMPACTACION); //ver cantidad - 60 segundos
 	estaCompactando = 1;
 
 	for(i = 0; i <= CANTIDAD_PAGINAS; i++) {

@@ -58,6 +58,8 @@ t_pcb_stream serializarPcb(t_pcb);
 t_pcb deSerializarPcb(t_pcb_stream);
 int tamanioPcb(t_pcb);
 int enviarPcb(t_pcb pcb, int fd, int quantum);
-t_pcb recibirPcb(int fd, bool nucleo);
+t_pcb recibirPcb(int fd, bool nucleo, int *quantum);
+
+void freePcb(t_pcb*);
 
 #endif /* PCB_H_ */

@@ -120,6 +120,7 @@ void atenderProcesosEnEspera();
 int hayProgramasEnEspera();
 
 //------------------------------- COMPACTACION -----------------------------------------------//
+void compactar();
 
 int espaciosLibres(int cantidad);
 bool hayFragmentacion(int tamanio);
