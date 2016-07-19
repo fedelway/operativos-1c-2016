@@ -10,6 +10,10 @@
 
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
+#include "protocolo.h"
+#include "sockets.h"
+#include <sys/types.h>
+#include <sys/socket.h>
 
 typedef struct{
 	t_intructions*	instrucciones;
@@ -40,8 +44,8 @@ typedef struct{
 	int PC;			//program counter
 	int cant_pag;
 	int idCPU;
-	t_indice_codigo *indice_cod;
-	t_indice_etiquetas *indice_etiquetas;
+	t_indice_codigo indice_cod;
+	t_indice_etiquetas indice_etiquetas;
 	t_indice_stack stack;
 }t_pcb;
 
@@ -53,5 +57,7 @@ typedef struct {
 t_pcb_stream serializarPcb(t_pcb);
 t_pcb deSerializarPcb(t_pcb_stream);
 int tamanioPcb(t_pcb);
+int enviarPcb(t_pcb pcb, int fd, int quantum);
+t_pcb recibirPcb(int fd, bool nucleo);
 
 #endif /* PCB_H_ */

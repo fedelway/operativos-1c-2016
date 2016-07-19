@@ -120,7 +120,7 @@ void crearConfiguracion(char *config_path) {
 
 void cambiarConfig()
 {
-	struct inotify_event* evento;
+	struct inotify_event* evento = malloc(sizeof(struct inotify_event));
 
 	if( read(inotify_fd, evento, sizeof(struct inotify_event)) <= 0)
 	{
@@ -142,6 +142,8 @@ void cambiarConfig()
 		quantum = config_get_int_value(config, "QUANTUM");
 		printf("Valor del quantum cambiado a: %d.\n",quantum);
 	}
+
+	free(evento);
 }
 
 void crearSemaforos()
@@ -258,7 +260,7 @@ void validacionUMC(int socket_umc){
 //TODO: Todas las validaciones de errores
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
-	int i, ret_recv, codMensaje;
+	int i, codMensaje;
 
 	//creo un set gral de sockets
 	fd_set readyListen;
@@ -747,11 +749,9 @@ void iniciarNuevaConsola (int socket){
 
 int crearPCB(int source_size,char *source){
 
-	char *paquete;
-
 	t_pcb *pcb = malloc(sizeof(t_pcb));
-	t_indice_codigo *indiceCodigo = malloc(sizeof(t_indice_codigo));
-	t_indice_etiquetas *indiceEtiquetas = malloc(sizeof(t_indice_etiquetas));
+	t_indice_codigo indiceCodigo;
+	t_indice_etiquetas indiceEtiquetas;
 
 	//Cargo camposPCB
 	max_pid++;
@@ -764,13 +764,13 @@ int crearPCB(int source_size,char *source){
 	metadata = metadata_desde_literal(source);
 
 	//Cargo indiceCodigo
-	indiceCodigo->instrucciones_size = metadata->instrucciones_size;
-	indiceCodigo->instrucciones = metadata->instrucciones_serializado;
-	indiceCodigo->instruccion_inicio = metadata->instruccion_inicio;
+	indiceCodigo.instrucciones_size = metadata->instrucciones_size;
+	indiceCodigo.instrucciones = metadata->instrucciones_serializado;
+	indiceCodigo.instruccion_inicio = metadata->instruccion_inicio;
 
 	//Cargo indiceEtiquetas
-	indiceEtiquetas->etiquetas_size =  metadata->etiquetas_size;
-	indiceEtiquetas->etiquetas = metadata->etiquetas;
+	indiceEtiquetas.etiquetas_size =  metadata->etiquetas_size;
+	indiceEtiquetas.etiquetas = metadata->etiquetas;
 
 	//Cargo indices en PCB
 	pcb->indice_cod = indiceCodigo;
@@ -779,13 +779,7 @@ int crearPCB(int source_size,char *source){
 
 	pcb->tamanio = tamanioPcb(*pcb);
 
-	//Armo el paquete
-	paquete = malloc(sizeof(t_pcb) + sizeof(t_indice_codigo) +  sizeof(t_indice_etiquetas) + sizeof(t_entrada_stack));
-
-	memcpy(paquete, &pcb, sizeof(t_pcb));
-
-	//list_add(listaListos, pid);
-	//printf("elementos lista: %d\n", listaListos->elements_count);
+	list_add(new, pcb);
 
 	return pcb->pid;
 
@@ -861,7 +855,8 @@ void* enviarPaqueteACPU(void *nodo){
 	//	t_pcb * nodoPCB =  list_get(listaListos, 0);
 		//nodoPCB->idCPU= nodoCPU->id;
 
-		int mensaje = ENVIO_PCB;
+		//int mensaje = ENVIO_PCB;
+		int mensaje = 0;
 		//int sizePCB = sizeof(nodoPCB);
 		int sizePCB = 1024;
 		char *buffer;

@@ -13,7 +13,7 @@
 #define NUCLEO_OK 1010
 #define INICIALIZAR_PROGRAMA 1020
 #define FINALIZAR_PROGRAMA 1030		//A umc le deberia enviar el pid.
-#define ENVIO_PCB 1040
+#define EJECUTA 1040
 #define ENTRADA_SALIDA 1050
 #define FIN_QUANTUM 1060
 #define FINALIZAR 1070
