@@ -18,6 +18,7 @@
 #include "socketCliente.h"
 #include "socketServidor.h"
 #include "protocolo.h"
+#include "sockets.h"
 
 #define pag_apuntada programa->paginas[programa->pag_en_memoria[programa->puntero]]
 
@@ -116,8 +117,6 @@ int min(int a, int b);
 void leerParaCpu(int cpu_fd);
 void escribirParaCpu(int cpu_fd);
 t_prog *buscarPrograma(int pid);
-int sendAll(int fd, char *cosa, int size, int flags);
-int recvAll(int fd, char *buffer, int size, int flags);
 void lanzarTerminal();
 void terminal();
 bool pidValido(int pid);
