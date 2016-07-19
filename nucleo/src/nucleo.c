@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
 	new = list_create();
 	SEM = list_create();
 	IO = list_create();
+	SHARED = list_create();
 
 	listaCpu = list_create();
 	listaConsola = list_create();
@@ -107,9 +108,40 @@ void crearConfiguracion(char *config_path) {
 	//Creo los semaforos y los dispositivos IO
 	crearSemaforos();
 	crearIO();
+	crearShared();
 
-	//mostrarArrays();
+	inotify_fd = inotify_init();
+	create_wd = inotify_add_watch(inotify_fd,config_path,IN_CREATE);
+	delete_wd = inotify_add_watch(inotify_fd,config_path,IN_DELETE);
+	modify_wd = inotify_add_watch(inotify_fd,config_path,IN_MODIFY);
 
+	global_path = config_path;
+}
+
+void cambiarConfig()
+{
+	struct inotify_event* evento;
+
+	if( read(inotify_fd, evento, sizeof(struct inotify_event)) <= 0)
+	{
+		perror("Error al leer el inotify");
+	}
+
+	if(evento->mask == IN_MODIFY || evento->mask == IN_CREATE || evento->mask == IN_DELETE)
+	{
+		t_config *nuevaConfig = config_create(global_path);
+
+		if(nuevaConfig == NULL)
+		{
+			printf("Inotify detecto cambios pero no se puede crear la config.\n");
+			return;
+		}
+
+		config = nuevaConfig;
+
+		quantum = config_get_int_value(config, "QUANTUM");
+		printf("Valor del quantum cambiado a: %d.\n",quantum);
+	}
 }
 
 void crearSemaforos()
@@ -154,27 +186,22 @@ void crearIO()
 
 }
 
-void mostrarArrays()
+void crearShared()
 {
-	t_IO *io = malloc(sizeof(t_IO));
-	t_SEM *sem = malloc(sizeof(t_SEM));
+	char **sharedArray = config_get_array_value(config, "SHARED_VARS");
+
 	int i;
-	for(i=0; i < list_size(IO); i++)
+	for(i=0; sharedArray[i]!=NULL; i++)
 	{
-		io = list_get(IO, i);
+		t_SEM *nuevaShared = malloc(sizeof(t_SEM));//La estructura para semaforos y variables compartidas es la misma
 
-		printf("id: %s sleep: %d.\n",io->identificador,io->sleep);
+		nuevaShared->identificador = sharedArray[i];
+		nuevaShared->valor = 0;
+
+		printf("sharedID:%s.\n",sharedArray[i]);
+
+		list_add(SHARED, nuevaShared);
 	}
-
-	for(i=0; i < list_size(SEM); i++)
-	{
-		sem = list_get(SEM, i);
-
-		printf("id: %s valor inicial: %d.\n",sem->identificador,sem->valor);
-	}
-
-	free(io);
-	free(sem);
 }
 
 //Validar que todos los parámetros existan en el archivo de configuracion
@@ -249,6 +276,8 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 	FD_SET(cons_fd, &readyListen);
 	FD_SET(cpu_fd, &readyListen);
 
+	//Agrego el fd del inotify
+	FD_SET(inotify_fd, listen);
 
 	// main loop
 	for (;;) {
@@ -262,7 +291,10 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 		// Recorro buscando el socket que tiene datos
 		for (i = 0; i <= *max_fd; i++) {
 			if (FD_ISSET(i, &readyListen)) {
-				if (i == cons_fd) {
+				if(i == inotify_fd)
+				{
+					cambiarConfig();
+				}else if (i == cons_fd) {
 					//Agrego la nueva conexion de Consola
 					agregarConsola(i, max_fd, listen, &cons_fd_set);
 

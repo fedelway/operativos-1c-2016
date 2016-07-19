@@ -29,6 +29,7 @@
 #include "parser/metadata_program.h"
 #include "pcb.h"
 #include <pthread.h>
+#include <sys/inotify.h>
 
 #define getListaCpu(i) ((t_cpu*)list_get(listaCpu,i))
 #define getListaConsola(i) ((t_consola*)list_get(listaConsola,i))
@@ -71,8 +72,15 @@ t_list *listaCpu;
 t_list *listaConsola;
 t_pcb *pcb;
 
+//El file descriptor para el inotify
+int inotify_fd;
+int create_wd;
+int delete_wd;
+int modify_wd;
+char *global_path;//path del config
+
 //Lista de IO y semaforos
-t_list *IO, *SEM;
+t_list *IO, *SEM, *SHARED;
 
 //agregamos sockets provisorios para cpu y consola
 int socket_consola = 0;
@@ -98,9 +106,10 @@ t_list* new;
 
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
+void cambiarConfig();
 void crearSemaforos();
 void crearIO();
-void mostrarArrays();
+void crearShared();
 bool validarParametrosDeConfiguracion();
 void maximoFileDescriptor(int socket_escucha,int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
