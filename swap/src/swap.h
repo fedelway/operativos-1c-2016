@@ -13,14 +13,18 @@
 #include "commons/config.h"
 #include "commons/log.h"
 #include "commons/collections/list.h"
+#include "commons/bitarray.h"
+#include "commons/string.h"
 #include "socketServidor.h"
 #include "generales.c"
 #include "protocolo.h"
-#include "commons/bitarray.h"
 #include <sys/mman.h> //para trabajar con el mmap()
 #include <pthread.h>
 #include <fcntl.h>
 
+t_config* config;
+t_log* logger;
+char *archivoMapeado;
 
 //------------------------------- VARIABLES GLOBALES-------------------------------------//
 

@@ -9,20 +9,8 @@
  */
 
 #include "swap.h"
-//TODO VER SI LOS PUEDO PONER EN EL .H
-t_config* config;
-t_log* logger;
-char *archivoMapeado;
-
-//TODO ver si ésto en swap cambia
-#define BACKLOG 5			// Define cuantas conexiones vamos a mantener pendientes al mismo tiempo
-#define PACKAGESIZE 1024	// Define cual va a ser el size maximo del paquete a enviar
-
 
 int main(int argc, char *argv[]){
-
-	char message[PACKAGESIZE];
-	memset(message, '\0', PACKAGESIZE);
 
 	logger = log_create("swap.log", "SWAP", true, LOG_LEVEL_INFO);
 	log_info(logger, "Proyecto para SWAP..");
@@ -265,19 +253,43 @@ void crearParticionSwap(){
 	char comando[50];
 	printf("Creando archivo Swap: \n");
 	sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",	CANTIDAD_PAGINAS * TAMANIO_PAGINA, NOMBRE_SWAP);
-	system(comando);
+
+	if( system(comando) == -1)
+	{
+		printf("Error al crear archivoSwap.\n");
+		exit(-1);
+	}
 }
 
 char* cargarArchivo(){
 
-	FILE *file = fopen(NOMBRE_SWAP, "r+");// todo: falta verificar
-	int fd =fileno(file);  // Esto traduce a entero el fd
+	//Obtengo el directorio para ubicar el archivo de swap en la carpeta resource.
+	const int size = 100 * sizeof(char);//100 caracteres alcanzan
+	char *directorio = malloc(size);
 
+	getcwd(directorio,size);
 
-	int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS; // TAMANIO 256 Y CANT PAGINAS 512 EN NUESTRO CASO
-	char* accesoAMemoria = mmap( NULL, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	//string_append(&directorio, "/../resource/");
+	string_append(&directorio,"/");
+	string_append(&directorio, NOMBRE_SWAP);
 
-	if(accesoAMemoria == (caddr_t) (-1)){
+	printf("directorio: %s.\n",directorio);
+
+	FILE *file = fopen(directorio, "w+");
+	if(file == NULL)
+	{
+		perror("Error al abrir el archivo de swap.\n");
+	}
+
+	//Necesito el fd
+	int fd =fileno(file);
+
+	//int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS;
+	size_t pagesize = (size_t) sysconf(_SC_PAGESIZE);
+	printf("pagesize: %d.\n",pagesize);
+	char* accesoAMemoria = (char*)mmap( NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+
+	if(accesoAMemoria == MAP_FAILED){
 		perror("mmap");
 		exit(1);
 	}
