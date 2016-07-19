@@ -47,8 +47,8 @@
 #define UMC_OK 4010
 #define RECHAZO_PROGRAMA 4020
 #define ACEPTO_PROGRAMA 4021
-#define GUARDA_PAGINA 4030 		//(int pag, int pid, char* contenido) Pido a swap que guarde la pagina indicada
-#define SOLICITUD_PAGINA 4031 	//(int pag, int pid) Pido a swap que me de la pagina indicada
+#define GUARDA_PAGINA 4030 		//(int pid, int pag, char* contenido) Pido a swap que guarde la pagina indicada
+#define SOLICITUD_PAGINA 4031 	//(int pid, int pag) Pido a swap que me de la pagina indicada
 #define UMC_FINALIZAR_PROGRAMA 4090 //(int pid) Le aviso a swap que tiene que borrar el programa y liberar sus recursos
 #define RESERVA_ESPACIO	4050	//(int pid, int cant_pag)Umc pide a swap reservar espacio para el programa pid.
 
