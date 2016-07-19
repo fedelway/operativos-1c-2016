@@ -12,8 +12,8 @@
 
 int main(int argc, char *argv[]){
 
-	logger = log_create("swap.log", "SWAP", true, LOG_LEVEL_INFO);
-	log_info(logger, "Proyecto para SWAP..");
+	//logger = log_create("swap.log", "SWAP", true, LOG_LEVEL_INFO);
+	//log_info(logger, "Proyecto para SWAP..");
 
 	listaProcesos = list_create();
 	listaEnEspera = list_create();
@@ -22,12 +22,13 @@ int main(int argc, char *argv[]){
 	//reservo memoria para BitMap
 	bitarray = (char*) malloc(CANTIDAD_PAGINAS * sizeof(int));
 
-	crearParticionSwap();
+	//crearParticionSwap();
 	crearBitMap();
 	archivoMapeado = cargarArchivo();
+	crearBitmap();
 
 	PUERTO_ESCUCHA = config_get_string_value(config, "PUERTO_ESCUCHA");
-	log_info(logger, "Mi puerto escucha es: %s", PUERTO_ESCUCHA);
+	//log_info(logger, "Mi puerto escucha es: %s", PUERTO_ESCUCHA);
 	socket_escucha = conectarPuertoDeEscucha(PUERTO_ESCUCHA);
 
 	printf("Aun no Se ha conectado una umc.\n");
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]){
 
 	trabajarUmc();
 
-	log_destroy(logger);
+	//log_destroy(logger);
 
 	eliminarEstructuras();
 
@@ -59,12 +60,12 @@ void crearConfiguracion(char *config_path){
 
 
 	if(validarParametrosDeConfiguracion()){
-		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
+		//log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 		return;
 	}else{
-		log_error(logger, "Configuración no válida");
+		//log_error(logger, "Configuración no válida");
 		// TODO: VER SI ESTA OK DESTROY ACÁ
-		log_destroy(logger);
+		//log_destroy(logger);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -87,17 +88,17 @@ void handshakeUMC(){
 	int msj_recibido;
 	int soy_swap = SOY_SWAP;
 
-	log_info(logger, "Iniciando Handshake con la UMC");
+	//log_info(logger, "Iniciando Handshake con la UMC");
 
 	send(socket_umc, &soy_swap, sizeof(int), 0);
 	recv(socket_umc, &msj_recibido, sizeof(int), 0);
 
 	if(msj_recibido == SOY_UMC){
-		log_info(logger, "UMC validado.");
+		//log_info(logger, "UMC validado.");
 		printf("Se ha validado correctamente la UMC. \n");
 	}else{
-		log_error(logger, "La UMC no pudo ser validada.");
-		log_destroy(logger);
+		//log_error(logger, "La UMC no pudo ser validada.");
+		//log_destroy(logger);
 		exit(0);
 	}
 }
@@ -140,7 +141,10 @@ void atenderPeticiones(msj_recibido, tipoProceso){
 
 		recv(socket_umc , &pid, sizeof(int), 0);
 		recv(socket_umc , &numeroPagina, sizeof(int), 0);
-		recv(socket_umc , &contenido, TAMANIO_PAGINA, 0);
+		if( recvAll(socket_umc , &contenido, TAMANIO_PAGINA, MSG_WAITALL) <= 0)
+		{
+			perror("Error al recibir el contenido de la pagina");
+		}
 
 		printf("ModificarPagina(pid:%d, numeroPagina:%d, contenido:%d)\n", pid, numeroPagina, contenido);
 		modificarPagina(pid, numeroPagina, contenido);
@@ -253,7 +257,20 @@ void crearParticionSwap(){
 	char comando[50];
 	printf("Creando archivo Swap: \n");
 	sprintf(comando, "dd if=/dev/zero bs=%d count=1 of=%s",	CANTIDAD_PAGINAS * TAMANIO_PAGINA, NOMBRE_SWAP);
+	printf("dd if=/dev/zero bs=%d count=1 of=%s \n",	CANTIDAD_PAGINAS * TAMANIO_PAGINA, NOMBRE_SWAP);
+	if( system(comando) == -1)
+	{
+		printf("Error al crear archivoSwap.\n");
+		exit(-1);
+	}
+}
 
+void crearParticionSwap2(char *path)
+{
+	char comando[250];
+	printf("Creando archivo Swap: \n");
+	sprintf(comando, "dd if=%s bs=%d count=1 of=%s", path, CANTIDAD_PAGINAS * TAMANIO_PAGINA, path);
+	printf("dd if=%s bs=%d count=1 of=%s \n", path, CANTIDAD_PAGINAS * TAMANIO_PAGINA, path);
 	if( system(comando) == -1)
 	{
 		printf("Error al crear archivoSwap.\n");
@@ -274,20 +291,22 @@ char* cargarArchivo(){
 	string_append(&directorio, NOMBRE_SWAP);
 
 	printf("directorio: %s.\n",directorio);
+	crearParticionSwap2(directorio);
 
 	FILE *file = fopen(directorio, "w+");
 	if(file == NULL)
 	{
 		perror("Error al abrir el archivo de swap.\n");
 	}
-
 	//Necesito el fd
-	int fd =fileno(file);
+	data_fd =fileno(file);
 
-	//int pagesize = TAMANIO_PAGINA * CANTIDAD_PAGINAS;
+	ftruncate(data_fd, CANTIDAD_PAGINAS * TAMANIO_PAGINA);
+
 	size_t pagesize = (size_t) sysconf(_SC_PAGESIZE);
 	printf("pagesize: %d.\n",pagesize);
-	char* accesoAMemoria = (char*)mmap( NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	pagesize = CANTIDAD_PAGINAS * TAMANIO_PAGINA;//Para mappear el archivo ENTERO
+	char* accesoAMemoria = (char*)mmap( NULL, pagesize, PROT_READ|PROT_WRITE, MAP_SHARED, data_fd, 0);
 
 	if(accesoAMemoria == MAP_FAILED){
 		perror("mmap");
@@ -299,22 +318,41 @@ char* cargarArchivo(){
 
 //------------------------------ FUNCIONES SOBRE EL BITMAP ----------------------------//
 
+void crearBitmap()
+{
+	bitmap = malloc(sizeof(char) * CANTIDAD_PAGINAS);
+
+	//Inicializo el bitmap con todas las paginas libres
+	int i;
+	for(i=0; i<CANTIDAD_PAGINAS; i++)
+	{
+		bitmap[i] = 'l';
+	}
+}
+
 //Creo BitMap usando bitarray
 void crearBitMap(){
 
 	bitMap = bitarray_create(bitarray, CANTIDAD_PAGINAS);
+
 }
 
 //Paso cada página del BITMAP a ocupada
-void actualizarBitMap(int pid, int pagina, int cant_paginas){
+void actualizarBitMap(int pagina, int cant_paginas){
 
 	int i;
+	for(i=0; i<cant_paginas; i++)
+	{
+		bitmap[pagina+i] = 'o';
+	}
+
+	/*int i;
 	int cant = 0;
 	for (i = 1; i <= cant_paginas; i++){  // ver =0 o =1
 
 		bitarray_set_bit(bitMap, pagina + cant);
 		cant = cant + 1;
-	}
+	}*/
 }
 
 //--------------------------- CREACION DE NODOS DE LAS LISTAS -------------------------//
@@ -345,9 +383,15 @@ void agregarNodoEnEspera(int pid, int cantidadPaginas,  int numeroPagina, char* 
 
 }
 
-void agregarNodoProceso(int pid, int cantidadPaginas, int posicionSwap){
+void agregarNodoProceso(int pid, int cantidadPaginas, int pagina){
 
-	list_add(listaProcesos, crearNodoDeProceso(pid, cantidadPaginas , posicionSwap));
+	nodo_proceso *proceso = malloc(sizeof(nodo_proceso));
+	proceso->pid = pid;
+	proceso->cantidad_paginas = cantidadPaginas;
+	proceso->posSwap = pagina * TAMANIO_PAGINA;
+
+	list_add(listaProcesos, proceso);
+	//list_add(listaProcesos, crearNodoDeProceso(pid, cantidadPaginas , posicionSwap));
 
 }
 
@@ -374,7 +418,21 @@ int numeroPidEnEspera(nodo_enEspera *nodo){
 //------------------------- FUNCIONES PARA DETECTAR LUGAR LIBRE ------------------//
 
 //VERIFICA A PARTIR DE UNA PÁGINA DISPONIBLE, HAY ESPACIO CONTÍGUO
-bool hayEspacioContiguo(int pagina, int tamanio){
+bool hayEspacioContiguo(int pag, int cant_paginas){
+
+	bool booleano;
+	int i;
+	for(i=0;i<cant_paginas;i++)
+	{
+		if(bitmap[pag+i] == 'o')
+		{
+			return false;
+		}
+	}
+	//No retorne, por lo tanto, hay espacio continuo
+	return true;
+
+/*
 	int i;
 	//la idea es verificar el cacho de registros del vector que pueden alocar ese tamanio
 
@@ -398,21 +456,36 @@ bool hayEspacioContiguo(int pagina, int tamanio){
 	}
 	return booleano;
 	//return 0; // retorna F, No hay espacio disponible
+*/
 }
 
-int paginaDisponible(int tamanio){
+int paginaDisponible(int cant_paginas){
 	printf("pasó por pagina disponible \n");
-	int i;
+/*	int i;
 	//Recorro todo el bitMap buscando espacios contiguos
 	//devuelvo la pagina desde donde tiene que reservar memoria, si no encuentra lugar devuelve -1
 	for(i = 0; i <= CANTIDAD_PAGINAS; i++){
 		if(bitarray_test_bit(bitMap, i) == 0){	// 1 VER, 0 FALSO
-			if(hayEspacioContiguo(i, tamanio)){
+			if(hayEspacioContiguo(i, cant_paginas)){
 				return i;
 
 			}
 		}
 	}
+	return -1;*/
+
+	int i;
+	for(i=0; i<CANTIDAD_PAGINAS; i++)
+	{
+		if(bitmap[i] == 'l')
+		{//Si la pagina esta libre miro que las siguientes tambien lo esten
+			if(hayEspacioContiguo(i,cant_paginas))
+			{
+				return i;
+			}
+		}
+	}
+	//Sali del ciclo, no hay pagina
 	return -1;
 }
 
@@ -442,8 +515,9 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 
 		//ACTUALIZO LAS ESTRUCTURAS
 		agregarNodoProceso(pid, cant_paginas, pagina);
-		actualizarBitMap(pid, pagina, cant_paginas);
-		printf("Se ha reservado espacio para el programa n°: %d", pid);
+		actualizarBitMap(pagina, cant_paginas);
+		printf("Se ha reservado espacio para el programa n°: %d.\n", pid);
+		printf("Pagina reservada: %d. Cant Paginas: %d.\n", pagina,cant_paginas);
 
 		//Aviso a umc que se pudo reservar espacio
 		int mensaje = SWAP_PROGRAMA_OK;
@@ -487,7 +561,7 @@ void leerUnaPagina(int pid, int pagina){
 		int resultado = send(socket_umc, bytes, TAMANIO_PAGINA, 0);
 
 		if(resultado < 0){
-			log_error_y_cerrar_logger(logger, "Falló envío de mensaje de lectura a UMC  . | Nro de programa: %d | Nro de pagina: %d", pid, pagina);
+			//log_error_y_cerrar_logger(logger, "Falló envío de mensaje de lectura a UMC  . | Nro de programa: %d | Nro de pagina: %d", pid, pagina);
 			exit(EXIT_FAILURE);
 		}else{
 			puts("No se encontró el contenido de la página solicitada");
@@ -497,14 +571,20 @@ void leerUnaPagina(int pid, int pagina){
 
 void modificarPagina(int pid, int pagina, char* nuevoCodigo){
 
+	static int i = 1;
+
 	printf("entra a modificar\n");
 	int posSwap = ubicacionEnSwap(pid);
 
-	//int posEscribir = (pagina - 1) * TAMANIO_PAGINA;
 	int posEscribir = pagina * TAMANIO_PAGINA;
 
+	fwrite(nuevoCodigo,sizeof(char),TAMANIO_PAGINA,stdout);
+
 	if(posSwap != -1){
+		printf("before: %d.\n",i);
 		memcpy(archivoMapeado + posSwap + posEscribir, nuevoCodigo, TAMANIO_PAGINA);
+		printf("after: %d.\n", i);
+		i++;
 
 		//memcpy(&archivoMapeado[posSwap], &nuevoCodigo, tamanio_pagina));
 		//printf("la modificacion en la pagina n° %d es: %s", posSwap, archivoMapeado);
@@ -682,7 +762,7 @@ void comenzarCompactacion(){
 void cancelarInicializacion(){
 
 	printf("Se ha cancelado la incicializacion \n");
-	log_error(logger, "Se ha cancelado la incicializacion");
+	//log_error(logger, "Se ha cancelado la incicializacion");
 	informarAUmc();
 
 }
@@ -693,7 +773,7 @@ void informarAUmc(){
 	int enviado = send(socket_umc, &mensaje, sizeof(int), 0);
 
 	if(enviado < 0){
-		log_error(logger, "Falló envío de mensaje de rechazo de programa");
+		//log_error(logger, "Falló envío de mensaje de rechazo de programa");
 		exit(EXIT_FAILURE);
 	}else{
 		printf("Se informa a la Umc rechazo de programa \n");

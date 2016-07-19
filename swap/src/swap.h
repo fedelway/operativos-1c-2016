@@ -18,6 +18,7 @@
 #include "socketServidor.h"
 #include "generales.c"
 #include "protocolo.h"
+#include "sockets.h"
 #include <sys/mman.h> //para trabajar con el mmap()
 #include <pthread.h>
 #include <fcntl.h>
@@ -45,7 +46,7 @@ char *archivoMapeado;
 	 typedef struct {
 		 int pid;
 		 int cantidad_paginas;
-		 int posSwap;
+		 int posSwap;//Posicion absoluta de la pagina 0
 }nodo_proceso;
 
 //nodo lista de procesos en espera
@@ -70,11 +71,14 @@ int estaCompactando = 0;
 pthread_mutex_t peticionesActuales = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t enEspera = PTHREAD_MUTEX_INITIALIZER;
 
-
+//Bitmap
+//el caracter 'l' indica que la pagina esta libre. 'o' que esta ocupada.
+char *bitmap;
 
 int socket_escucha,socket_umc,tamanioBitMap;
 int socket_swap;
 FILE *file;
+int data_fd;
 int pagesize;
 
 
@@ -92,12 +96,13 @@ int cantPaginas(nodo_proceso *nodo);
 int pid(nodo_proceso *nodo);
 int posicionSwap(nodo_proceso *nodo);
 
-
+void actualizarBitMap(int pagina, int cant_paginas);
 //---------------------- INICIALIZACIÓN -------------------------------------------//
 
 void inicializarBitMap();
 char* cargarArchivo();
 void crearBitMap();
+void crearBitmap(); //este es el bitmap de char
 void crearParticionSwap();
 
 //------------------- PETICIONES UMC -------------------------------------------------//
