@@ -25,10 +25,15 @@
 #include "socketCliente.h"
 #include "generales.h"
 #include "protocolo.h"
-#include "serializacion.h"
+#include "pcb.h"
 #include "parser/parser.h"
 #include "parser/metadata_program.h"
 
+//Defines de estados
+#define TODO_OK 0
+#define ENTRADA_SALIDA 1
+#define WAIT 2
+#define FIN_PROGRAMA 3
 
 /****************************************************************************************/
 /*                           DEFINICION DE ESTRUCTURAS								    */
@@ -68,7 +73,8 @@ typedef struct{
 t_log* logger;
 int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
-t_pcb *pcb_actual;
+t_pcb pcb_actual;
+int estado;
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -88,7 +94,7 @@ void finalizarCpuPorError(void);
 /****************************************************************************************/
 
 void ejecutar();
-void solicitarInstruccion();
+char *solicitarInstruccion(t_intructions);
 
 void recibirPCB(void);
 void enviarPaqueteAUMC(char* package);

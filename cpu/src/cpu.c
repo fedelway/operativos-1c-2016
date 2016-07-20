@@ -53,10 +53,10 @@ int main(int argc,char *argv[]) {
 		switch (header) {
 			case EJECUTA:
 				ejecutar();
-				recibirPCB();
-				ejecutoInstrucciones();
-				devuelvoPcbActualizadoAlNucleo();
-				liberarEspacioDelPCB();
+				//recibirPCB();
+				//ejecutoInstrucciones();
+				//devuelvoPcbActualizadoAlNucleo();
+				//liberarEspacioDelPCB();
 				break;
 			default:
 				printf("obtuve otro id %d\n", header);
@@ -126,17 +126,44 @@ void ejecutar()
 	int quantum;
 	char *instruccion;
 
-	t_pcb pcb = recibirPcb(socket_nucleo, false, &quantum);
+	//pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
+	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 
 	int i;
 	for(i=0;i<quantum;i++)
 	{
-		t_intructions instruction = pcb.indice_cod->instrucciones[pcb.PC];
+		if(estado != TODO_OK)
+			break;
+
+		t_intructions instruction = pcb_actual.indice_cod.instrucciones[pcb_actual.PC];
 
 		instruccion = solicitarInstruccion(instruction);
 
-		analizadorLinea(instruccion, funciones, funciones_kernel);
+		analizadorLinea(instruccion, &funciones, &funciones_kernel);
+
+		free(instruccion);
 	}
+
+	if(estado == TODO_OK)
+	{//Termino el quantum. Envio el pcb con las modificaciones que tuvo
+		enviarPcb(pcb_actual, socket_nucleo, -1);
+	}
+	else if(estado == ENTRADA_SALIDA)
+	{
+		return;
+	}
+	else if(estado == WAIT)
+	{
+
+	}
+	else if(estado == FIN_PROGRAMA)
+	{//Notifico el fin del programa
+		return;
+	}
+	else{
+		printf("Estado erroneo.\n");
+	}
+
 }
 
 char *solicitarInstruccion(t_intructions instruccion)
@@ -296,7 +323,7 @@ void finalizarCpuPorError(){
 /****************************************************************************************/
 void recibirPCB(){
 
-	int status;
+	/*int status;
 	t_pcb_stream *pcb_stream;
 
 	status = recv(socket_nucleo, &pcb_stream->tamanio, sizeof(int), 0);
@@ -316,7 +343,7 @@ void recibirPCB(){
 		log_error(logger, "Error al recibir el PCB. Bytes recibidos: %d",
 				status);
 		finalizarCpuPorError();
-	}
+	}*/
 }
 
 void enviarPaqueteAUMC(char* message){
@@ -348,7 +375,7 @@ void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, in
 }
 
 int ejecutoInstrucciones(){
-	printf("Ejecuto instrucciones después de recibir PCB\n");
+	/*printf("Ejecuto instrucciones después de recibir PCB\n");
 	int nroInstr;
 	for (nroInstr = 0; nroInstr < quantum; ++nroInstr) {
 		int nroInstruccionAEjecutar = pcb_actual->PC;
@@ -358,12 +385,12 @@ int ejecutoInstrucciones(){
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
 		pcb_actual->PC++;
 	}
-	return nroInstr;
+	return nroInstr;*/
 }
 
 void devuelvoPcbActualizadoAlNucleo(){
 
-	log_info(logger, "Devuelvo PCB Actualizado al nucleo");
+	/*log_info(logger, "Devuelvo PCB Actualizado al nucleo");
 
 	t_pcb_stream *stream_pcb = serializador_PCB(pcb_actual);
 	int header = ENVIO_PCB_ACTUALIZADO;
@@ -388,12 +415,12 @@ void devuelvoPcbActualizadoAlNucleo(){
 	free(mensaje);
 	free(stream_pcb->data_pcb);
 
-	log_info(logger, "Se envió exitosamente el PCB actualizado al Núcleo.");
+	log_info(logger, "Se envió exitosamente el PCB actualizado al Núcleo.");*/
 }
 
 void liberarEspacioDelPCB(){
 	log_info(logger, "Libero espacio del PCB.");
-	free(pcb_actual); //TODO chequear si con esto alcanza
+	//free(pcb_actual); //TODO chequear si con esto alcanza
 }
 
 //TODO: Terminar Implementacion
