@@ -74,7 +74,7 @@ t_log* logger;
 int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
 t_pcb pcb_actual;
-int estado;
+int estado = 0;
 
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/

@@ -801,8 +801,7 @@ int solicitarPaginasUMC(int source_size, char *source, int pid){
 	char *buffer = malloc(source_size + 4*sizeof(int) );
 
 	int cant_paginas_requeridas = (source_size / pag_size) + 1;
-
-	if(source_size % pag_size > 0)
+	if(source_size % pag_size == 0)
 		cant_paginas_requeridas--;
 
 	memcpy(buffer, &mensaje, sizeof(int));

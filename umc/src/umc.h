@@ -32,7 +32,7 @@ typedef struct{
 }t_pag;
 
 typedef struct{
-	int pid;
+	const int pid;
 	int cant_total_pag;
 	t_pag *paginas;
 	int *pag_en_memoria;
@@ -94,7 +94,7 @@ void recibirConexiones(int cpu_fd, int max_fd);
 void aceptarNucleo();
 void trabajarNucleo();
 void trabajarCpu();
-int aceptarCpu(int cpu_fd_listen, int *cpu_num);
+void aceptarCpu(int cpu_fd_listen);
 void inicializarMemoria();
 void inicializarPrograma();
 void finalizarPrograma();

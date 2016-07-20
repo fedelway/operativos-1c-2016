@@ -16,6 +16,9 @@
 
 int main(int argc,char *argv[]) {
 
+	//Inicio listas
+	programas = list_create();
+
 	char *swap_ip;
 	char *swap_puerto;
 	int max_fd = 0;
@@ -100,13 +103,8 @@ void recibirConexiones(int cpu_fd, int max_fd){
 			if(FD_ISSET(i, &readyListen)){
 
 				if( i == cpu_fd){
-					pthread_t thread;
-					pthread_attr_t atributos;
 
-					pthread_attr_init(&atributos);
-					pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
-
-					pthread_create(&thread, &atributos, (void *)trabajarCpu, (void*)cpu_fd);
+					aceptarCpu(i);
 
 				}
 			}
@@ -320,16 +318,16 @@ void finalizarPrograma()
 
 	t_prog *programa = buscarPrograma(pid);
 
-	pthread_mutex_lock(&mutex_listaProgramas);
+	//pthread_mutex_lock(&mutex_listaProgramas);
 	//Funcion auxiliar para remover de la lista
-	bool encontrarPrograma(t_prog *elemento){
-		if(elemento->pid == pid)
+	bool encontrarPrograma(void *elemento){
+		if( ((t_prog*)elemento)->pid == pid )
 			return true;
 		else return false;
 	}
 
 	programa = list_remove_by_condition(programas, (void*)encontrarPrograma);
-	pthread_mutex_unlock(&mutex_listaProgramas);
+	//pthread_mutex_unlock(&mutex_listaProgramas);
 
 	//Marco todos los frames como libres
 	int i;
@@ -353,6 +351,7 @@ void finalizarPrograma()
 }
 
 void inicializarPrograma(){
+
 	int pid;
 	int source_size;
 	int cant_recibida = 0;
@@ -364,6 +363,9 @@ void inicializarPrograma(){
 	recv(nucleo_fd, &pid, sizeof(int), 0);
 	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
 	recv(nucleo_fd, &source_size, sizeof(int), 0);
+
+	printf("pid %d.\n", pid);
+	printf("cant paginas buggeadas:\npagCod: %d, pagStack: %d.\n", cant_paginas_cod, stack_size);
 
 	//Recibo el archivo
 	buffer = malloc(source_size);
@@ -403,18 +405,26 @@ void inicializarPrograma(){
 		paginas_ocupadas[aux] = -1;
 	}
 
+	t_prog programa2 = { .pid=pid,.paginas=paginas,.cant_total_pag = stack_size + cant_paginas_cod,.timer=0,.pag_en_memoria=paginas_ocupadas,.puntero=0};
+
 	t_prog *programa;
 
 	programa = malloc(sizeof(t_prog));
-	programa->pid= pid;
+
+	memcpy(programa,&programa2,sizeof(t_prog));
+
+	/*programa->pid= pid;
 	programa->paginas = paginas;
 	programa->cant_total_pag = stack_size + cant_paginas_cod;
 	programa->timer = 0;
 	programa->pag_en_memoria = paginas_ocupadas;
+	programa->puntero = 0;*/
 
-	pthread_mutex_lock(&mutex_listaProgramas);
+	printf("cosas programa:\npid %d cantpaginas %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->timer);
+
+	//pthread_mutex_lock(&mutex_listaProgramas);
 	list_add(programas, programa);
-	pthread_mutex_unlock(&mutex_listaProgramas);
+	//pthread_mutex_unlock(&mutex_listaProgramas);
 
 	//Le mando a swap el archivo para que lo guarde
 	if( enviarCodigoASwap(source,source_size, pid) == -1 ){
@@ -814,7 +824,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 
 	while(cant_escrita < size){
 		//Aplico el mutex para que no haya quilombo con los threads
-		pthread_mutex_lock(&mutex_memoria);
+		//pthread_mutex_lock(&mutex_memoria);
 
 		//Aplico el algoritmo clock
 		algoritmoClock(programa);
@@ -854,7 +864,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		pag++;
 		offset = 0;
 
-		pthread_mutex_unlock(&mutex_memoria);
+		//pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	//Copiado satisfactoriamente
@@ -881,7 +891,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 
 	while(cant_leida < size){
 		//Mutex
-		pthread_mutex_lock(&mutex_memoria);
+		//pthread_mutex_lock(&mutex_memoria);
 
 		algoritmoClock(programa);
 
@@ -918,36 +928,35 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		pag++;
 		offset = 0;
 
-		pthread_mutex_unlock(&mutex_memoria);
+		//pthread_mutex_unlock(&mutex_memoria);
 	}
 
 	return 0;
 }
 
-void trabajarCpu(int cpu_listen_fd){
+void trabajarCpu(int cpu_fd){
 
-	int cpu_fd;
+	printf("trabajarCpu.\n");
 	int cpu_num;
-	cpu_fd = aceptarCpu(cpu_listen_fd, &cpu_num);
 
-	if(cpu_fd == -1){
-		return;
-	}
+	//Recibo el numero de cpu
+	recv(cpu_fd,&cpu_num,sizeof(int),0);
+	printf("Cpu n°: %d.\n",cpu_num);
 
 	//Ciclo infinito para recibir mensajes
 	int msj_recibido;
 
 	for(;;){
-		int ret_recv = recv(cpu_fd, &msj_recibido,sizeof(int),0);
 
-		if(ret_recv <= 0){
-			printf("Desconexion de la cpu");
+		if(recv(cpu_fd, &msj_recibido,sizeof(int),0) <= 0)
+		{
+			printf("Desconexion de la cpu.\n");
 			close(cpu_fd);
 			return;
 		}
 
-		switch(msj_recibido){
-
+		switch(msj_recibido)
+		{
 			case LEER:
 				leerParaCpu(cpu_fd);
 				break;
@@ -967,6 +976,8 @@ void trabajarCpu(int cpu_listen_fd){
 
 void leerParaCpu(int cpu_fd){
 
+	printf("leer cpu.\n");
+
 	int pag, offset, size, pid;
 
 	//recibo todos los datos
@@ -975,8 +986,21 @@ void leerParaCpu(int cpu_fd){
 	recv(cpu_fd, &size, sizeof(int),0);
 	recv(cpu_fd, &pid, sizeof(int),0);
 
+	printf("Ya obtuve los resultados necesarios.\n");
+	printf("pag:%d offset:%d size:%d pid:%d.\n",pag,offset,size,pid);
+
+	printf("Tamaño lista: %d.\n",list_size(programas));
+	t_prog *pd = list_get(programas,0);
+
+	printf("pid %d cantpaginas %d puntero %d timer %d.\n",pd->pid,pd->cant_total_pag,pd->puntero,pd->timer);
+
 	//busco el programa segun el pid
 	t_prog *programa = buscarPrograma(pid);
+
+	if(programa == NULL)
+		printf("No hay programa.\n");
+
+	printf("pid %d cantpaginas %d puntero %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->puntero,programa->timer);
 
 	char *resultado;
 	leerEnMemoria(resultado, pag, offset, size, programa);
@@ -1008,6 +1032,8 @@ void escribirParaCpu(int cpu_fd){
 
 	t_prog *programa = buscarPrograma(pid);
 
+	printf("pid %d cantpaginas %d puntero %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->puntero,programa->timer);
+
 	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
 		printf("Error en la escritura en memoria.\n");
 	}
@@ -1016,12 +1042,12 @@ void escribirParaCpu(int cpu_fd){
 	return;
 }
 
-int aceptarCpu(int cpu_listen_fd, int *cpu_num){
-
+void aceptarCpu(int cpu_listen_fd)
+{
 	int buffer[2];
 	int cpu_fd;
 	int msj_recibido;
-	struct sockaddr_in addr; // Para recibir nuevas conexiones
+	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 
 	cpu_fd = accept(cpu_listen_fd, (struct sockaddr *) &addr, &addrlen);
@@ -1034,14 +1060,22 @@ int aceptarCpu(int cpu_listen_fd, int *cpu_num){
 	//Hago el handshake
 	send(cpu_fd, &buffer, 2*sizeof(int),0); //Envio codMensaje y tamaño de pagina
 	recv(cpu_fd,&msj_recibido,sizeof(int),0);
-	recv(cpu_fd, cpu_num,sizeof(int),0);
 
 	if(msj_recibido == SOY_CPU){
-		printf("Se ha verificado la autenticidad de la cpu n° %d.\n",*cpu_num);
-		return cpu_fd;
+		printf("Se ha verificado la autenticidad de una cpu.\n");
+
+		//Lanzo el thread
+		pthread_t thread;
+		pthread_attr_t atributos;
+
+		pthread_attr_init(&atributos);
+		pthread_attr_setdetachstate(&atributos, PTHREAD_CREATE_DETACHED);
+
+		pthread_create(&thread, &atributos, (void *)trabajarCpu, (void*)cpu_fd);
+
 	}else{
 		printf("No se ha podido verificar la autenticidad de la cpu.\n");
-		return -1;
+		return;
 	}
 }
 
@@ -1155,7 +1189,7 @@ void flushTlb(){
 
 	int i;
 
-	pthread_mutex_lock(&mutex_tlb);
+	//pthread_mutex_lock(&mutex_tlb);
 	for(i=0;i<cache_tlb.cant_entradas;i++){
 
 		//Actualizo bits de modificado en tabla de paginas
@@ -1171,14 +1205,14 @@ void flushTlb(){
 		//Limpio la entrada
 		cache_tlb.entradas[i].pid = -1;
 	}
-	pthread_mutex_unlock(&mutex_tlb);
+	//pthread_mutex_unlock(&mutex_tlb);
 
 }
 
 void flushPid(int pid){
 
 	int i;
-	pthread_mutex_lock(&mutex_tlb);
+	//pthread_mutex_lock(&mutex_tlb);
 	for(i=0;i<cache_tlb.cant_entradas;i++){
 
 		//Solo reseteo aquellos que coincidan con el pid dato
@@ -1198,31 +1232,33 @@ void flushPid(int pid){
 			cache_tlb.entradas[i].pid = -1;
 		}
 	}
-	pthread_mutex_unlock(&mutex_tlb);
+	//pthread_mutex_unlock(&mutex_tlb);
 
 }
 
 void algoritmoClock(t_prog *programa){
 
+	printf("Ejecuto algotimo clock.\n");
 	programa->timer++;
 
-	if(programa->timer < timer_reset_mem){
+	if(programa->timer < config_get_int_value(config,"TIMER_RESET")){
 		int i;
 		for(i=0;i<cant_frames;i++){
 			programa->paginas[i].referenciado = false;
 		}
 	}
+	printf("Salgo de algoritmo clock.\n");
 }
 
 t_prog *buscarPrograma(int pid){
 
-	bool igualPid(t_prog *elemento){
-		return elemento->pid == pid;
+	bool igualPid(void *elemento){
+		return ((t_prog*)elemento)->pid == pid;
 	}
 
-	pthread_mutex_lock(&mutex_listaProgramas);
-	t_prog *programa_a_buscar = list_find(programas,(void*)igualPid);
-	pthread_mutex_unlock(&mutex_listaProgramas);
+	//pthread_mutex_lock(&mutex_listaProgramas);
+	t_prog *programa_a_buscar = list_find(programas,igualPid);
+	//pthread_mutex_unlock(&mutex_listaProgramas);
 
 	return programa_a_buscar;
 }
@@ -1285,7 +1321,7 @@ void terminal(){
 		{
 			printf("Iniciando flush.\n");
 
-			pthread_mutex_lock(&mutex_listaProgramas);
+			//pthread_mutex_lock(&mutex_listaProgramas);
 
 			for(i=0;i<list_size(programas);i++){
 
@@ -1296,7 +1332,7 @@ void terminal(){
 				}
 			}
 
-			pthread_mutex_unlock(&mutex_listaProgramas);
+			//pthread_mutex_unlock(&mutex_listaProgramas);
 
 			printf("flush exitoso.\n");
 		}
@@ -1327,8 +1363,8 @@ void terminal(){
 
 			if(cant_parametros == 1){
 				//No se introdujo parametro. Se imprimen todas las tablas.
-				pthread_mutex_lock(&mutex_listaProgramas);
-				pthread_mutex_lock(&mutex_memoria);
+				//pthread_mutex_lock(&mutex_listaProgramas);
+				//pthread_mutex_lock(&mutex_memoria);
 				for(i=0;i<list_size(programas);i++)
 				{//Itero sobre todos los programas
 					programa = list_get(programas, i);
@@ -1369,8 +1405,8 @@ void terminal(){
 
 					}
 				}
-				pthread_mutex_unlock(&mutex_listaProgramas);
-				pthread_mutex_unlock(&mutex_memoria);
+				//pthread_mutex_unlock(&mutex_listaProgramas);
+				//pthread_mutex_unlock(&mutex_memoria);
 			}
 			else
 			{//Hay algo en parametro
@@ -1390,7 +1426,7 @@ void terminal(){
 					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
 					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					pthread_mutex_lock(&mutex_memoria);
+					//pthread_mutex_lock(&mutex_memoria);
 
 					programa = buscarPrograma(pid);
 
@@ -1413,7 +1449,7 @@ void terminal(){
 
 						printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
 						fprintf(dump_log, "\n");
-						pthread_mutex_unlock(&mutex_memoria);
+						//pthread_mutex_unlock(&mutex_memoria);
 					}
 				}else{
 					printf("Pid invalido.\n");

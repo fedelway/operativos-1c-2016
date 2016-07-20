@@ -123,15 +123,18 @@ int main(int argc,char *argv[]) {
 
 void ejecutar()
 {
-	int *quantum;
+	int quantum;
 	char *instruccion;
 
 	//pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
-	pcb_actual = recibirPcb(socket_nucleo, false, quantum);
+	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
+
+	printf("quantum: %d.\n", quantum);
 
 	int i;
-	for(i=0;i<*quantum;i++)
+	for(i=0;i<quantum;i++)
 	{
+		printf("for.\n");
 		if(estado != TODO_OK)
 			break;
 
@@ -139,7 +142,9 @@ void ejecutar()
 
 		instruccion = solicitarInstruccion(instruction);
 
+		printf("voy a entrar a analizador linea.\n");
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
+		printf("Ya pase por analizador linea.\n");
 
 		free(instruccion);
 	}
@@ -168,16 +173,20 @@ void ejecutar()
 
 char *solicitarInstruccion(t_intructions instruccion)
 {
-	int mensaje[4];
+	int mensaje[5];
 	mensaje[0] = LEER;
 	mensaje[1] = instruccion.start / tamanio_pagina;//Pagina en la que esta el codigo
 	mensaje[2] = instruccion.start % tamanio_pagina;//Offset de la pagina
-	mensaje[4] = instruccion.offset;				//Size de la instruccion
+	mensaje[3] = instruccion.offset;				//Size de la instruccion
+	mensaje[4] = pcb_actual.pid;					//pid
 
-	send(socket_umc, &mensaje, 4*sizeof(int), 0);
+	printf("msj %d, pag %d, offset %d, size %d, pid %d.\n", mensaje[0],mensaje[1],mensaje[2],mensaje[3],mensaje[4]);
+
+	send(socket_umc, &mensaje, 5*sizeof(int), 0);
 
 	char *resultado = malloc(instruccion.offset);
 
+	printf("Espero el resultado...\n");
 	if( recvAll(socket_umc,resultado,instruccion.offset,MSG_WAITALL) <= 0)
 	{
 		perror("Error al recibir instruccion");

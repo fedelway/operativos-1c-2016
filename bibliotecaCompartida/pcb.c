@@ -186,10 +186,11 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 		//Cpu recibe ademas el quantum
 		recv(fd, quantum, sizeof(int), 0);
 		recv(fd, &tamanio, sizeof(int), 0);
+
+		printf("quantum: %d Tamaño: %d.\n", *quantum, tamanio);
 	}
 	//A partir de aca es igual tanto para cpu como para nucleo
 
-	printf("quantum: %d Tamaño: %d", *quantum, tamanio);
 
 	char *buffer = malloc(tamanio);
 
@@ -204,6 +205,8 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 
 	//Libero memoria
 	free(stream.data_pcb);
+
+	printf("Recibi el pcb correctamente.\n");
 
 	return pcb;
 }
