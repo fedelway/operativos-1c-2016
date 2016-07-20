@@ -180,6 +180,8 @@ char *solicitarInstruccion(t_intructions instruccion)
 	mensaje[3] = instruccion.offset;				//Size de la instruccion
 	mensaje[4] = pcb_actual.pid;					//pid
 
+	printf("Tamaño pagina: %d.\n",tamanio_pagina);
+	printf("Start instruccion: %d, offset: %d",instruccion.start,instruccion.offset);
 	printf("msj %d, pag %d, offset %d, size %d, pid %d.\n", mensaje[0],mensaje[1],mensaje[2],mensaje[3],mensaje[4]);
 
 	send(socket_umc, &mensaje, 5*sizeof(int), 0);

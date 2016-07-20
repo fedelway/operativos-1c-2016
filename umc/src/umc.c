@@ -923,6 +923,9 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 			pos_a_leer = frames[programa->paginas[pag].frame].posicion;
 			pos_a_leer += offset;
 
+			printf("offset: %d", offset);
+			printf("posicion frame: %d, pos_a_leer: %d.\n", frames[programa->paginas[pag].frame].posicion,pos_a_leer);
+
 			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
 
 			printf("Tlb actualizada:\npid:%d, pag: %d, traduccion: %d",programa->pid,pag,pos_a_leer);
@@ -931,7 +934,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		//Para no pasarme de largo y leer otros frames
 		cant_a_leer = min(size - cant_leida, frame_size - offset);
 
-		memcpy(resultado, memoria + pos_a_leer, cant_a_leer);
+		memcpy(resultado + cant_leida, memoria + pos_a_leer, cant_a_leer);
 
 		cant_leida += cant_a_leer;
 
@@ -1400,6 +1403,8 @@ void terminal(){
 							printf("Pagina libre.\n");
 							fprintf(dump_log, "Pagina libre.\n");
 						}else{
+							fputc('\n',stdout);
+							fputc('\n',dump_log);
 							int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
 							for(k=0;k<frame_size;k++)
 							{//Escribo el contenido de cada caracter en pantalla
