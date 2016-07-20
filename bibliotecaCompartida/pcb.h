@@ -27,11 +27,20 @@ typedef struct{
 }t_indice_etiquetas;
 
 typedef struct{
-	int argumentos;
-	int variables;
+	char identificador;
+	int pag;
+	int offset;
+}t_var;
+
+typedef struct{
+	int cant_arg;
+	int cant_var;
 	int dirRetorno;
-	int posVariable;
-}__attribute__ ((__packed__)) t_entrada_stack;
+	int pagRet;
+	int offsetRet;
+	t_var *argumentos;
+	t_var *variables;
+}t_entrada_stack;
 
 typedef struct t_indice_stack{
 	int cant_entradas;

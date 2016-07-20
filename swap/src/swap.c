@@ -558,7 +558,7 @@ void leerUnaPagina(int pid, int pagina){
 
 	char *pos_a_leer = archivoMapeado + posSwap + pagina * TAMANIO_PAGINA;
 
-	printf("El contenido de la página es: ");
+	printf("El contenido de la página es: \n");
 	fwrite(pos_a_leer,sizeof(char),TAMANIO_PAGINA,stdout);
 	printf("\n");
 

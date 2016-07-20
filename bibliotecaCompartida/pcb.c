@@ -14,13 +14,26 @@
 
 int tamanioPcb(t_pcb pcb)
 {
-	return 5*sizeof(int) +
+	const int tamanioVar = sizeof(char) + 2*sizeof(int);
+
+	int tamanio =  5*sizeof(int) +
 			//Tamanio indice codigo
 			sizeof(t_size) + sizeof(t_puntero_instruccion) + pcb.indice_cod.instrucciones_size * sizeof(t_intructions) +
 			//Tamaño de indice etiquetas
-			sizeof(t_size) + pcb.indice_etiquetas.etiquetas_size * sizeof(char) +
-			//Tamaño de indice stack
-			sizeof(int) + pcb.stack.cant_entradas * sizeof(t_entrada_stack);
+			sizeof(t_size) + pcb.indice_etiquetas.etiquetas_size * sizeof(char);
+
+	//Tamaño de indice stack
+	tamanio += sizeof(pcb.stack.cant_entradas);
+
+	int i;//Tamaño de cada entrada
+	for(i=0; i<pcb.stack.cant_entradas; i++)
+	{
+		tamanio += 5*sizeof(int);								//tamaño de los ints
+		tamanio += pcb.stack.entradas[i].cant_arg * tamanioVar; //tamaño de los argumentos
+		tamanio += pcb.stack.entradas[i].cant_var * tamanioVar; //tamaño de los argumentos
+	}
+
+	return tamanio;
 }
 
 t_pcb_stream serializarPcb(t_pcb pcb)
@@ -67,8 +80,44 @@ t_pcb_stream serializarPcb(t_pcb pcb)
 	size = sizeof(int);
 	serializar(&pcb.stack.cant_entradas)
 
-	size = sizeof(t_entrada_stack) * pcb.stack.cant_entradas;
-	serializar(pcb.stack.entradas)
+	int i;//Serializo cada entrada del stack
+	for(i=0; i<pcb.stack.cant_entradas; i++)
+	{
+		size = sizeof(int);
+		serializar(&pcb.stack.entradas[i].cant_arg)
+
+		serializar(&pcb.stack.entradas[i].cant_var)
+
+		serializar(&pcb.stack.entradas[i].dirRetorno)
+
+		serializar(&pcb.stack.entradas[i].pagRet)
+
+		serializar(&pcb.stack.entradas[i].offsetRet)
+
+		int j;//Serializo argumentos
+		for(j=0; j<pcb.stack.entradas[i].cant_arg; j++)
+		{
+			size = sizeof(char);
+			serializar(&pcb.stack.entradas[i].argumentos[j].identificador)
+
+			size = sizeof(int);
+			serializar(&pcb.stack.entradas[i].argumentos[j].pag)
+
+			serializar(&pcb.stack.entradas[i].argumentos[j].offset)
+		}
+
+		//Serializo variables
+		for(j=0; j<pcb.stack.entradas[i].cant_var; j++)
+		{
+			size = sizeof(char);
+			serializar(&pcb.stack.entradas[i].variables[j].identificador)
+
+			size = sizeof(int);
+			serializar(&pcb.stack.entradas[i].variables[j].pag)
+
+			serializar(&pcb.stack.entradas[i].variables[j].offset)
+		}
+	}//Termino de serializar stack
 
 	stream.data_pcb = data;
 
@@ -95,7 +144,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 
 	deserializar(&pcb.idCPU)
 
-	//Serializo indice de codigo
+	//Deserializo indice de codigo
 	size = sizeof(t_size);
 	deserializar(&pcb.indice_cod.instrucciones_size)
 
@@ -106,7 +155,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	pcb.indice_cod.instrucciones = malloc(size);
 	deserializar(pcb.indice_cod.instrucciones)
 
-	//Serializo indice etiquetas
+	//Deserializo indice etiquetas
 	size = sizeof(t_size);
 	deserializar(&pcb.indice_etiquetas.etiquetas_size)
 
@@ -114,9 +163,48 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	pcb.indice_etiquetas.etiquetas = malloc(size);
 	deserializar(pcb.indice_etiquetas.etiquetas)
 
-	//Serializo stack
+	//Deserializo stack
 	size = sizeof(int);
 	deserializar(&pcb.stack.cant_entradas)
+
+	int i;//Deserializo cada entrada del stack
+	for(i=0; i<pcb.stack.cant_entradas; i++)
+	{
+		size = sizeof(int);
+		deserializar(&pcb.stack.entradas[i].cant_arg)
+
+		deserializar(&pcb.stack.entradas[i].cant_var)
+
+		deserializar(&pcb.stack.entradas[i].dirRetorno)
+
+		deserializar(&pcb.stack.entradas[i].pagRet)
+
+		deserializar(&pcb.stack.entradas[i].offsetRet)
+
+		int j;//Deserializo argumentos
+		for(j=0; j<pcb.stack.entradas[i].cant_arg; j++)
+		{
+			size = sizeof(char);
+			deserializar(&pcb.stack.entradas[i].argumentos[j].identificador)
+
+			size = sizeof(int);
+			deserializar(&pcb.stack.entradas[i].argumentos[j].pag)
+
+			deserializar(&pcb.stack.entradas[i].argumentos[j].offset)
+		}
+
+		//Deserializo variables
+		for(j=0; j<pcb.stack.entradas[i].cant_var; j++)
+		{
+			size = sizeof(char);
+			deserializar(&pcb.stack.entradas[i].variables[j].identificador)
+
+			size = sizeof(int);
+			deserializar(&pcb.stack.entradas[i].variables[j].pag)
+
+			deserializar(&pcb.stack.entradas[i].variables[j].offset)
+		}
+	}//Termino de Deserializar stack
 
 	size = sizeof(t_entrada_stack) * pcb.stack.cant_entradas;
 	pcb.stack.entradas = malloc(size);

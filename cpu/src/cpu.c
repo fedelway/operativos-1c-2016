@@ -192,6 +192,10 @@ char *solicitarInstruccion(t_intructions instruccion)
 		perror("Error al recibir instruccion");
 	}
 
+	printf("Pude recibir la instruccion:\n");
+	fwrite(resultado,sizeof(char),instruccion.offset,stdout);
+	printf("\n\n");
+
 	return resultado;
 }
 /****************************************************************************************/
@@ -547,12 +551,12 @@ t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 	//Identificador_variable - Pagina - Offset - Size (siempre 4 bytes.)
 	//El valor de la variable queda indefinido -> No inicializarlo
 
-	int pagina = 0; //TODO cambiar offset y pagina
-	int offset = 8;
-
-	int posicion_memoria = pagina*offset;
-
-	return posicion_memoria;
+//	int pagina = 0; //TODO cambiar offset y pagina
+//	int offset = 8;
+//
+//	int posicion_memoria = pagina*offset;
+//
+//	return posicion_memoria;
 }
 
 /*
@@ -570,12 +574,12 @@ t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_varia
 	//debería devolver => 	nroPagina*tamanioPagina+offset. (el nroPagina y el offset lo obtengo del
 	//						vars del indice stack)
 
-	int pagina = 0; //TODO cambiar offset y pagina
-	int offset = 8;
-
-	int posicion_memoria = pagina*offset;
-
-	return posicion_memoria;
+//	int pagina = 0; //TODO cambiar offset y pagina
+//	int offset = 8;
+//
+//	int posicion_memoria = pagina*offset;
+//
+//	return posicion_memoria;
 }
 
 /*
@@ -592,71 +596,71 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 	//A partir de la puntero, obtengo el número de página y el offset de la variable que quiero leer.
 	//Pido a la umc, que lea el 4 bytes a partir del número de página y offset.
 
-	t_solicitud_lectura *solicitud_lectura = (t_solicitud_lectura *)malloc(sizeof(t_solicitud_lectura));
-
-	//Calculo la página y el offset a partir de puntero
-	solicitud_lectura->nroPagina = direccion_variable / tamanio_pagina;
-	solicitud_lectura->offset = direccion_variable - solicitud_lectura->nroPagina * tamanio_pagina;
-	solicitud_lectura->size = sizeof(int);
-	solicitud_lectura->pid = 123; //TODO Obtener PID del PCB
-
-	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_lectura->nroPagina,
-			solicitud_lectura->offset, direccion_variable);
-
-	//Armo el paquete solicitar una lectura a la UMC
-	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_lectura);
-	char *mensaje = malloc(mensaje_tamanio);
-	memset(mensaje,'\0',mensaje_tamanio);
-	int header = LEER;
-	memcpy(mensaje, &header, sizeof(int));
-	memcpy(mensaje + sizeof(int), &solicitud_lectura->nroPagina, sizeof(int));
-	memcpy(mensaje + 2*sizeof(int), &solicitud_lectura->offset, sizeof(int));
-	memcpy(mensaje + 3*sizeof(int), &solicitud_lectura->size, sizeof(int));
-	memcpy(mensaje + 4*sizeof(int), &solicitud_lectura->pid, sizeof(int));
-
-	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
-
-	if(resultado < 0){
-		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
-			solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
-			exit(EXIT_FAILURE);
-	}
-
-	free(solicitud_lectura);
-	free(mensaje);
-
-	log_info(logger, "Envio mensaje a UMC para lectura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
-			 solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
-
-	int header_recibido;
-	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
-
-	if(resultado_recv < 0){
-		printf("resultado_recv menor que 0: %d\n", resultado_recv);
-		log_error_y_cerrar_logger(logger, "Falló en respuesta del pedido de "
-										  "lectura de la posicion %d",direccion_variable);
-		exit(EXIT_FAILURE);
-	}
-
-	if(header_recibido == LEER){
-		resultado_recv = recv(socket_nucleo, &valor_variable, sizeof(t_valor_variable), 0);
-
-		if(resultado_recv < 0){
-			printf("resultado_recv menor que 0: %d\n", resultado_recv);
-			log_error_y_cerrar_logger(logger, "Falló en obtener el valor de la variable del pedido de "
-											  "lectura de la posicion %d",direccion_variable);
-			exit(EXIT_FAILURE);
-		}
-
-		printf("Resultado pedido de lectura. Direccion: %d. | Header: %d. | valor_variable: %d\n",
-				direccion_variable, header_recibido, valor_variable);
-	}else{
-		printf("header_recibido es DISTINTO a LEER. header_recibido: %d | LEER: %d\n", header_recibido, LEER);
-	}
-
-	printf("Dereferenciar %d y su valor es: %d\n", direccion_variable, valor_variable);
-
-	return valor_variable;
+//	t_solicitud_lectura *solicitud_lectura = (t_solicitud_lectura *)malloc(sizeof(t_solicitud_lectura));
+//
+//	//Calculo la página y el offset a partir de puntero
+//	solicitud_lectura->nroPagina = direccion_variable / tamanio_pagina;
+//	solicitud_lectura->offset = direccion_variable - solicitud_lectura->nroPagina * tamanio_pagina;
+//	solicitud_lectura->size = sizeof(int);
+//	solicitud_lectura->pid = 123; //TODO Obtener PID del PCB
+//
+//	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_lectura->nroPagina,
+//			solicitud_lectura->offset, direccion_variable);
+//
+//	//Armo el paquete solicitar una lectura a la UMC
+//	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_lectura);
+//	char *mensaje = malloc(mensaje_tamanio);
+//	memset(mensaje,'\0',mensaje_tamanio);
+//	int header = LEER;
+//	memcpy(mensaje, &header, sizeof(int));
+//	memcpy(mensaje + sizeof(int), &solicitud_lectura->nroPagina, sizeof(int));
+//	memcpy(mensaje + 2*sizeof(int), &solicitud_lectura->offset, sizeof(int));
+//	memcpy(mensaje + 3*sizeof(int), &solicitud_lectura->size, sizeof(int));
+//	memcpy(mensaje + 4*sizeof(int), &solicitud_lectura->pid, sizeof(int));
+//
+//	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+//
+//	if(resultado < 0){
+//		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+//			solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+//			exit(EXIT_FAILURE);
+//	}
+//
+//	free(solicitud_lectura);
+//	free(mensaje);
+//
+//	log_info(logger, "Envio mensaje a UMC para lectura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
+//			 solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
+//
+//	int header_recibido;
+//	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
+//
+//	if(resultado_recv < 0){
+//		printf("resultado_recv menor que 0: %d\n", resultado_recv);
+//		log_error_y_cerrar_logger(logger, "Falló en respuesta del pedido de "
+//										  "lectura de la posicion %d",direccion_variable);
+//		exit(EXIT_FAILURE);
+//	}
+//
+//	if(header_recibido == LEER){
+//		resultado_recv = recv(socket_nucleo, &valor_variable, sizeof(t_valor_variable), 0);
+//
+//		if(resultado_recv < 0){
+//			printf("resultado_recv menor que 0: %d\n", resultado_recv);
+//			log_error_y_cerrar_logger(logger, "Falló en obtener el valor de la variable del pedido de "
+//											  "lectura de la posicion %d",direccion_variable);
+//			exit(EXIT_FAILURE);
+//		}
+//
+//		printf("Resultado pedido de lectura. Direccion: %d. | Header: %d. | valor_variable: %d\n",
+//				direccion_variable, header_recibido, valor_variable);
+//	}else{
+//		printf("header_recibido es DISTINTO a LEER. header_recibido: %d | LEER: %d\n", header_recibido, LEER);
+//	}
+//
+//	printf("Dereferenciar %d y su valor es: %d\n", direccion_variable, valor_variable);
+//
+//	return valor_variable;
 }
 
 /*
@@ -670,44 +674,44 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 
 	//A partir de la direccion_variable, obtengo el número de página y el offset,
 	//para hacer la solicitud de escritura a la UMC.
-	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
-
-	//Calculo la página y el offset a partir de dirección_variable
-	solicitud_escritura->nroPagina = direccion_variable / tamanio_pagina;
-	solicitud_escritura->offset = direccion_variable - solicitud_escritura->nroPagina * tamanio_pagina;
-	solicitud_escritura->size = sizeof(int);
-	solicitud_escritura->pid = 123; //TODO Obtener PID del PCB
-	solicitud_escritura->valor = valor;
-
-	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
-			solicitud_escritura->offset, direccion_variable);
-
-	//Armo el paquete para escribir una página y envio el mensaje a la UMC
-	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
-	char *mensaje = malloc(mensaje_tamanio);
-	memset(mensaje,'\0',mensaje_tamanio);
-	int header = ESCRIBIR;
-	memcpy(mensaje, &header, sizeof(int));
-	memcpy(mensaje + sizeof(int), &solicitud_escritura->nroPagina, sizeof(int));
-	memcpy(mensaje + 2*sizeof(int), &solicitud_escritura->offset, sizeof(int));
-	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
-	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
-	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
-
-	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
-
-	if(resultado > 0){
-		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
-
-	}else{
-		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-		 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
-		exit(EXIT_FAILURE);
-	}
-
-	free(solicitud_escritura);
-	free(mensaje);
+//	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
+//
+//	//Calculo la página y el offset a partir de dirección_variable
+//	solicitud_escritura->nroPagina = direccion_variable / tamanio_pagina;
+//	solicitud_escritura->offset = direccion_variable - solicitud_escritura->nroPagina * tamanio_pagina;
+//	solicitud_escritura->size = sizeof(int);
+//	solicitud_escritura->pid = 123; //TODO Obtener PID del PCB
+//	solicitud_escritura->valor = valor;
+//
+//	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
+//			solicitud_escritura->offset, direccion_variable);
+//
+//	//Armo el paquete para escribir una página y envio el mensaje a la UMC
+//	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
+//	char *mensaje = malloc(mensaje_tamanio);
+//	memset(mensaje,'\0',mensaje_tamanio);
+//	int header = ESCRIBIR;
+//	memcpy(mensaje, &header, sizeof(int));
+//	memcpy(mensaje + sizeof(int), &solicitud_escritura->nroPagina, sizeof(int));
+//	memcpy(mensaje + 2*sizeof(int), &solicitud_escritura->offset, sizeof(int));
+//	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
+//	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
+//	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
+//
+//	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
+//
+//	if(resultado > 0){
+//		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+//				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+//
+//	}else{
+//		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
+//		 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
+//		exit(EXIT_FAILURE);
+//	}
+//
+//	free(solicitud_escritura);
+//	free(mensaje);
 }
 
 

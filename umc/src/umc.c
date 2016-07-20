@@ -208,17 +208,14 @@ void inicializarMemoria(){
 		exit(1);
 	}
 
-	memset(memoria,0b11111111,cant_frames*frame_size);
-
-	//inicializo listas
-	programas = list_create();
+	memset(memoria,'\0',cant_frames*frame_size);
 
 	//Creo el array de frames
 	frames = malloc(cant_frames * sizeof(t_frame));
 	int i;
 	for(i = 0; i < cant_frames; i++){
 		frames[i].libre = true;
-		frames[i].posicion = i;
+		frames[i].posicion = i * frame_size;
 	}
 
 	printf("Memoria inicializada.\n");
@@ -395,6 +392,7 @@ void inicializarPrograma(){
 		paginas[aux].nro_pag = aux;
 		paginas[aux].presencia = false;
 		paginas[aux].modificado = false;
+		paginas[aux].frame = -1; //No tiene cargado ningun frame.
 	}
 
 	//Creo la lista de paginas ocupadas
@@ -455,7 +453,7 @@ void inicializarPrograma(){
 	send(nucleo_fd, msj, 2*sizeof(int), 0);
 
 	//Libero la memoria
-	free(programa);
+	//free(programa);
 	free(buffer);
 	return;
 }
@@ -583,9 +581,11 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 //		return programa->paginas[programa->pag_en_memoria[programa->puntero]];
 //	}
 
+	printf("Traer pagina de swap.\n");
+
 	void avanzarPuntero()
 	{
-		programa->puntero = (programa->puntero++) % fpp;
+		programa->puntero = (programa->puntero + 1) % fpp;
 	}
 
 	int cant_paginas_ocupadas = 0;
@@ -598,15 +598,18 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			cant_paginas_ocupadas++;
 		}
 	}
+	printf("Conte la cant de pag en memoria.\n");
 
 	/* Si la cantidad de paginas en memoria es menor a fpp, significa que aun no se cargaron
 	 * todas las paginas que se pueden. Entonces la cargo directamente.*/
 	if(cant_paginas_ocupadas < fpp){
+		printf("Cargo directamente.\n");
+
 		programa->pag_en_memoria[cant_paginas_ocupadas] = pag;
 
-		pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
+		//pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
 
-		recibirPagina(pag, pos_a_escribir);
+		programa->paginas[pag].frame = recibirPagina(pag, programa->pid);
 
 		return;
 	}
@@ -626,6 +629,9 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					frames[pag_apuntada.frame].libre = true;
 
 					//recibo la pagina
+					if(pag_apuntada.frame == -1)
+						pag_apuntada.frame = frameLibre();
+
 					pos_a_escribir = frames[pag_apuntada.frame].posicion;
 					pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
@@ -776,6 +782,9 @@ int recibirPagina(int pag, int pid){
 
 	int pos_a_escribir = frames[frame_a_escribir].posicion;
 
+	//El frame ya no esta libre
+	frames[frame_a_escribir].libre = false;
+
 	memcpy(memoria + pos_a_escribir, buffer, frame_size);
 
 	//Ya tengo la pagina en memoria
@@ -873,6 +882,8 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa){
 
+	printf("Leer en memoria.\n");
+
 	int cant_leida = 0;
 	int pos_a_leer;
 	int cant_a_leer;
@@ -886,8 +897,6 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		printf("La cantidad de marcos por programa no alcanza para leer esta cantidad de info.\n");
 		return -1;
 	}
-
-	resultado = malloc(size);
 
 	while(cant_leida < size){
 		//Mutex
@@ -915,6 +924,8 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 			pos_a_leer += offset;
 
 			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
+
+			printf("Tlb actualizada:\npid:%d, pag: %d, traduccion: %d",programa->pid,pag,pos_a_leer);
 		}
 
 		//Para no pasarme de largo y leer otros frames
@@ -986,14 +997,6 @@ void leerParaCpu(int cpu_fd){
 	recv(cpu_fd, &size, sizeof(int),0);
 	recv(cpu_fd, &pid, sizeof(int),0);
 
-	printf("Ya obtuve los resultados necesarios.\n");
-	printf("pag:%d offset:%d size:%d pid:%d.\n",pag,offset,size,pid);
-
-	printf("Tamaño lista: %d.\n",list_size(programas));
-	t_prog *pd = list_get(programas,0);
-
-	printf("pid %d cantpaginas %d puntero %d timer %d.\n",pd->pid,pd->cant_total_pag,pd->puntero,pd->timer);
-
 	//busco el programa segun el pid
 	t_prog *programa = buscarPrograma(pid);
 
@@ -1002,13 +1005,17 @@ void leerParaCpu(int cpu_fd){
 
 	printf("pid %d cantpaginas %d puntero %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->puntero,programa->timer);
 
-	char *resultado;
+	char *resultado = malloc(size);
 	leerEnMemoria(resultado, pag, offset, size, programa);
 	//TODO:terminar el programa si esto da -1
 
+	printf("Resultado:\n\n");
+	fwrite(resultado,sizeof(char),size,stdout);
+	printf("\n\n");
+
 	//Ya tengo lo que se necesitaba leer en resultado, lo envio.
 	if( sendAll(cpu_fd, resultado, size, 0) == -1){
-		printf("Error en el envio de la lectura solicitada\n");
+		perror("Error en el envio de la lectura solicitada");
 	}
 
 	free(resultado);
@@ -1238,16 +1245,17 @@ void flushPid(int pid){
 
 void algoritmoClock(t_prog *programa){
 
-	printf("Ejecuto algotimo clock.\n");
 	programa->timer++;
 
 	if(programa->timer < config_get_int_value(config,"TIMER_RESET")){
 		int i;
-		for(i=0;i<cant_frames;i++){
+		//for(i=0;i<cant_frames;i++){
+		for(i=0; i<programa->cant_total_pag ;i++){
 			programa->paginas[i].referenciado = false;
 		}
+
+		programa->timer = 0;
 	}
-	printf("Salgo de algoritmo clock.\n");
 }
 
 t_prog *buscarPrograma(int pid){
@@ -1397,10 +1405,9 @@ void terminal(){
 							{//Escribo el contenido de cada caracter en pantalla
 								fputc(memoria[pos_en_memoria + k], stdout);
 								fputc(memoria[pos_en_memoria + k], dump_log);
-
-								printf("\n");//Para lograr un salto de linea despues del texto sin formato.
-								fprintf(dump_log, "\n");
 							}
+							printf("\n");//Para lograr un salto de linea despues del texto sin formato.
+							fprintf(dump_log, "\n");
 						}
 
 					}
