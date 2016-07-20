@@ -906,20 +906,33 @@ void finalizarEjecucionProceso(int socket){
 
 void limpiarTerminados(){
 
-	t_consola *pcb_terminado;
-	int mensaje = FIN_PROGRAMA;
+	t_pcb *pcb_terminado;
 
-	while(!queue_is_empty(finished)){
-
+	while(!queue_is_empty(finished))
+	{
 		pcb_terminado = queue_pop(finished);
 
 		//Le aviso a consola que termino la ejecucion del programa
-		send(pcb_terminado->socketConsola,&mensaje,sizeof(int),0);
+		int mensaje = FINALIZAR;
 
-		close( pcb_terminado->socketConsola );
+		//Funcion para buscar consola
+		bool igualPid(t_consola *elemento)
+		{
+			return elemento->pid == pcb_terminado->pid;
+		}
+		t_consola *consola = list_find(listaConsola,(void*)igualPid);
 
-		free(pcb_terminado);
+		send(consola->socketConsola,&mensaje,sizeof(int),0);
+
+		//Elimino la consola y cierro el socket
+		list_remove_by_condition(listaConsola,(void*)igualPid);
+		close(consola->socketConsola);
+		free(consola);
+
+		//Elimino el pcb
+		freePcb(pcb_terminado);
 	}
+
 }
 
 void planificar(){

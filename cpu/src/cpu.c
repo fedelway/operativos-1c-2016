@@ -154,7 +154,7 @@ void ejecutar()
 	}
 	else if(estado == WAIT)
 	{
-
+		return;
 	}
 	else if(estado == FIN_PROGRAMA)
 	{//Notifico el fin del programa
