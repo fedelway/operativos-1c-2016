@@ -575,12 +575,31 @@ int espaciosLibres(int cantidad){
 
 //No hay espacio contiguo y hay espacio separado
 bool hayFragmentacion(int tamanio){
+	/* Uso el valor anterior como un centinela.
+	 * Si hay una pagina ocupada se fija que la anterior no este libre.
+	 * Si ocurre esto es que hay fragmentacion
+	 * ej:oooollloollll va a devolver true*/
 
-/*	if(!paginaDisponible(tamanio) && (espaciosLibres(tamanio) >= tamanio)){
-		return 0;
-	} else {
-		return 1;
-	}*/
+	char valor_anterior = '0';
+
+	int i;
+	for(i=0; i<CANTIDAD_PAGINAS; i++)
+	{
+		if(bitmap[i] == 'l')
+		{
+			valor_anterior = 'l';
+		}
+		else if(bitmap[i] == 'o')
+		{
+			if(valor_anterior == 'l')
+			{
+				return true;
+			}
+		}
+	}
+
+	//Sali del for, entonces no hay fragmentacion
+	return false;
 }
 /*
 void encolarProgramas(int mensaje){ // ACA HAGO LOS RECV PERO NO SE SI ESTAN OK
