@@ -107,8 +107,8 @@ void crearParticionSwap();
 
 //------------------- PETICIONES UMC -------------------------------------------------//
 
-bool hayEspacioContiguo(int pagina, int tamanio);
-int paginaDisponible(int tamanio);
+bool hayEspacioContiguo(int pagina, int tamanio, char *map);
+int paginaDisponible(int tamanio, char *map);
 int  ubicacionEnSwap(int pid);
 void crearProgramaAnSISOP(int pid, int tamanio);
 void crearProgramaAnSISO(int pid, int tamanio, char* codigo_prog);
