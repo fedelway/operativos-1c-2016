@@ -42,11 +42,11 @@
 
 //estructura de configuración de la cpu
 typedef struct {
-	char* nucleo_ip;
-	char* nucleo_puerto;
-	char* umc_ip;
-	char* umc_puerto;
-	int *cpu_id;
+	char *nucleo_ip;
+	char *nucleo_puerto;
+	char *umc_ip;
+	char *umc_puerto;
+	int  cpu_id;
 }t_configuracion_cpu;
 
 //estructura para solicitar escritura a la umc

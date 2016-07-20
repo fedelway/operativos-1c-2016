@@ -77,6 +77,7 @@ t_pcb_stream serializarPcb(t_pcb pcb)
 
 t_pcb deSerializarPcb(t_pcb_stream stream)
 {
+	printf("DeserializarPcb.\n");
 	t_pcb pcb;
 	char *data = stream.data_pcb;
 
@@ -84,7 +85,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	int size = sizeof(int);
 	int offset = 0;
 
-	deserializar(&pcb.tamanio)
+	deserializar(&(pcb.tamanio))
 
 	deserializar(&pcb.pid)
 
@@ -121,7 +122,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	pcb.stack.entradas = malloc(size);
 	deserializar(pcb.stack.entradas)
 
-	printf("%d, %d, %d", pcb.tamanio,pcb.pid,pcb.PC);
+	printf("tamanio pcb:%d, pid: %d, program counter: %d \n\n", pcb.tamanio,pcb.pid,pcb.PC);
 	return pcb;
 }
 
@@ -165,6 +166,7 @@ int enviarPcb(t_pcb pcb, int fd, int quantum)
 		}
 
 		//all ok
+		printf("Pcb enviado correctamente.\n");
 		return 0;
 	}
 
@@ -181,12 +183,13 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 
 		recv(fd, &tamanio, sizeof(int),0);
 	}else{
-		int quantum;
-
+		//Cpu recibe ademas el quantum
 		recv(fd, quantum, sizeof(int), 0);
 		recv(fd, &tamanio, sizeof(int), 0);
 	}
 	//A partir de aca es igual tanto para cpu como para nucleo
+
+	printf("quantum: %d Tamaño: %d", *quantum, tamanio);
 
 	char *buffer = malloc(tamanio);
 

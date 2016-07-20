@@ -38,7 +38,6 @@ int main(int argc,char *argv[]) {
 	signal(SIGUSR1, handler_seniales);
 
 	int header;
-	int status = 0;
 
 	printf("Me quedo escuchando mensajes del nucleo (socket:%d)\n", socket_nucleo);
 
@@ -46,7 +45,8 @@ int main(int argc,char *argv[]) {
 
 		if( recv(socket_nucleo, &header, sizeof(int), 0) <= 0)
 		{
-			perror("Desconexion del nucleo");
+			perror("Desconexion del nucleo\n");
+			close(socket_nucleo);
 			exit(0);
 		}
 
@@ -123,14 +123,14 @@ int main(int argc,char *argv[]) {
 
 void ejecutar()
 {
-	int quantum;
+	int *quantum;
 	char *instruccion;
 
 	//pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
-	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
+	pcb_actual = recibirPcb(socket_nucleo, false, quantum);
 
 	int i;
-	for(i=0;i<quantum;i++)
+	for(i=0;i<*quantum;i++)
 	{
 		if(estado != TODO_OK)
 			break;
@@ -174,7 +174,7 @@ char *solicitarInstruccion(t_intructions instruccion)
 	mensaje[2] = instruccion.start % tamanio_pagina;//Offset de la pagina
 	mensaje[4] = instruccion.offset;				//Size de la instruccion
 
-	send(socket_umc, &mensaje, sizeof(mensaje), 0);
+	send(socket_umc, &mensaje, 4*sizeof(int), 0);
 
 	char *resultado = malloc(instruccion.offset);
 
@@ -203,31 +203,41 @@ void levantarDatosDeConfiguracion(t_configuracion_cpu* configuracion, char* conf
 
 		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 
-		char* nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
+		configuracion->nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
+
+		/*char* nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
 		configuracion->nucleo_ip = malloc(strlen(nucleo_ip));
 		memcpy(configuracion->nucleo_ip, nucleo_ip, strlen(nucleo_ip));
-		configuracion->nucleo_ip[strlen(nucleo_ip)] = '\0';
+		configuracion->nucleo_ip[strlen(nucleo_ip)] = '\0';*/
 
-		char* nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
+		configuracion->nucleo_puerto = config_get_string_value(config, "NUCLEO_PUERTO");
+
+		/*char* nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
 		configuracion->nucleo_puerto = malloc(strlen(nucleo_puerto)+1);
 		memcpy(configuracion->nucleo_puerto, nucleo_puerto, strlen(nucleo_puerto));
-		configuracion->nucleo_puerto[strlen(nucleo_puerto)] = '\0';
+		configuracion->nucleo_puerto[strlen(nucleo_puerto)] = '\0';*/
 
-		char* umc_ip = config_get_string_value(config,"UMC_IP");
-		configuracion->umc_ip = malloc(strlen(umc_ip));
-		memcpy(configuracion->umc_ip, umc_ip, strlen(umc_ip));
-		configuracion->umc_ip[strlen(umc_ip)] = '\0';
+		configuracion->umc_ip = config_get_string_value(config,"UMC_IP");
 
-		char* umc_puerto = config_get_string_value(config,"UMC_PUERTO");
-		configuracion->umc_puerto = malloc(strlen(umc_puerto)+1);
-		memcpy(configuracion->umc_puerto, umc_puerto, strlen(umc_puerto));
-		configuracion->umc_puerto[strlen(umc_puerto)] = '\0';
+//		char* umc_ip = config_get_string_value(config,"UMC_IP");
+//		configuracion->umc_ip = malloc(strlen(umc_ip));
+//		memcpy(configuracion->umc_ip, umc_ip, strlen(umc_ip));
+//		configuracion->umc_ip[strlen(umc_ip)] = '\0';
 
-		int cpu_id = config_get_int_value(config,"CPU_ID");
-		configuracion->cpu_id = malloc(sizeof configuracion->cpu_id);
-		memcpy(configuracion->cpu_id, &cpu_id, sizeof(int));
+		configuracion->umc_puerto = config_get_string_value(config,"UMC_PUERTO");
 
-		config_destroy(config);
+//		char* umc_puerto = config_get_string_value(config,"UMC_PUERTO");
+//		configuracion->umc_puerto = malloc(strlen(umc_puerto)+1);
+//		memcpy(configuracion->umc_puerto, umc_puerto, strlen(umc_puerto));
+//		configuracion->umc_puerto[strlen(umc_puerto)] = '\0';
+
+		configuracion->cpu_id = config_get_int_value(config, "CPU_ID");
+
+//		int cpu_id = config_get_int_value(config,"CPU_ID");
+//		configuracion->cpu_id = malloc(sizeof configuracion->cpu_id);
+//		memcpy(configuracion->cpu_id, &cpu_id, sizeof(int));
+
+		//config_destroy(config);
 	}else{
 	    log_error_y_cerrar_logger(logger, "Configuracion invalida.");
 	    config_destroy(config);
@@ -263,7 +273,7 @@ void conectarAUMC(t_configuracion_cpu* configCPU){
 	log_info(logger, "Conectando a la umc. IP y puerto del núcleo: %s - %s", configCPU->umc_ip, configCPU->umc_puerto);
 	socket_umc = conectarseA(configCPU->umc_ip, configCPU->umc_puerto);
 	log_info(logger, "Conexion establecida con la umc. (Socket: %d)",socket_umc);
-	handshakeUMC(*configCPU->cpu_id);
+	handshakeUMC(configCPU->cpu_id);
 }
 
 void handshakeNucleo(){

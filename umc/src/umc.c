@@ -294,6 +294,7 @@ void trabajarNucleo(){
 		if(recv(nucleo_fd, &msj_recibido, sizeof(int), 0) <= 0)
 		{//Chequeo desconexion
 			printf("Desconexion del nucleo. Terminando...\n");
+			close(nucleo_fd);
 			exit(1);
 		}
 

@@ -231,6 +231,7 @@ void trabajarUmc(){
 		{
 			printf("Desconexion de la umc. Terminando...\n");
 			perror("");
+			close(socket_umc);
 			exit(1);
 		}
 

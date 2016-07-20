@@ -129,6 +129,7 @@ void limpiarTerminados();
 void planificar();
 void moverDeNewAList(int pid, t_list *destino);
 void moverDeNewAQueue(int pid, t_queue *destino);
+int cantCpuLibres();
 
 int crearPCB(int source_size,char *source);
 int solicitarPaginasUMC(int source_size, char *source, int pid);

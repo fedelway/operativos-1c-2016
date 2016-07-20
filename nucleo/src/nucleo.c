@@ -268,6 +268,9 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 	fd_set cpu_fd_set;
 	fd_set cons_fd_set;
 
+	struct timeval tiempo;
+	tiempo.tv_sec = 0;
+	tiempo.tv_usec = 0;
 
 	//limpio los sets
 	FD_ZERO(&readyListen);
@@ -285,7 +288,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 	for (;;) {
 		readyListen = *listen;
 
-		if (select((*max_fd + 1), &readyListen, NULL, NULL, NULL) == -1) {
+		if (select((*max_fd + 1), &readyListen, NULL, NULL, &tiempo) == -1) {
 			perror("Error en el Select");
 		}
 
@@ -313,7 +316,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 						terminarConexion(i);
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
 						close(i);
-						FD_CLR(i, &readyListen);
+						FD_CLR(i, listen);
 					}else{
 						if(FD_ISSET(i, &cpu_fd_set)){
 							procesarMensajeCPU(codMensaje, i);
@@ -324,11 +327,12 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 					}
 				}
 			}
-		}
+		}//Termine el for de los fd
+
+		planificar();
 	}
 	//Limpio los pcb en finished
 	limpiarTerminados();
-	planificar();
 }
 
 void terminarConexion(int fd)
@@ -827,7 +831,7 @@ int solicitarPaginasUMC(int source_size, char *source, int pid){
 	if(msj[0] == ACEPTO_PROGRAMA)
 	{
 		printf("ACEPTO_PROGRAMA\n");
-		//Lo agrego a ready
+		//Lo paso a ready
 		moverDeNewAQueue(pid,ready);
 
 	}else if(msj[0] == RECHAZO_PROGRAMA)
@@ -940,12 +944,15 @@ void planificar(){
 	int i;
 
 	//Miro que no este vacia la lista de ready
-	if(!queue_is_empty(ready)){
+	while(!queue_is_empty(ready)){
 
-		for(i=0; i<cant_cpus; i++){
+		if(cantCpuLibres() == 0)
+			break;
+
+		for(i=0; i<list_size(listaCpu); i++){
 
 			if(getListaCpu(i)->libre){
-
+				printf("CPU LIBRE.\n");
 				t_pcb *pcb_a_ejecutar = queue_pop(ready);
 
 				getListaCpu(i)->libre = false;
@@ -957,4 +964,17 @@ void planificar(){
 			}
 		}
 	}
+}
+
+int cantCpuLibres()
+{
+	int cant = 0;
+	int i;
+	for(i=0; i<list_size(listaCpu); i++)
+	{
+		if(getListaCpu(i)->libre)
+			cant++;
+	}
+
+	return cant;
 }

@@ -54,6 +54,7 @@ int main(int argc,char *argv[]) {
 		if(status <= 0)
 		{
 			printf("Desconexion del nucleo. Terminando...\n");
+			close(socket_nucleo);
 			exit(0);
 		}
 
