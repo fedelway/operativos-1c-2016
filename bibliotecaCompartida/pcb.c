@@ -307,6 +307,41 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 	return pcb;
 }
 
+#define pasar(a) puntero->a = pcb.a
+t_pcb* pasarAPuntero(t_pcb pcb)
+{
+	t_pcb *puntero;
+
+	puntero = malloc(sizeof(t_pcb));
+
+	pasar(tamanio);
+	pasar(pid);
+	pasar(PC);
+	pasar(cant_pag_cod);
+	pasar(idCPU);
+
+	pasar(indice_cod);
+	pasar(indice_etiquetas);
+	pasar(stack);
+
+	return puntero;
+	/*//Transformo indice cod
+	pasar(indice_cod);
+	pasar(indice_cod.instrucciones_size);
+	pasar(indice_cod.instruccion_inicio);
+	puntero->indice_cod.instrucciones = malloc(pcb.indice_cod.instrucciones_size * sizeof(t_intructions));
+
+	//Transformo indice etiquetas
+	pasar(indice_etiquetas);
+	pasar(indice_etiquetas.etiquetas_size);
+	puntero->indice_etiquetas.etiquetas = malloc(pcb.indice_etiquetas.etiquetas_size);
+
+	//Transformo stack
+	pasar(stack);*/
+
+
+}
+
 void freePcb(t_pcb *pcb)
 {
 	free(pcb->indice_cod.instrucciones);

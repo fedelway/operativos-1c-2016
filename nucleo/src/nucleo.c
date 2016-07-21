@@ -336,7 +336,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 	limpiarTerminados();
 }
 
-cheackearEntradaSalida()
+void checkearEntradaSalida()
 {
 	t_IO *io;
 	t_proceso_esperando *proceso;
@@ -435,12 +435,12 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas){
 
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
-	int nuevaCPU;
+	int nuevo_fd;
 	int msj_recibido;
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 
-	nuevaCPU = accept(fd, (struct sockaddr *) &addr, &addrlen);
+	nuevo_fd = accept(fd, (struct sockaddr *) &addr, &addrlen);
 
 	printf("Se ha conectado una nueva CPU.\n");
 
@@ -449,45 +449,34 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 	buffer[0] = SOY_NUCLEO;
 	buffer[1] = quantum;
 
-	send(nuevaCPU, &buffer, 2*sizeof(int),0);
-	recv(nuevaCPU, &msj_recibido, sizeof(int),0);
+	send(nuevo_fd, &buffer, 2*sizeof(int),0);
+	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
 
 	if(msj_recibido == SOY_CPU){
 
-		if(nuevaCPU > *max_fd){
-			*max_fd = nuevaCPU;
+		if(nuevo_fd > *max_fd){
+			*max_fd = nuevo_fd;
 		}
 
-		FD_SET(nuevaCPU,listen);
-		FD_SET(nuevaCPU,cpus);
+		FD_SET(nuevo_fd,listen);
+		FD_SET(nuevo_fd,cpus);
 
 		//Agrego la cpu a la lista de cpus
+		max_cpu++;
 		t_cpu *cpu_nueva = malloc(sizeof(t_cpu));
 
-		cpu_nueva->id = nuevaCPU;
-		cpu_nueva->socket = nuevaCPU;
+		cpu_nueva->id = max_cpu;
+		cpu_nueva->socket = nuevo_fd;
 		cpu_nueva->libre = true;
 		cpu_nueva->pid = 0;
-		max_cpu++;
 
 		list_add(listaCpu,cpu_nueva);
 
-
 		printf("CPUs disponibles %d\n", list_size(listaCpu));
-
-
-	/*	if (cant_cpus > 0){
-
-			t_cpu * nodoCPU = list_get(listaCPUs, 0);
-			pthread_t hiloCPU;
-			int thread1;
-			thread1 = pthread_create(&hiloCPU, NULL, enviarPaqueteACPU, (void*) nodoCPU);
-
-		}*/
 
 	}else{
 		printf("No se verifico la autenticidad de la cpu, cerrando la conexion...\n");
-		close(nuevaCPU);
+		close(nuevo_fd);
 	}
 }
 
@@ -497,8 +486,6 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 	int *puntero_inutil;
 
 	t_pcb *pcb_recibido;
-	int tamanio_cadena;
-	char *identificador;
 
 	switch(codigoMensaje){
 
@@ -506,8 +493,12 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 			printf("mensaje recibido CPU Fin Quantum");
 
 			//Termino el quantum, recibo el pcb y lo pongo al final de la cola de listos
-			pcb_recibido = &recibirPcb(fd,true,puntero_inutil);
+			pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
 			queue_push(ready,pcb_recibido);
+
+			//Tengo que poner la cpu como libre
+			liberarCpu(fd);
+			printf("Termine de ejecutar fin quantum.\n");
 
 		break;
 
@@ -549,7 +540,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 		printf("mensaje recibido CPU Finalizar");
 		//Muevo a finished el proceso
 
-		pcb_recibido = &recibirPcb(fd,true,puntero_inutil);
+		pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
 		queue_push(finished,pcb_recibido);
 
 	break;
@@ -581,7 +572,7 @@ void procesarEntradaSalida(int fd)
 
 	//recibo el pcb
 	int *ptr_inutil;
-	pcb_actualizado = &recibirPcb(fd,true,ptr_inutil);
+	pcb_actualizado = pasarAPuntero( recibirPcb(fd,true,ptr_inutil) );
 
 	//Creo nodo de la lista de entradaSalida
 	t_proceso_esperando *proceso = malloc(sizeof(t_proceso_esperando));
@@ -598,12 +589,12 @@ void procesarEntradaSalida(int fd)
 	}
 	t_IO *io = list_find(IO,mismoId);
 
-	queue_add(io->procesos_esperando,proceso);
+	queue_push(io->procesos_esperando,proceso);
 
 	free(identificador);
 }
 
-void obtenerValorCompartida(int fd)
+void obtenerValorCompartido(int fd)
 {
 	int pid;
 	int tamanio_cadena;
@@ -690,7 +681,7 @@ void ansisopWait(int fd)
 	if(sem->valor <= 0)
 	{//Agrego el proceso a la cola del semaforo
 		int *puntero_inutil;
-		t_pcb *pcb = &recibirPcb(fd,true,puntero_inutil);
+		t_pcb *pcb = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
 
 		queue_push(sem->procesos_esperando,pcb);
 	}
@@ -1221,4 +1212,16 @@ int cantCpuLibres()
 	}
 
 	return cant;
+}
+
+void liberarCpu(int fd)
+{
+	bool mismoFd(void *elemento){
+		if(((t_cpu*)elemento)->socket == fd)
+			return true;
+		else return false;
+	}
+	t_cpu *cpu = list_find(listaCpu,mismoFd);
+
+	cpu->libre = true;
 }

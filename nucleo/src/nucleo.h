@@ -76,7 +76,7 @@ int pag_size;
 int max_pid = 0;
 int max_fd = 0;	 //El maximo valor de file descriptor
 int stack_size;
-int max_cpu;
+int max_cpu = 0;
 int quantum;
 int cant_cpus;
 int cant_consolas;
@@ -126,6 +126,8 @@ bool validarParametrosDeConfiguracion();
 void maximoFileDescriptor(int socket_escucha,int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd);
+
+void liberarCpu(int fd);
 
 //Respuesta a mensajes CPU
 void procesarMensajeCPU(int codigoMensaje, int fd);

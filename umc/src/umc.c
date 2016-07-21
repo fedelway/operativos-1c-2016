@@ -1006,7 +1006,7 @@ void leerParaCpu(int cpu_fd){
 	if(programa == NULL)
 		printf("No hay programa.\n");
 
-	printf("pid %d cantpaginas %d puntero %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->puntero,programa->timer);
+	printf("Solicitud de lectura:\npag: %d, offset: %d, size: %d, pid:%d.\n",pag,offset,size,pid);
 
 	char *resultado = malloc(size);
 	leerEnMemoria(resultado, pag, offset, size, programa);
@@ -1280,6 +1280,7 @@ int min(int a, int b){
 	}else return b;
 }
 
+#define programa(i) ((t_prog*)list_get(programas,i))
 void terminal(){
 
 	//variables
@@ -1471,6 +1472,23 @@ void terminal(){
 			printf("\nDump finalizado exitosamente.\n");
 
 			fclose(dump_log);
+		}
+		else if(!strcmp(comando, "actualizarSwap"))
+		{//Envio todas las paginas que fueron modificadas a swap
+			int i;
+			for(i=0;i<list_size(programas);i++)
+			{
+				int j;
+				for(j=0;j<programa(i)->cant_total_pag;j++)
+				{
+					if(programa(i)->paginas[j].modificado)
+					{
+						enviarPagina(j,programa(i)->pid,frames[programa(i)->paginas[k].frame].posicion);
+					}
+				}
+			}
+
+			printf("Actualizacion realizada con exito.\n");
 		}
 		else if(!strcmp(comando, "exit") )
 		{

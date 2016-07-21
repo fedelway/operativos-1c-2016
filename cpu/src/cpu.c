@@ -97,12 +97,16 @@ void ejecutar()
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
 		printf("Ya pase por analizador linea.\n");
 
+		//Avanzo el PC
+		pcb_actual.PC++;
+
 		free(instruccion);
 	}
 
 	if(estado == TODO_OK)
 	{//Termino el quantum. Envio el pcb con las modificaciones que tuvo
 		enviarPcb(pcb_actual, socket_nucleo, -1);
+		printf("Se me termino el quantum.\n");
 	}
 	else if( estado == ENTRADA_SALIDA || estado == WAIT)
 	{
@@ -126,7 +130,7 @@ char *solicitarInstruccion(t_intructions instruccion)
 
 	send(socket_umc, &mensaje, 5*sizeof(int), 0);
 
-	char *resultado = malloc(instruccion.offset);
+	char *resultado = malloc(instruccion.offset + 1);
 
 	printf("Espero el resultado...\n");
 	if( recvAll(socket_umc,resultado,instruccion.offset,MSG_WAITALL) <= 0)
@@ -134,7 +138,10 @@ char *solicitarInstruccion(t_intructions instruccion)
 		perror("Error al recibir instruccion");
 	}
 
-	printf("Pude recibir la instruccion:\n");
+	//Le agrego un \0 al resultado
+	resultado[instruccion.offset] = '\0';
+
+	printf("Pude recibir la instruccion:\n\n");
 	fwrite(resultado,sizeof(char),instruccion.offset,stdout);
 	printf("\n\n");
 
@@ -746,6 +753,9 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	mensaje[4] = pcb_actual.pid;					 //pid
 	mensaje[5] = valor;								 //Valor a enviar
 
+	printf("Pag: %d, offset: %d, size: %d, pid: %d, valor: %d.\n",mensaje[1],mensaje[2],
+			mensaje[3],mensaje[4],mensaje[5]);
+
 	if( sendAll(socket_umc, &mensaje, 6*sizeof(int), 0) <= 0)
 	{
 		perror("Error al asignar variable");
@@ -922,6 +932,7 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
  */
 void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 
+	printf("ANSISOP_IR_A_LABEL.\n");
 	//Ya esta hecho :D
 	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta,
 						pcb_actual.indice_etiquetas.etiquetas,
