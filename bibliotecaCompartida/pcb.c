@@ -319,7 +319,6 @@ void freePcb(t_pcb *pcb)
 		free(pcb->stack.entradas[i].variables);
 	}
 	free(pcb->stack.entradas);
-	free(pcb->stack);
 
 	free(pcb);
 }

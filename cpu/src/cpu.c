@@ -65,55 +65,6 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-	//Reenviar el msj recibido del nucleo a la UMC
-	//enviarPaqueteAUMC(message);
-
-	//TODO - Ejecutar siguiente instrucción a partir del program counter del pcb
-	//Momentaneamente, obtengo metadata_desde_literal un programa de ejemplo y analizo cada instruccion.
-	//TODO - Después, eliminar el metadata_desde_literal de la cpu. Tiene que obtener el pcb del nucleo.
-/*
-	//Levanto un archivo ansisop de prueba
-	char* programa_ansisop;
-
-	programa_ansisop = "begin\nvariables i,b\ni = 1\n:ttttt\n:hola\ni = i + 1\nprint i\nb = i - 10\njnz b hola\ni = 1\ni = i + 1\nprint i\nb = i - 10\njnz b ttttt\n#fuera del for\nend\n";
-
-	programa_ansisop = "begin\nvariables a, b\na = 3\nb = 5\na = b + 12\nend";
-	programa_ansisop = "begin\n:etiqueta\nwait c\nprint !colas\nsignal b\n#Ciclar indefinidamente\ngoto etiqueta\nend";
-	programa_ansisop = "#!/usr/bin/ansisop\n#Alliance - S4\nbegin\nvariables f, i, t\n#`f`: Hasta donde contar\nf=20\n:inicio\n#`i`: Iterador\ni=i+1\n#Imprimir el contador\nprint i\n#`t`: Comparador entre `i` y `f`\nt=f-i\n#De no ser iguales, salta a inicio\n#esperar\nio HDD1 3\njnz t inicio\nend";
-
-
-	printf("Ejecutando AnalizadorLinea\n");
-	printf("================\n");
-	printf("El programa de ejemplo es \n%s\n", programa_ansisop);
-	printf("================\n\n");
-	printf("Ejecutando metadata_desde_literal\n");
-
-	t_metadata_program* metadata;
-	metadata = metadata_desde_literal(programa_ansisop);
-
-	int i;
-	for(i=0; i < metadata->instrucciones_size; i++){
-		ejecutoInstruccion(programa_ansisop, metadata, i);
-	}
-
-	printf("================\n\n");
-	printf("Terminé de ejecutar todas las instrucciones\n");
-
-	int enviar = 1;
-	int status = 1;
-*/
-	/*
-	while(enviar && status !=0){
-	 	fgets(message, PACKAGESIZE, stdin);
-		if (!strcmp(message,"exit\n")) enviar = 0;
-		if (enviar) send(socket_umc, message, strlen(message) + 1, 0);
-
-		//Recibo mensajes del servidor
-		memset (message,'\0',PACKAGESIZE);
-		status = recv(socket_umc, (void*) message, PACKAGESIZE, 0);
-		if (status != 0) printf("%s", message);
-	}*/
-
 	finalizarCpu();
 	log_destroy(logger);
 
@@ -1073,42 +1024,26 @@ void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 	printf("ANSISOP ------- Ejecuto Entrada-Salida. Dispositivo :%s | Unidades de tiempo: %d ----\n", dispositivo, tiempo);
 
 	int mensaje = ANSISOP_ENTRADA_SALIDA;
-	int pid = pcb_actual.pid;
 	int tamanio_texto = strlen(dispositivo) + 1;
 
-	char *buffer = malloc(4*sizeof(int) + tamanio_texto);
+	char *buffer = malloc(3*sizeof(int) + tamanio_texto);
 
 	memcpy(buffer,&mensaje,sizeof(int));
-	memcpy(buffer + sizeof(int),&pid,sizeof(int));
-	memcpy(buffer + 2*sizeof(int),&tiempo,sizeof(int));
-	memcpy(buffer + 3*sizeof(int),&tamanio_texto,sizeof(int));
-	memcpy(buffer + 4*sizeof(int),dispositivo,tamanio_texto);
+	memcpy(buffer + sizeof(int),&tiempo,sizeof(int));
+	memcpy(buffer + 2*sizeof(int),&tamanio_texto,sizeof(int));
+	memcpy(buffer + 3*sizeof(int),dispositivo,tamanio_texto);
 
-	if( sendAll(socket_nucleo,buffer,4*sizeof(int) + tamanio_texto,0) <= 0)
+	if( sendAll(socket_nucleo,buffer,3*sizeof(int) + tamanio_texto,0) <= 0)
 	{
 		perror("Error al enviar mensaje solicitud Entrada/Salida");
 	}
 	free(buffer);
 
+	//Ya envie el mensaje, ahora envio el pcb
+
 	estado = ENTRADA_SALIDA;
+	enviarPcb(pcb_actual,socket_nucleo,-1);//Tener en cuenta que esto envia FIN_QUANTUM
 
-	enviarPcb(pcb_actual,socket_nucleo,-1);
-
-/*	int header_mensaje = ANSISOP_ENTRADA_SALIDA;
-
-	char *mensaje = (char *)malloc(sizeof(int)*2+sizeof(t_nombre_semaforo));
-
-	memcpy(mensaje, &header_mensaje, sizeof(int));
-	memcpy(mensaje + sizeof(int), &dispositivo, sizeof(t_nombre_dispositivo));
-	memcpy(mensaje + sizeof(int) + sizeof(t_nombre_dispositivo), &tiempo, sizeof(int));
-
-	//TODO Mandar la estructura del pcb después del tiempo.
-	//Proceso va a la cola de bloqueados. CPU no haria espera activa.
-	//La liberaría para que pueda ocuparse de otro proceso.
-
-	printf("Envio mensaje de entrada y salida al Núcleo con el identificador del semaforo y la cantidad de unidades de tiempo\n");
-
-	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);*/
 
 }
 
@@ -1138,9 +1073,24 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 	}
 	free(buffer);
 
-	estado = WAIT;
+	//Espero a que nucleo me responda si puedo seguir ejecutando o no.
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
 
-	enviarPcb(pcb_actual,socket_nucleo,-1);
+	if(mensaje == ANSISOP_PODES_SEGUIR)
+	{
+		return;
+	}
+	else if(mensaje == ANSISOP_BLOQUEADO)
+	{
+		estado = WAIT;
+
+		enviarPcb(pcb_actual,socket_nucleo,-1);
+
+		return;
+	}else
+	{
+		printf("Recibi un mensaje erroneo de nucleo al enviar wait: %d", mensaje);
+	}
 /*
 	int header_mensaje = ANSISOP_WAIT;
 
@@ -1156,10 +1106,6 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
 */
 
-	//TODO esperar la respuesta.
-	//(?)Qué es lo que tiene que devolver? Se tiene que quedar esperando hasta que el wait de 0?
-	//Tb tengo que usar wait/signal en estas funciones, para simular el wait/signal de las primitivas?
-	//Si me manda que se tiene que bloquear, devuelvo el pcb actualizado no?
 }
 
 

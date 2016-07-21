@@ -159,6 +159,7 @@ void crearSemaforos()
 
 		nuevoSem->identificador = semArray[i];
 		nuevoSem->valor = atoi(semInit[i]);
+		nuevoSem->procesos_esperando = queue_create();
 
 		printf("id:%s,valor:%d.\n",nuevoSem->identificador,nuevoSem->valor);
 
@@ -179,7 +180,7 @@ void crearIO()
 
 		nuevoIO->identificador = ioArray[i];
 		nuevoIO->sleep = atoi(ioSleep[i]);
-		nuevoIO->pid_usando = -1;
+		nuevoIO->procesos_esperando = queue_create();
 
 		printf("id:%s,valor:%d.\n",nuevoIO->identificador,nuevoIO->sleep);
 
@@ -195,7 +196,7 @@ void crearShared()
 	int i;
 	for(i=0; sharedArray[i]!=NULL; i++)
 	{
-		t_SEM *nuevaShared = malloc(sizeof(t_SEM));//La estructura para semaforos y variables compartidas es la misma
+		t_SHARED *nuevaShared = malloc(sizeof(t_SHARED));
 
 		nuevaShared->identificador = sharedArray[i];
 		nuevaShared->valor = 0;
@@ -328,11 +329,42 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 				}
 			}
 		}//Termine el for de los fd
-
 		planificar();
+		checkearEntradaSalida();
 	}
 	//Limpio los pcb en finished
 	limpiarTerminados();
+}
+
+cheackearEntradaSalida()
+{
+	t_IO *io;
+	t_proceso_esperando *proceso;
+
+	int i;
+	for(i=0;i<list_size(IO);i++)
+	{
+		io = list_get(IO,i);
+
+		if(!queue_is_empty(io->procesos_esperando) )
+		{
+			proceso = queue_peek(io->procesos_esperando);
+
+			if( difftime(proceso->tiempo_inicio,time(NULL)) >= proceso->tiempo_espera )
+			{//Ya paso el tiempo: agrego el pcb a ready
+
+				queue_push(ready,proceso->pcb);
+
+				//Elimino el proceso actual de la cola de espera
+				queue_pop(io->procesos_esperando);
+				free(proceso);
+
+				//Setteo el tiempo al siguiente proceso
+				proceso = queue_peek(io->procesos_esperando);
+				proceso->tiempo_inicio = time(NULL);
+			}
+		}
+	}
 }
 
 void terminarConexion(int fd)
@@ -462,59 +494,64 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 void procesarMensajeCPU(int codigoMensaje, int fd){
 	printf("procesarMensajeCPU con el msj.%d\n",codigoMensaje);
+	int *puntero_inutil;
+
+	t_pcb *pcb_recibido;
+	int tamanio_cadena;
+	char *identificador;
 
 	switch(codigoMensaje){
 
+	case FIN_QUANTUM:
+			printf("mensaje recibido CPU Fin Quantum");
+
+			//Termino el quantum, recibo el pcb y lo pongo al final de la cola de listos
+			pcb_recibido = &recibirPcb(fd,true,puntero_inutil);
+			queue_push(ready,pcb_recibido);
+
+		break;
+
 	case ENTRADA_SALIDA:
 		printf("mensaje recibido CPU Entrada-Salida");
-		 //agrego el proceso en listaBloqueados, trato el sleep corresp
+		procesarEntradaSalida(fd);
+
 	break;
 
-	case FIN_QUANTUM:
-		printf("mensaje recibido CPU Fin Quantum");
-		// saco el proceso de listaEjecutado, lo muevo donde corresponda
-	break;
+	case ANSISOP_OBTENER_VALOR_COMPARTIDO:
+		obtenerValorCompartido(fd);
+		break;
 
-	case FINALIZAR:
-		printf("mensaje recibido CPU Finalizar");
-		//saco de listaEjecutado, envio msj a consola
-	break;
+	case ANSISOP_ASIGNAR_VALOR_COMPARTIDO:
+		asignarValorCompartido(fd);
+		break;
 
-	case OPERACION_PRIVILEGIADA:
-		printf("mensaje recibido CPU Operacion privilegiada");
-		//proceso según la operación que se haya solicitado
-	break;
+	case ANSISOP_WAIT:
+		ansisopWait(fd);
+		break;
+
+	case ANSISOP_SIGNAL:
+		ansisopSignal(fd);
+		break;
 
 	case ANSISOP_IMPRIMIR:
 		printf("mensaje recibido CPU imprimir\n");
-		//busco la consola del proceso y le reenvio el mensaje a imprimir
+		imprimirValor(fd);
 
-		int mensajeAimprimir;
-
-		if (recv(fd, &mensajeAimprimir, sizeof(int), 0) <= 0){
-			perror("Error mensaje recibido");
-
-		}else{
-			printf("mensaje recibido %d\n", mensajeAimprimir);
-			imprimirMsjConsola(fd, mensajeAimprimir);
-		}
 	break;
 
 	case ANSISOP_IMPRIMIR_TEXTO:
 		printf("mensaje recibido CPU imprimir texto\n");
-		//busco la consola del proceso y le reenvio el mensaje a imprimir
+		imprimirTexto(fd);
 
-		int sizeTexto;
+	break;
 
-		int sizeMensaje = recv(fd, &sizeTexto, sizeof(int), 0);
+	case ANSISOP_FIN_PROGRAMA:
+		printf("mensaje recibido CPU Finalizar");
+		//Muevo a finished el proceso
 
-		if (sizeMensaje <= 0){
-			printf("Error size recibido %d\n", sizeTexto);
+		pcb_recibido = &recibirPcb(fd,true,puntero_inutil);
+		queue_push(finished,pcb_recibido);
 
-		}else{
-			printf("size recibido %d\n", sizeTexto);
-			enviarTextoAConsola(fd, sizeTexto);
-		}
 	break;
 
 	default:
@@ -522,33 +559,227 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 	}
 }
 
+void procesarEntradaSalida(int fd)
+{
+	//Agrego el pcb a la cola de la entrada salida que me piden.
+	int tiempo;
+	int tamanio_cadena;
+	char *identificador;
+	t_pcb *pcb_actualizado;
+
+	recv(fd,&tiempo,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	identificador = malloc(tamanio_cadena);
+	recv(fd,identificador,tamanio_cadena,0);
+
+	//Ya tengo todos los datos, ahora tengo que recibir el pcb.
+	//Recibo el mensaje inutil
+	int msj_inutil;
+	recv(fd,&msj_inutil,sizeof(int),0);
+	if(msj_inutil == FIN_QUANTUM)printf("Recibi mensaje inutil.\n");
+
+	//recibo el pcb
+	int *ptr_inutil;
+	pcb_actualizado = &recibirPcb(fd,true,ptr_inutil);
+
+	//Creo nodo de la lista de entradaSalida
+	t_proceso_esperando *proceso = malloc(sizeof(t_proceso_esperando));
+	proceso->pcb = pcb_actualizado;
+	proceso->tiempo_espera = tiempo;
+	proceso->tiempo_inicio = time(NULL);
+
+	//Busco la entradaSalida y agrego el nodo
+	bool mismoId(void *elemento)
+	{
+		if(strcmp(identificador, ((t_IO*)elemento)->identificador)){
+			return true;
+		}else return false;
+	}
+	t_IO *io = list_find(IO,mismoId);
+
+	queue_add(io->procesos_esperando,proceso);
+
+	free(identificador);
+}
+
+void obtenerValorCompartida(int fd)
+{
+	int pid;
+	int tamanio_cadena;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	char *identificador = malloc(tamanio_cadena);
+
+	recv(fd,identificador,tamanio_cadena,0);
+
+	bool mismoId(void *elemento)
+	{
+		if(strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
+			return true;
+		}else return false;
+	}
+	t_SHARED *shared = list_find(SHARED,mismoId);
+
+	int valor = shared->valor;
+
+	send(fd,&valor,sizeof(int),0);
+
+	free(identificador);
+}
+
+void asignarValorCompartido(int fd)
+{
+	int pid;
+	int tamanio_cadena;
+	int valor;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&valor,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	char *identificador = malloc(tamanio_cadena);
+
+	recv(fd,identificador,tamanio_cadena,0);
+
+	bool mismoId(void *elemento)
+	{
+		if(strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
+			return true;
+		}else return false;
+	}
+	t_SHARED *shared = list_find(SHARED,mismoId);
+
+	shared->valor = valor;
+
+	free(identificador);
+}
+
+void ansisopWait(int fd)
+{
+	int pid;
+	int tamanio_cadena;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	char *identificador = malloc(tamanio_cadena);
+
+	recv(fd,identificador,tamanio_cadena,0);
+
+	bool mismoId(void *elemento)
+	{
+		if(strcmp(identificador, ((t_SEM*)elemento)->identificador)){
+			return true;
+		}else return false;
+	}
+	t_SEM *sem = list_find(SEM,mismoId);
+
+	sem->valor--;
+
+	//Envio mensaje de si puede seguir ejecutando o no
+	int mensaje;
+	if(sem->valor > 0)
+		mensaje = ANSISOP_PODES_SEGUIR;
+	else mensaje = ANSISOP_BLOQUEADO;
+
+	send(fd,&mensaje,sizeof(int),0);
+
+	if(sem->valor <= 0)
+	{//Agrego el proceso a la cola del semaforo
+		int *puntero_inutil;
+		t_pcb *pcb = &recibirPcb(fd,true,puntero_inutil);
+
+		queue_push(sem->procesos_esperando,pcb);
+	}
+}
+
+void ansisopSignal(int fd)
+{
+	int pid;
+	int tamanio_cadena;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	char *identificador = malloc(tamanio_cadena);
+
+	recv(fd,identificador,tamanio_cadena,0);
+
+	bool mismoId(void *elemento)
+	{
+		if(strcmp(identificador, ((t_SEM*)elemento)->identificador)){
+			return true;
+		}else return false;
+	}
+	t_SEM *sem = list_find(SEM,mismoId);
+
+	sem->valor++;
+
+	if(sem->valor > 0)
+	{//Paso el primer pcb a ready
+		if(!queue_is_empty(sem->procesos_esperando))
+		{
+			queue_push(ready, queue_pop(sem->procesos_esperando));
+		}
+	}
+}
+
+void imprimirValor(int fd)
+{
+	//Recibo pid y el valor en si.
+	int pid;
+	int valor;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&valor,sizeof(int),0);
+
+	int consolaFd = buscarConsolaFd(pid);
+
+	int mensaje[2] = {IMPRIMIR_VALOR,valor};
+
+	send(consolaFd,&mensaje,2*sizeof(int),0);
+}
+
+void imprimirTexto(int fd)
+{
+	int pid;
+	int tamanio_cadena;
+
+	recv(fd,&pid,sizeof(int),0);
+	recv(fd,&tamanio_cadena,sizeof(int),0);
+
+	char *cadena = malloc(tamanio_cadena);
+	recv(fd,cadena,tamanio_cadena,0);
+
+	int consolaFd = buscarConsolaFd(pid);
+
+	char *buffer = malloc(tamanio_cadena + sizeof(int));
+
+	memcpy(buffer,&tamanio_cadena,sizeof(int));
+	memcpy(buffer,cadena,tamanio_cadena);
+
+	send(consolaFd, buffer, tamanio_cadena + sizeof(int), 0);
+
+	free(buffer);
+	free(cadena);
+}
+
+int buscarConsolaFd(int pid)
+{
+	bool igualPid(void *elemento){
+		if( ((t_consola*)elemento)->pid == pid)
+			return true;
+		else return false;
+	}
+
+	t_consola *consola = list_find(listaConsola,igualPid);
+	return consola->socketConsola;
+}
+
 int obtenerSocketConsola(int socketCPU){
-
-/*	int socketBuscado;
-
-	bool buscarCPUporSocket(t_cpu * nodoCPU) {
-			return (nodoCPU->socket == socketCPU);
-	}
-
-	t_cpu * nodoDeCPU = NULL;
-	//busca hasta que lo encuentra
-	while (nodoDeCPU == NULL) {
-		//nodoDeCPU = list_find(listaCPUs,(void*)buscarCPUporSocket);
-	}
-
-
-	bool buscarConsolaporPCB(t_consola * nodoConsola) {
-			return (nodoConsola->pcb == nodoDeCPU->pcb);
-	}
-
-	t_consola* nodoDeConsola=NULL;
-	//busca hasta que lo encuentra
-	while (nodoDeConsola == NULL) {
-		//nodoDeConsola = list_find(listaConsolas,(void*)buscarConsolaporPCB);
-	}
-
-	socketBuscado = nodoDeConsola->socketConsola;
-	return socketBuscado;*/
 
 	int i;
 	for(i=0; i<list_size(listaCpu); i++)

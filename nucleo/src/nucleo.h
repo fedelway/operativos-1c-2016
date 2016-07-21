@@ -35,15 +35,27 @@
 #define getListaConsola(i) ((t_consola*)list_get(listaConsola,i))
 
 typedef struct{
+	time_t tiempo_inicio;
+	int tiempo_espera;
+	t_pcb *pcb;
+}t_proceso_esperando;
+
+typedef struct{
 	char *identificador;
 	int sleep;
-	int pid_usando;
+	t_queue *procesos_esperando;
 }t_IO;
 
 typedef struct{
 	char *identificador;
 	int valor;
+	t_queue *procesos_esperando;
 }t_SEM;
+
+typedef struct{
+	char *identificador;
+	int valor;
+}t_SHARED;
 
 typedef struct{
 	int id;
@@ -114,7 +126,21 @@ bool validarParametrosDeConfiguracion();
 void maximoFileDescriptor(int socket_escucha,int *max_fd);
 void trabajarConexiones(fd_set *listen, int *max_fd, int cpu_fd, int prog_fd);
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd);
+
+//Respuesta a mensajes CPU
 void procesarMensajeCPU(int codigoMensaje, int fd);
+void procesarEntradaSalida(int fd);
+void checkearEntradaSalida();
+void imprimirValor(int fd);
+void imprimirTexto(int fd);
+void obtenerValorCompartido(int fd);
+void asignarValorCompartido(int fd);
+void ansisopWait(int fd);
+void ansisopSignal(int fd);
+
+
+int buscarConsolaFd(int pid);
+
 void procesarMensajeConsola(int codigoMensaje, int fd);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 int recibirMensaje(int socket, int *ret_recv);
