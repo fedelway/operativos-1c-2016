@@ -51,7 +51,7 @@ typedef struct{
 	int tamanio;
 	int pid;
 	int PC;			//program counter
-	int cant_pag;
+	int cant_pag_cod;
 	int idCPU;
 	t_indice_codigo indice_cod;
 	t_indice_etiquetas indice_etiquetas;

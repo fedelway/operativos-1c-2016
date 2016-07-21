@@ -33,6 +33,8 @@ int tamanioPcb(t_pcb pcb)
 		tamanio += pcb.stack.entradas[i].cant_var * tamanioVar; //tamaño de los argumentos
 	}
 
+	printf("tamanio pcb: %d.\n", tamanio);
+
 	return tamanio;
 }
 
@@ -55,7 +57,7 @@ t_pcb_stream serializarPcb(t_pcb pcb)
 
 	serializar(&pcb.PC)
 
-	serializar(&pcb.cant_pag)
+	serializar(&pcb.cant_pag_cod)
 
 	serializar(&pcb.idCPU)
 
@@ -79,6 +81,8 @@ t_pcb_stream serializarPcb(t_pcb pcb)
 	//Serializo stack
 	size = sizeof(int);
 	serializar(&pcb.stack.cant_entradas)
+
+	printf("cant_entradas_stack: %d.\n",pcb.stack.cant_entradas);
 
 	int i;//Serializo cada entrada del stack
 	for(i=0; i<pcb.stack.cant_entradas; i++)
@@ -140,7 +144,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 
 	deserializar(&pcb.PC)
 
-	deserializar(&pcb.cant_pag)
+	deserializar(&pcb.cant_pag_cod)
 
 	deserializar(&pcb.idCPU)
 
@@ -167,20 +171,27 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	size = sizeof(int);
 	deserializar(&pcb.stack.cant_entradas)
 
+	printf("cant entradas stack: %d.\n",pcb.stack.cant_entradas);
+
+	pcb.stack.entradas = malloc(sizeof(t_entrada_stack) * pcb.stack.cant_entradas);
+
 	int i;//Deserializo cada entrada del stack
 	for(i=0; i<pcb.stack.cant_entradas; i++)
 	{
+		printf("Deserializo entrada n°: %d.\n",i);
+
 		size = sizeof(int);
 		deserializar(&pcb.stack.entradas[i].cant_arg)
-
+		printf("cant_arg: %d.\n",pcb.stack.entradas[i].cant_arg);
 		deserializar(&pcb.stack.entradas[i].cant_var)
-
+		printf("cant_var: %d.\n",pcb.stack.entradas[i].cant_var);
 		deserializar(&pcb.stack.entradas[i].dirRetorno)
 
 		deserializar(&pcb.stack.entradas[i].pagRet)
 
 		deserializar(&pcb.stack.entradas[i].offsetRet)
 
+		pcb.stack.entradas[i].argumentos = malloc(sizeof(t_var) * pcb.stack.entradas[i].cant_arg);
 		int j;//Deserializo argumentos
 		for(j=0; j<pcb.stack.entradas[i].cant_arg; j++)
 		{
@@ -193,6 +204,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 			deserializar(&pcb.stack.entradas[i].argumentos[j].offset)
 		}
 
+		pcb.stack.entradas[i].argumentos = malloc(sizeof(t_var) * pcb.stack.entradas[i].cant_arg);
 		//Deserializo variables
 		for(j=0; j<pcb.stack.entradas[i].cant_var; j++)
 		{
@@ -205,10 +217,6 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 			deserializar(&pcb.stack.entradas[i].variables[j].offset)
 		}
 	}//Termino de Deserializar stack
-
-	size = sizeof(t_entrada_stack) * pcb.stack.cant_entradas;
-	pcb.stack.entradas = malloc(size);
-	deserializar(pcb.stack.entradas)
 
 	printf("tamanio pcb:%d, pid: %d, program counter: %d \n\n", pcb.tamanio,pcb.pid,pcb.PC);
 	return pcb;

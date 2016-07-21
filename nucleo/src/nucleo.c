@@ -756,11 +756,15 @@ int crearPCB(int source_size,char *source){
 	t_indice_codigo indiceCodigo;
 	t_indice_etiquetas indiceEtiquetas;
 
+	int cant_paginas = (source_size / pag_size) + 1;
+	if(source_size % pag_size == 0)
+		cant_paginas--;
+
 	//Cargo camposPCB
 	max_pid++;
 	pcb->pid = max_pid;
 	pcb->PC = 0;
-	pcb->cant_pag = source_size;
+	pcb->cant_pag_cod = cant_paginas;
 	pcb->idCPU = 0;
 
 	t_metadata_program* metadata;
@@ -775,10 +779,20 @@ int crearPCB(int source_size,char *source){
 	indiceEtiquetas.etiquetas_size =  metadata->etiquetas_size;
 	indiceEtiquetas.etiquetas = metadata->etiquetas;
 
+	//Creo la entrada del stack del main
+	pcb->stack.cant_entradas = 1;
+	pcb->stack.entradas = malloc(sizeof(t_entrada_stack));
+	pcb->stack.entradas->cant_arg = 0;
+	pcb->stack.entradas->cant_var = 0;
+	pcb->stack.entradas->dirRetorno = -1;
+	pcb->stack.entradas->offsetRet = -1;
+	pcb->stack.entradas->pagRet = -1;
+	pcb->stack.entradas->argumentos = NULL;
+	pcb->stack.entradas->variables = NULL;
+
 	//Cargo indices en PCB
 	pcb->indice_cod = indiceCodigo;
 	pcb->indice_etiquetas = indiceEtiquetas;
-	pcb->stack.cant_entradas = 0;
 
 	pcb->tamanio = tamanioPcb(*pcb);
 

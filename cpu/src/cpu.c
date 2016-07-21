@@ -47,7 +47,7 @@ int main(int argc,char *argv[]) {
 		{
 			perror("Desconexion del nucleo\n");
 			close(socket_nucleo);
-			exit(0);
+			return 0;
 		}
 
 		switch (header) {
@@ -126,15 +126,15 @@ void ejecutar()
 	int quantum;
 	char *instruccion;
 
-	//pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 
 	printf("quantum: %d.\n", quantum);
+	printf("%d",pcb_actual.stack.entradas[0].cant_var);
+	printf("%d,%d, %d",pcb_actual.stack.entradas[0].cant_var,pcb_actual.stack.cant_entradas - 1, pcb_actual.pid);
 
 	int i;
 	for(i=0;i<quantum;i++)
 	{
-		printf("for.\n");
 		if(estado != TODO_OK)
 			break;
 
@@ -535,6 +535,10 @@ char* solicitoInstruccionAUMC(int start, int offset){
 static const int CONTENIDO_VARIABLE = 20;
 static const int POSICION_MEMORIA = 0x10;
 
+#define funcionActual (pcb_actual.stack.cant_entradas) - 1
+#define funcionAnterior pcb_actual.stack.cant_entradas - 2
+#define varActual pcb_actual.stack.entradas[funcionActual].variables[pcb_actual.stack.entradas[funcionActual].cant_var - 1]
+#define varAnterior pcb_actual.stack.entradas[funcionActual].variables[pcb_actual.stack.entradas[funcionActual].cant_var - 2]
 
 /*
  *  FUNCION     : Reserva en el Contexto de Ejecución Actual el espacio necesario para una variable
@@ -545,7 +549,75 @@ static const int POSICION_MEMORIA = 0x10;
  */
 t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 
+	//Calculo de pag y offset es EL MISMO en las dos partes del if.
+	t_var calcularVariable(t_pcb pcb)
+	{
+		t_var var, anterior;
+		if(pcb_actual.stack.entradas[funcionActual].cant_var > 1)
+		{//La anterior esta en el mismo contexto
+			anterior = varAnterior;
+
+			//Calculo pag y offset
+			if(anterior.offset + sizeof(int) >= tamanio_pagina)
+			{//Se pasa de la pagina => es la siguiente
+				var.pag = anterior.pag + 1;
+				var.offset = (anterior.offset + sizeof(int) ) % tamanio_pagina;
+			}else
+			{//No se pasa de la pagina, calculo mas facil :D
+				var.pag = anterior.pag;
+				var.offset = anterior.offset + sizeof(int);
+			}
+
+			return var;
+		}else
+		{//La variable esta en otro contexto
+
+			//Si es el main => la posicion es la 0 0
+			if(pcb_actual.stack.cant_entradas == 1)
+			{
+				var.pag = 0;
+				var.offset = 0;
+				return var;
+			}else
+			{//La variable esta en la funcion anterior
+				anterior = pcb_actual.stack.entradas[funcionAnterior].variables[pcb_actual.stack.entradas[funcionAnterior].cant_var - 1];
+
+				//Calculo pag y offset
+				if(anterior.offset + sizeof(int) >= tamanio_pagina)
+				{//Se pasa de la pagina => es la siguiente
+					var.pag = anterior.pag + 1;
+					var.offset = (anterior.offset + sizeof(int) ) % tamanio_pagina;
+				}else
+				{//No se pasa de la pagina, calculo mas facil :D
+					var.pag = anterior.pag;
+					var.offset = anterior.offset + sizeof(int);
+				}
+
+				return var;
+			}
+		}
+	}
+
 	printf("ANSISOP ------- Ejecuto Definir Variable. Variable: %c ----\n", identificador_variable);
+	/*Agrego una variable a la entrada de stack correspondiente*/
+
+	printf("pid: %d.\n",pcb_actual.pid);
+	printf("funcionActual %d.\n",(pcb_actual.stack.cant_entradas - 1));
+	printf("cant var: %d.\n",pcb_actual.stack.entradas[funcionActual].cant_var);
+
+	pcb_actual.stack.entradas[funcionActual].cant_var++;
+	pcb_actual.stack.entradas[funcionActual].variables = realloc(pcb_actual.stack.entradas[funcionActual].variables,pcb_actual.stack.entradas[funcionActual].cant_var * sizeof(t_var));
+	printf("Pude realloc.\n");
+
+	varActual = calcularVariable(pcb_actual);
+	varActual.identificador = identificador_variable;
+
+	t_puntero puntero = varActual.pag * tamanio_pagina + varActual.offset;
+
+	printf("pag: %d, offset: %d.\n",varActual.pag,varActual.offset);
+	printf("puntero: %d",puntero);
+
+	return puntero;
 
 	//Acceder al stack.
 	//Crear un nuevo nodo para el stack. Busco un espacio libre de 4 bytes.
