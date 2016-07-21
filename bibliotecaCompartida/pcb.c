@@ -204,7 +204,7 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 			deserializar(&pcb.stack.entradas[i].argumentos[j].offset)
 		}
 
-		pcb.stack.entradas[i].argumentos = malloc(sizeof(t_var) * pcb.stack.entradas[i].cant_arg);
+		pcb.stack.entradas[i].variables = malloc(sizeof(t_var) * pcb.stack.entradas[i].cant_var);
 		//Deserializo variables
 		for(j=0; j<pcb.stack.entradas[i].cant_var; j++)
 		{
@@ -311,6 +311,15 @@ void freePcb(t_pcb *pcb)
 {
 	free(pcb->indice_cod.instrucciones);
 	free(pcb->indice_etiquetas.etiquetas);
+
+	int i;
+	for(i=0;i<pcb->stack.cant_entradas;i++)
+	{//Libero var y argumentos
+		free(pcb->stack.entradas[i].argumentos);
+		free(pcb->stack.entradas[i].variables);
+	}
 	free(pcb->stack.entradas);
+	free(pcb->stack);
+
 	free(pcb);
 }

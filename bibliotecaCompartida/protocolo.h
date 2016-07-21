@@ -28,16 +28,18 @@
 //Mensajes de Cpu
 #define SOY_CPU 3000
 #define CPU_OK 3010
-#define ANSISOP_IMPRIMIR 3020
-#define ANSISOP_IMPRIMIR_TEXTO 3030
+#define ANSISOP_IMPRIMIR 3020		//(int pid, int valor)
+#define ANSISOP_IMPRIMIR_TEXTO 3030 //(int pid, int tamañoCadena, char *cadena)
 #define LEER 3050 					//(int pag, int offset, int size, int pid)
-#define ESCRIBIR 3060 				//(int pag, int offset, int size, int *char, int pid) Envio ademas lo que quiero escribir
-#define ANSISOP_WAIT 3070
-#define ANSISOP_SIGNAL 3080
-#define ANSISOP_ENTRADA_SALIDA 3090
-#define ANSISOP_OBTENER_VALOR_COMPARTIDO 3100
-#define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3110
+#define ESCRIBIR 3060 				//(int pag, int offset, int size, int pid, char *) Envio ademas lo que quiero escribir
+#define ANSISOP_WAIT 3070			//(int pid, int tamañoCadena, char *identificador)
+#define ANSISOP_SIGNAL 3080			//(int pid, int tamañoCadena, char *identificador)
+#define ANSISOP_ENTRADA_SALIDA 3090			  //(int pid, int tiempo, int tamañoCadena, char* cadena)
+#define ANSISOP_OBTENER_VALOR_COMPARTIDO 3100 //(int pid, int tamañoCadena, char *id)
+#define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3110 //(int pid, int nuevo_valor, int tamañoCadena, char *id)
+#define ANSISOP_FIN_PROGRAMA 3200			  //(int pid)
 #define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D )
+
 //Defines faltantes
 #define ENVIO_PCB_ACTUALIZADO 3500
 #define SOLICITUD_INSTRUCCION 3510
