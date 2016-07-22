@@ -331,9 +331,10 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 		}//Termine el for de los fd
 		planificar();
 		checkearEntradaSalida();
+
+		//Limpio los pcb en finished
+		limpiarTerminados(listen);
 	}
-	//Limpio los pcb en finished
-	limpiarTerminados();
 }
 
 void checkearEntradaSalida()
@@ -490,7 +491,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 	switch(codigoMensaje){
 
 	case FIN_QUANTUM:
-			printf("mensaje recibido CPU Fin Quantum");
+			printf("mensaje recibido CPU Fin Quantum.\n");
 
 			//Termino el quantum, recibo el pcb y lo pongo al final de la cola de listos
 			pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
@@ -503,24 +504,28 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 		break;
 
 	case ENTRADA_SALIDA:
-		printf("mensaje recibido CPU Entrada-Salida");
+		printf("mensaje recibido CPU Entrada-Salida.\n");
 		procesarEntradaSalida(fd);
 
 	break;
 
 	case ANSISOP_OBTENER_VALOR_COMPARTIDO:
+		printf("Mensaje recibido CPU OBTENER VALOR COMPARTIDO.\n");
 		obtenerValorCompartido(fd);
 		break;
 
 	case ANSISOP_ASIGNAR_VALOR_COMPARTIDO:
+		printf("Mensaje recibido CPU ASIGNAR VALOR COMPARTIDO.\n");
 		asignarValorCompartido(fd);
 		break;
 
 	case ANSISOP_WAIT:
+		printf("Mensaje recibido CPU WAIT.\n");
 		ansisopWait(fd);
 		break;
 
 	case ANSISOP_SIGNAL:
+		printf("Mensaje recibido CPU SIGNAL.\n");
 		ansisopSignal(fd);
 		break;
 
@@ -537,16 +542,19 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 	break;
 
 	case ANSISOP_FIN_PROGRAMA:
-		printf("mensaje recibido CPU Finalizar");
+		printf("mensaje recibido CPU Finalizar.\n");
 		//Muevo a finished el proceso
 
-		pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
-		queue_push(finished,pcb_recibido);
+		int *pid = malloc(sizeof(int));
+		recv(fd,pid,sizeof(int),0);
+
+		queue_push(finished,pid);
+		printf("Ya puse el pid en finished.\n");
 
 	break;
 
 	default:
-		printf("mensaje recibido CPU Erroneo");
+		printf("mensaje recibido CPU Erroneo.\n");
 	}
 }
 
@@ -917,6 +925,17 @@ void moverDeNewAQueue(int pid, t_queue *destino)
 	list_remove_by_condition(new, (void*)igualPid);
 }
 
+void eliminarPcb(int pid)
+{
+	bool igualPid(void *elemento){
+		return ((t_pcb*)elemento)->pid == pid;
+	}
+
+	t_pcb *pcb_a_eliminar = list_find(new,igualPid);
+
+	freePcb(pcb_a_eliminar);
+}
+
 void iniciarNuevaConsola (int socket){
 
 	//1.recibe pgm de Consola
@@ -1073,7 +1092,12 @@ int solicitarPaginasUMC(int source_size, char *source, int pid){
 	{
 		printf("RECHAZO_PROGRAMA\n");
 		//Lo paso a finished
-		moverDeNewAQueue(pid,finished);
+		//moverDeNewAQueue(pid,finished);
+		int *ptr_pid = malloc(sizeof(int));
+		*ptr_pid = pid;
+		queue_push(finished,ptr_pid);
+
+		eliminarPcb(pid);
 	}else{
 		printf("Recibi un mensaje incorrecto de umc.\n");
 		printf("%d %d \n", msj[0],msj[1]);
@@ -1143,33 +1167,42 @@ void finalizarEjecucionProceso(int socket){
 
 }
 
-void limpiarTerminados(){
+void limpiarTerminados(fd_set *listen){
 
-	t_pcb *pcb_terminado;
+	int *pid;
 
 	while(!queue_is_empty(finished))
 	{
-		pcb_terminado = queue_pop(finished);
+		printf("Hay algo que limpiar.\n");
 
-		//Le aviso a consola que termino la ejecucion del programa
+		pid = queue_pop(finished);
+
 		int mensaje = FINALIZAR;
 
-		//Funcion para buscar consola
-		bool igualPid(t_consola *elemento)
+		//Aviso a consola que termino la ejecucion
+		bool igualPid(void *elemento)
 		{
-			return elemento->pid == pcb_terminado->pid;
+			return ((t_consola*)elemento)->pid == *pid;
 		}
-		t_consola *consola = list_find(listaConsola,(void*)igualPid);
+		t_consola *consola = list_find(listaConsola,igualPid);
 
 		send(consola->socketConsola,&mensaje,sizeof(int),0);
 
 		//Elimino la consola y cierro el socket
 		list_remove_by_condition(listaConsola,(void*)igualPid);
+		FD_CLR(consola->socketConsola,listen);
 		close(consola->socketConsola);
 		free(consola);
 
-		//Elimino el pcb
-		freePcb(pcb_terminado);
+		//Aviso a umc que termino la ejecucion
+		int msjLargo[2] = {FINALIZAR_PROGRAMA,*pid};
+
+		send(socket_umc,&msjLargo,2*sizeof(int),0);
+
+		//libero la memoria del pid
+		free(pid);
+
+		printf("Termine de limpiar.\n");
 	}
 
 }

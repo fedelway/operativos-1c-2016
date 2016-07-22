@@ -75,10 +75,12 @@ int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
 t_pcb pcb_actual;
 int estado = 0;
-
+FILE *log;
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
 /****************************************************************************************/
+void crearLog();
+
 void levantarDatosDeConfiguracion(t_configuracion_cpu* configuracion, char* config_path);
 bool validarParametrosDeConfiguracion(t_config*);
 void conectarAlNucleo(t_configuracion_cpu* configCPU);

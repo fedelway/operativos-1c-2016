@@ -153,10 +153,11 @@ void validacionUMC();
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
 void* enviarPaqueteACPU(void *nodoCPU);
-void limpiarTerminados();
+void limpiarTerminados(fd_set *listen);
 void planificar();
 void moverDeNewAList(int pid, t_list *destino);
 void moverDeNewAQueue(int pid, t_queue *destino);
+void eliminarPcb(int pid);
 int cantCpuLibres();
 
 int crearPCB(int source_size,char *source);

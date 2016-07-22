@@ -293,6 +293,8 @@ void trabajarNucleo(){
 			exit(1);
 		}
 
+		printf("Recibi un mensaje de nucleo.\n");
+
 		switch(msj_recibido){
 
 		case INICIALIZAR_PROGRAMA :
@@ -313,6 +315,8 @@ void finalizarPrograma()
 	int pid;
 	recv(nucleo_fd, &pid, sizeof(int),0);
 
+	printf("Termino la ejecucion del programa pid: %d.\nLimpiando estructuras",pid);
+
 	t_prog *programa = buscarPrograma(pid);
 
 	//pthread_mutex_lock(&mutex_listaProgramas);
@@ -326,11 +330,17 @@ void finalizarPrograma()
 	programa = list_remove_by_condition(programas, (void*)encontrarPrograma);
 	//pthread_mutex_unlock(&mutex_listaProgramas);
 
+	if(programa == NULL)
+		return;//No existe el pid.
+
 	//Marco todos los frames como libres
 	int i;
-	for(i=0;i<fpp;i++)
+	for(i=0;i<programa->cant_total_pag;i++)
 	{
-		frames[programa->paginas[i].frame].libre = true;
+		if(programa->paginas[i].presencia)
+		{
+			frames[programa->paginas[i].frame].libre = true;
+		}
 	}
 
 	//Libero la memoria pedida
@@ -1028,6 +1038,8 @@ void leerParaCpu(int cpu_fd){
 
 void escribirParaCpu(int cpu_fd){
 
+	printf("Escribir para cpu.\n");
+
 	int pag, offset, size, pid;
 	char *buffer;
 
@@ -1036,19 +1048,20 @@ void escribirParaCpu(int cpu_fd){
 	recv(cpu_fd, &size, sizeof(int),0);
 	recv(cpu_fd, &pid, sizeof(int),0);
 
+	buffer = malloc(size);
+
 	if( recvAll(cpu_fd, buffer, size, 0) == -1){
 		printf("Error al recibir la solicitud.\n");
 	}
 
 	t_prog *programa = buscarPrograma(pid);
 
-	printf("pid %d cantpaginas %d puntero %d timer %d.\n",programa->pid,programa->cant_total_pag,programa->puntero,programa->timer);
-
 	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
 		printf("Error en la escritura en memoria.\n");
 	}
 
-	//TODO: enviar la confirmacion de que se escribio ok
+	free(buffer);
+
 	return;
 }
 

@@ -876,16 +876,36 @@ void liberarEstructuras(nodo_proceso *nodo){
 
 }
 
-void terminarProceso( int pid){
+void terminarProceso(int pid){
 
-	int posicion = ubicacionEnSwap(pid);
+	printf("Terminando proceso n°: %d.\n",pid);
 
-	if(posicion != -1){
-		nodo_proceso *nodo = obtenerPrograma(posicion);
-		liberarEstructuras(nodo);
-	}else{
-		puts("No se ha encontrado el programa");
+	bool igualPid(void *elemento){
+		if(((nodo_proceso*)elemento)->pid == pid)
+			return true;
+		else return false;
 	}
+	nodo_proceso *proceso = list_find(listaProcesos,igualPid);
+
+	if(proceso == NULL)
+		return;
+
+	int i;
+	for(i=0;i<proceso->cantidad_paginas;i++)
+	{//Marco como libre las paginas en el bitmap
+		bitmap[proceso->posSwap/TAMANIO_PAGINA + 1] = 'l';
+	}
+}
+
+buscarProceso(int pid)
+{
+	bool igualPid(void *elemento){
+		if(((nodo_proceso*)elemento)->pid == pid)
+			return true;
+		else return false;
+	}
+
+	return list_find(listaProcesos,igualPid);
 }
 
 //---------------------------- ELIMINAR ESTRUCTURAS ------------------------------//

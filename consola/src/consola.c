@@ -60,13 +60,18 @@ int main(int argc,char *argv[]) {
 
 		switch (header_mensaje) {
 
-			case ANSISOP_IMPRIMIR:
+			case IMPRIMIR_VALOR:
 				imprimirValor(socket_nucleo);
 				break;
 
-			case ANSISOP_IMPRIMIR_TEXTO:
+			case IMPRIMIR_CADENA:
 				imprimirCadena(socket_nucleo);
 				break;
+
+			case FINALIZAR:
+				printf("Fin programa.\n");
+				exit(0);
+
 
 			default:
 				printf("obtuve otro id %d\n", header_mensaje);
@@ -249,14 +254,12 @@ void enviar_source(int nucleo_fd, FILE *source, int source_size){
  *  Devuelve    : void
  */
 void imprimirValor(int socket_nucleo){
-	int valor_mostrar;
-	int res = recv(socket_nucleo, &valor_mostrar, sizeof(int), 0);
-	if(res <= 0){
-		log_warning(logger, "No se pudo obtener el valor del mensaje ANSISOP_IMPRIMIR");
-	}else{
-		log_info(logger_sin_imprimir, "ANSISOP_IMPRIMIR: %d", valor_mostrar);
-		printf("%d\n", valor_mostrar);
-	}
+
+	int valor;
+
+	recv(socket_nucleo,&valor,sizeof(int),0);
+
+	printf("%d.\n",valor);
 }
 
 /*
@@ -265,19 +268,19 @@ void imprimirValor(int socket_nucleo){
  *  Devuelve    : void
  */
 void imprimirCadena(int socket_nucleo){
+
 	int tamanio_cadena;
-	int res = recv(socket_nucleo, &tamanio_cadena, sizeof(int), 0);
-	if(res <= 0){
-		log_warning(logger, "No se pudo obtener el valor del mensaje ANSISOP_IMPRIMIR_TEXTO");
-	}else{
-		char *cadena_mostrar = malloc(tamanio_cadena + 1);
-		int res = recv(socket_nucleo, &cadena_mostrar, tamanio_cadena, 0);
-		if(res <= 0){
-			log_warning(logger, "No se pudo obtener la cadena del mensaje ANSISOP_IMPRIMIR_TEXTO");
-		}else{
-			cadena_mostrar[tamanio_cadena] = '\0';
-			log_info(logger_sin_imprimir, "ANSISOP_IMPRIMIR_TEXTO: %s", cadena_mostrar);
-			printf("%s\n", cadena_mostrar);
-		}
-	}
+	char *cadena;
+
+	recv(socket_nucleo,&tamanio_cadena,sizeof(int),0);
+
+	cadena = malloc(tamanio_cadena + 1);
+
+	recv(socket_nucleo,cadena,tamanio_cadena,0);
+
+	cadena[tamanio_cadena] = '0';
+
+	printf("%s.\n",cadena);
+
+	free(cadena);
 }

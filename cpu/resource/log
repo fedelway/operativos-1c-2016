@@ -1,0 +1,191 @@
+log del dia Thu Jul 21 20:39:44 2016
+. 
+
+log del dia Thu Jul 21 20:45:09 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 20:51:42 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 20:54:11 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 20:55:25 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 20:56:06 2016
+. 
+
+log del dia Thu Jul 21 20:57:00 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 20:59:39 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:07:17 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:08:47 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:09:51 2016
+. 
+
+log del dia Thu Jul 21 21:13:16 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:15:11 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:16:23 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:21:30 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
+log del dia Thu Jul 21 21:22:34 2016
+. 
+
+ANSISOP ------- Ejecuto Definir Variable. Variable: a ----
+ANSISOP ------- Ejecuto Definir Variable. Variable: b ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 3 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto asignar: en la direccion 132, el valor 5 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: b ----
+ANSISOP ------- Ejecuto dereferenciar. Direccion_variable: 132 ----
+ANSISOP ------- Ejecuto ObtenerPosicionVariable. Variable: a ----
+ANSISOP ------- Ejecuto asignar: en la direccion 128, el valor 12 ----
+ANSISOP ------- Finalizar Programa. ----
