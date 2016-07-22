@@ -30,7 +30,7 @@ int tamanioPcb(t_pcb pcb)
 	{
 		tamanio += 5*sizeof(int);								//tamaño de los ints
 		tamanio += pcb.stack.entradas[i].cant_arg * tamanioVar; //tamaño de los argumentos
-		tamanio += pcb.stack.entradas[i].cant_var * tamanioVar; //tamaño de los argumentos
+		tamanio += pcb.stack.entradas[i].cant_var * tamanioVar; //tamaño de las variables
 	}
 
 	printf("tamanio pcb: %d.\n", tamanio);

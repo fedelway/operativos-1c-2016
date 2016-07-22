@@ -239,14 +239,6 @@ void trabajarUmc(){
 			encolarProgramas(msj_recibido);
 		}else{
 
-			/*if(hayProgramasEnEspera == 1){  //ver como compararlo
-
-				pthread_mutex_lock(&peticionesActuales);
-				atenderProcesosEnEspera();
-				pthread_mutex_unlock(&peticionesActuales);
-
-			}else{*/
-
 				atenderPeticiones(msj_recibido);
 
 		}
@@ -355,13 +347,6 @@ void actualizarBitMap(int pagina, int cant_paginas){
 		bitmap[pagina+i] = 'o';
 	}
 
-	/*int i;
-	int cant = 0;
-	for (i = 1; i <= cant_paginas; i++){  // ver =0 o =1
-
-		bitarray_set_bit(bitMap, pagina + cant);
-		cant = cant + 1;
-	}*/
 }
 
 //--------------------------- CREACION DE NODOS DE LAS LISTAS -------------------------//
@@ -895,6 +880,11 @@ void terminarProceso(int pid){
 	{//Marco como libre las paginas en el bitmap
 		bitmap[proceso->posSwap/TAMANIO_PAGINA + 1] = 'l';
 	}
+
+	//Libero la memoria de las estructuras
+	proceso = list_remove_by_condition(listaProcesos,igualPid);
+
+	free(proceso);
 }
 
 buscarProceso(int pid)

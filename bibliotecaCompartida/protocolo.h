@@ -40,7 +40,7 @@
 #define ANSISOP_OBTENER_VALOR_COMPARTIDO 3100 //(int pid, int tamañoCadena, char *id)
 #define ANSISOP_ASIGNAR_VALOR_COMPARTIDO 3110 //(int pid, int nuevo_valor, int tamañoCadena, char *id)
 #define ANSISOP_FIN_PROGRAMA 3200			  //(int pid)
-#define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D )
+#define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D)
 #define ANSISOP_WAIT 3070			//(int pid, int tamañoCadena, char *identificador)
 #define ANSISOP_SIGNAL 3080			//(int pid, int tamañoCadena, char *identificador)
 //Defines faltantes

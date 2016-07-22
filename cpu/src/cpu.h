@@ -97,6 +97,7 @@ void finalizarCpuPorError(void);
 
 void ejecutar();
 char *solicitarInstruccion(t_intructions);
+void apagarse();
 
 void recibirPCB(void);
 void enviarPaqueteAUMC(char* package);

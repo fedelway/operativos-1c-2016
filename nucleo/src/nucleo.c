@@ -240,7 +240,6 @@ void validacionUMC(int socket_umc){
 
 	send(socket_umc, &buffer, 2*sizeof(int), 0);//Envio codMensaje y stackSize
 
-
 	if(mensaje == SOY_UMC){
 
 		printf("Conectado a UMC.\n");
@@ -258,7 +257,6 @@ void validacionUMC(int socket_umc){
 	}
 }
 
-//TODO: Todas las validaciones de errores
 void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons_fd){
 
 	int i, codMensaje;
@@ -553,6 +551,14 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 
 	break;
 
+	case DESCONEXION_CPU:
+		printf("Se ha desconectado una cpu.\n");
+
+		//Elimino la cpu de las listas correspondientes
+		terminarConexion(fd);
+		close(fd);
+
+		break;
 	default:
 		printf("mensaje recibido CPU Erroneo.\n");
 	}
@@ -1019,6 +1025,11 @@ int crearPCB(int source_size,char *source){
 	//Cargo indiceEtiquetas
 	indiceEtiquetas.etiquetas_size =  metadata->etiquetas_size;
 	indiceEtiquetas.etiquetas = metadata->etiquetas;
+
+	printf("Imprimo el indice de etiquetas:\n\n");
+	fwrite(indiceEtiquetas.etiquetas,sizeof(char),indiceEtiquetas.etiquetas_size,stdout);
+	printf("\n\n");
+	sleep(10);
 
 	//Creo la entrada del stack del main
 	pcb->stack.cant_entradas = 1;

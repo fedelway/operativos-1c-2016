@@ -54,10 +54,6 @@ int main(int argc,char *argv[]) {
 		switch (header) {
 			case EJECUTA:
 				ejecutar();
-				//recibirPCB();
-				//ejecutoInstrucciones();
-				//devuelvoPcbActualizadoAlNucleo();
-				//liberarEspacioDelPCB();
 				break;
 			default:
 				printf("obtuve otro id %d\n", header);
@@ -97,6 +93,9 @@ void ejecutar()
 	printf("%d",pcb_actual.stack.entradas[0].cant_var);
 	printf("%d,%d, %d",pcb_actual.stack.entradas[0].cant_var,pcb_actual.stack.cant_entradas - 1, pcb_actual.pid);
 
+	//Vuelvo el estado al original
+	estado = TODO_OK;
+
 	int i;
 	for(i=0;i<quantum;i++)
 	{
@@ -129,6 +128,11 @@ void ejecutar()
 	{
 		printf("Termino el programa.\n");
 		return;
+	}else if( estado == SIGUSR1)
+	{
+		printf("Terminando ejecucion por SIGUSR1.\n");
+		sleep(10);
+		apagarse();
 	}
 
 }
@@ -163,6 +167,26 @@ char *solicitarInstruccion(t_intructions instruccion)
 	printf("\n\n");
 
 	return resultado;
+}
+
+void apagarse()
+{
+	//Le envio un mensaje al nucleo avisando que me voy a desconectar
+	int mensaje = DESCONEXION_CPU;
+	send(socket_nucleo,&mensaje,sizeof(int),0);
+
+	//Envio el pcb y cierro el socket
+	enviarPcb(pcb_actual, socket_nucleo, -1);
+	close(socket_nucleo);
+
+	//Lo mismo con umc
+	send(socket_umc,&mensaje,sizeof(int),0);
+	close(socket_nucleo);
+
+	//Libero recursos
+	fclose(log);
+
+	exit(0);
 }
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -414,16 +438,17 @@ void liberarEspacioDelPCB(){
 
 //TODO: Terminar Implementacion
 void handler_seniales(int senial) {
+
 	switch (senial) {
 		case SIGUSR1:
-			printf("Obtuve una señal de SIGUSR1\n");
+			estado = SIGUSR1;
 			sleep(3);
 			break;
 		default:
 			printf("Obtuve otra senial inesperada\n");
 			sleep(3);
 	}
-	exit(EXIT_FAILURE);
+
 }
 
 
@@ -627,17 +652,6 @@ t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_varia
 	//Pase por estos 2 for y no encontro => hay error
 	return -1;
 
-	//Buscar en el índice de stack, la entrada/nodo que pertenece a identificador_variable
-	//Devolver la posición -> Supongo que como es un t_puntero,
-	//debería devolver => 	nroPagina*tamanioPagina+offset. (el nroPagina y el offset lo obtengo del
-	//						vars del indice stack)
-
-//	int pagina = 0; //TODO cambiar offset y pagina
-//	int offset = 8;
-//
-//	int posicion_memoria = pagina*offset;
-//
-//	return posicion_memoria;
 }
 
 /*
@@ -655,7 +669,7 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 	//Pido a umc el valor de la variable
 	int mensaje[5];
 	mensaje[0] = LEER;
-	mensaje[1] = direccion_variable / tamanio_pagina;//Pagina en la que esta el codigo
+	mensaje[1] = direccion_variable / tamanio_pagina;//Pagina en la que esta la variable
 	mensaje[2] = direccion_variable % tamanio_pagina;//Offset de la pagina
 	mensaje[3] = sizeof(int);		 				 //Size de la instruccion
 	mensaje[4] = pcb_actual.pid;					 //pid
@@ -674,74 +688,6 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 
 	return resultado;
 
-	//A partir de la puntero, obtengo el número de página y el offset de la variable que quiero leer.
-	//Pido a la umc, que lea el 4 bytes a partir del número de página y offset.
-
-//	t_solicitud_lectura *solicitud_lectura = (t_solicitud_lectura *)malloc(sizeof(t_solicitud_lectura));
-//
-//	//Calculo la página y el offset a partir de puntero
-//	solicitud_lectura->nroPagina = direccion_variable / tamanio_pagina;
-//	solicitud_lectura->offset = direccion_variable - solicitud_lectura->nroPagina * tamanio_pagina;
-//	solicitud_lectura->size = sizeof(int);
-//	solicitud_lectura->pid = 123; //TODO Obtener PID del PCB
-//
-//	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_lectura->nroPagina,
-//			solicitud_lectura->offset, direccion_variable);
-//
-//	//Armo el paquete solicitar una lectura a la UMC
-//	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_lectura);
-//	char *mensaje = malloc(mensaje_tamanio);
-//	memset(mensaje,'\0',mensaje_tamanio);
-//	int header = LEER;
-//	memcpy(mensaje, &header, sizeof(int));
-//	memcpy(mensaje + sizeof(int), &solicitud_lectura->nroPagina, sizeof(int));
-//	memcpy(mensaje + 2*sizeof(int), &solicitud_lectura->offset, sizeof(int));
-//	memcpy(mensaje + 3*sizeof(int), &solicitud_lectura->size, sizeof(int));
-//	memcpy(mensaje + 4*sizeof(int), &solicitud_lectura->pid, sizeof(int));
-//
-//	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
-//
-//	if(resultado < 0){
-//		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
-//			solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
-//			exit(EXIT_FAILURE);
-//	}
-//
-//	free(solicitud_lectura);
-//	free(mensaje);
-//
-//	log_info(logger, "Envio mensaje a UMC para lectura. | Nro de pagina: %d | Offset: %d | Direccion_variable: %d",
-//			 solicitud_lectura->nroPagina, solicitud_lectura->offset, direccion_variable);
-//
-//	int header_recibido;
-//	int resultado_recv = recv(socket_nucleo, &header_recibido, sizeof(int), 0);
-//
-//	if(resultado_recv < 0){
-//		printf("resultado_recv menor que 0: %d\n", resultado_recv);
-//		log_error_y_cerrar_logger(logger, "Falló en respuesta del pedido de "
-//										  "lectura de la posicion %d",direccion_variable);
-//		exit(EXIT_FAILURE);
-//	}
-//
-//	if(header_recibido == LEER){
-//		resultado_recv = recv(socket_nucleo, &valor_variable, sizeof(t_valor_variable), 0);
-//
-//		if(resultado_recv < 0){
-//			printf("resultado_recv menor que 0: %d\n", resultado_recv);
-//			log_error_y_cerrar_logger(logger, "Falló en obtener el valor de la variable del pedido de "
-//											  "lectura de la posicion %d",direccion_variable);
-//			exit(EXIT_FAILURE);
-//		}
-//
-//		printf("Resultado pedido de lectura. Direccion: %d. | Header: %d. | valor_variable: %d\n",
-//				direccion_variable, header_recibido, valor_variable);
-//	}else{
-//		printf("header_recibido es DISTINTO a LEER. header_recibido: %d | LEER: %d\n", header_recibido, LEER);
-//	}
-//
-//	printf("Dereferenciar %d y su valor es: %d\n", direccion_variable, valor_variable);
-//
-//	return valor_variable;
 }
 
 /*
@@ -756,7 +702,7 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 
 	int mensaje[6];
 	mensaje[0] = ESCRIBIR;
-	mensaje[1] = direccion_variable / tamanio_pagina;//Pagina en la que esta el codigo
+	mensaje[1] = direccion_variable / tamanio_pagina;//Pagina en la que esta la variable
 	mensaje[2] = direccion_variable % tamanio_pagina;//Offset de la pagina
 	mensaje[3] = sizeof(int);		 				 //Size de la escritura
 	mensaje[4] = pcb_actual.pid;					 //pid
@@ -771,46 +717,7 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	}
 
 	return;
-	//A partir de la direccion_variable, obtengo el número de página y el offset,
-	//para hacer la solicitud de escritura a la UMC.
-//	t_solicitud_escritura *solicitud_escritura = (t_solicitud_escritura *)malloc(sizeof(t_solicitud_escritura));
-//
-//	//Calculo la página y el offset a partir de dirección_variable
-//	solicitud_escritura->nroPagina = direccion_variable / tamanio_pagina;
-//	solicitud_escritura->offset = direccion_variable - solicitud_escritura->nroPagina * tamanio_pagina;
-//	solicitud_escritura->size = sizeof(int);
-//	solicitud_escritura->pid = 123; //TODO Obtener PID del PCB
-//	solicitud_escritura->valor = valor;
-//
-//	printf(	"Nro de pagina: %d | Offset: %d | Direccion %d.\n", solicitud_escritura->nroPagina,
-//			solicitud_escritura->offset, direccion_variable);
-//
-//	//Armo el paquete para escribir una página y envio el mensaje a la UMC
-//	int mensaje_tamanio = sizeof(int)+sizeof(t_solicitud_escritura);
-//	char *mensaje = malloc(mensaje_tamanio);
-//	memset(mensaje,'\0',mensaje_tamanio);
-//	int header = ESCRIBIR;
-//	memcpy(mensaje, &header, sizeof(int));
-//	memcpy(mensaje + sizeof(int), &solicitud_escritura->nroPagina, sizeof(int));
-//	memcpy(mensaje + 2*sizeof(int), &solicitud_escritura->offset, sizeof(int));
-//	memcpy(mensaje + 3*sizeof(int), &solicitud_escritura->size, sizeof(int));
-//	memcpy(mensaje + 4*sizeof(int), &solicitud_escritura->pid, sizeof(int));
-//	memcpy(mensaje + 5*sizeof(int), &solicitud_escritura->valor, sizeof(int));
-//
-//	int resultado = send(socket_umc, mensaje, mensaje_tamanio, 0);
-//
-//	if(resultado > 0){
-//		log_info(logger, "Envio mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-//				 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
-//
-//	}else{
-//		log_error_y_cerrar_logger(logger, "Falló envío de mensaje a UMC para escritura. | Nro de pagina: %d | Offset: %d | Valor: %d",
-//		 solicitud_escritura->nroPagina, solicitud_escritura->offset, valor);
-//		exit(EXIT_FAILURE);
-//	}
-//
-//	free(solicitud_escritura);
-//	free(mensaje);
+
 }
 
 
@@ -850,38 +757,6 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 
 	return valor_compartida;
 
-/*	int header_mensaje = ANSISOP_OBTENER_VALOR_COMPARTIDO;
-
-	char *mensaje = (char *)malloc(sizeof(int));
-	memcpy(mensaje, &header_mensaje, sizeof(int));
-
-	printf("Envio mensaje al Núcleo para obtener el valor de la variable compartida.\n");
-
-	send(socket_nucleo, &mensaje, sizeof(int), 0);
-
-	//TODO esperar la respuesta: el valor de la variable compartida
-
-	int status = 0;
-
-	int header_recibido;
-	while(status == 0){
-		//Espero respuesta del nucleo...
-		//TODO: Averiguar si el recv es bloqueante...
-		status = recv(socket_umc, &header_recibido, sizeof(int), 0);
-		sleep(2); //TODO: Sacar
-		if (status != 0) printf("Header recibido: %d.\n", header_recibido);
-	}
-
-	//TODO: Cambiar si usa un id diferente para la respuesta de la solicitud de lectura.
-	if(header_recibido == ANSISOP_OBTENER_VALOR_COMPARTIDO){
-		//Recibo valor de la variable compartida
-		int resultado = recv(socket_umc, &valor_variableCompartida, sizeof(int), 0);
-		if(resultado <= 0){
-			printf("Resultado del recv de la variable compartida %s dio: %d\n", variable,resultado);
-		}
-	}
-
-	return valor_variableCompartida;*/
 }
 
 
@@ -915,25 +790,6 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 
 	return valor_asignado;
 
-/*	t_valor_variable valor_variableCompartida;
-
-	printf("ANSISOP ------- Ejecuto asignarValorCompartida. Variable: %s. | Valor asignado: %d. ----\n", variable, valor_asignado);
-
-	int header_mensaje = ANSISOP_ASIGNAR_VALOR_COMPARTIDO;
-
-	int tamanio_mensaje = sizeof(int)+sizeof(t_nombre_compartida)+sizeof(t_valor_variable);
-	char *mensaje = (char *)malloc(tamanio_mensaje);
-	memcpy(mensaje, &header_mensaje, sizeof(int));
-	memcpy(mensaje, &variable, sizeof(t_nombre_compartida));
-	memcpy(mensaje, &valor_asignado, sizeof(t_valor_variable));
-
-	printf("Envio mensaje al Núcleo para asignar el valor a la variable compartida.\n");
-
-	send(socket_nucleo, &mensaje, tamanio_mensaje, 0);
-
-	//TODO: Tengo que esperar un ok del nucleo por cada vez que le asigno algo a una variable?
-
-	return valor_asignado;*/
 }
 
 /*
@@ -943,8 +799,8 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
  */
 void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 
-	printf("ANSISOP_IR_A_LABEL.\n");
-	fprintf(log,"ANSISOP_IR_A_LABEL.\n");
+	printf("ANSISOP_IR_A_LABEL %s.\n",etiqueta);
+	fprintf(log,"ANSISOP_IR_A_LABEL %s.\n",etiqueta);
 	//Ya esta hecho :D
 	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta,
 						pcb_actual.indice_etiquetas.etiquetas,
@@ -953,19 +809,12 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 	printf("INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 	fprintf(log,"INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 
+	if(pcb_actual.PC == -1)
+		printf("ERROR INDICE DE ETIQUETAS DEVOLVIO -1");
+
 	printf("INFORMACION INDICE ETIQUETAS:\n");
-	fprintf(log,"INFORMACION INDICE ETIQUETAS:\n");
-
 	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,stdout);
-	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,log);
-
-/*	//Del pcb voy a recurrir al campo etiquetas.
-	//Ahí aplico  metadata_buscar_etiqueta.
-	//Obtengo la posición de la etiqueta en el código y....
-	//actualizo el campo ret pos para saber a donde tiene que volver al terminar de ejecutar
-	//lo que corresponde a esa etiqueta
-	t_puntero_instruccion puntero_instruccion;
-	printf("Ir al Label\n");*/
+	printf("\n");
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
@@ -992,9 +841,29 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 
 t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 
-	printf("RETORNAR ERROR FATAL!!!! PRIMITIVA NO IMPLEMENTADA!!!!!.\n");
-	fprintf(log,"RETORNAR ERROR FATAL!!!! PRIMITIVA NO IMPLEMENTADA!!!!!.\n");
-	return 0;
+	//Busco en el stack la posicion donde retornar, asigno el valor en esa posicion y listo.
+	printf("Primitiva Retornar ---- valor: %d.\n", retorno);
+	fprintf(log,"Primitiva Retornar ---- valor: %d.\n", retorno);
+
+	//Extraigo los valores dobre donde retornar
+	int pag = pcb_actual.stack.entradas[funcionActual].pagRet;
+	int offset = pcb_actual.stack.entradas[funcionActual].offsetRet;
+	int instruccion_retorno = pcb_actual.stack.entradas[funcionActual].dirRetorno;
+
+	t_puntero direccion = pag * tamanio_pagina + offset;
+
+	socketes_asignar(direccion,retorno);
+
+	//Cambio el contexto al anterior
+	free(pcb_actual.stack.entradas[funcionActual].argumentos);
+	free(pcb_actual.stack.entradas[funcionActual].variables);
+
+	pcb_actual.stack.cant_entradas--;
+	pcb_actual.stack.entradas = realloc(pcb_actual.stack.entradas,pcb_actual.stack.cant_entradas);
+
+	printf("Termino de ejecutar retornar.\n");
+
+	return instruccion_retorno;
 }
 
 /*
