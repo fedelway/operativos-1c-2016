@@ -130,7 +130,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 void liberarCpu(int fd);
 
 //Respuesta a mensajes CPU
-void procesarMensajeCPU(int codigoMensaje, int fd);
+void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen);
 void procesarEntradaSalida(int fd);
 void checkearEntradaSalida();
 void imprimirValor(int fd);

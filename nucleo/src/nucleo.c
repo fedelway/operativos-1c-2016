@@ -30,13 +30,6 @@ int main(int argc, char *argv[]) {
 
 	listaCpu = list_create();
 	listaConsola = list_create();
-	//listaCPUs = list_create();
-	//listaConsolas = list_create();
-	//listaListos = list_create();
-	//listaBloqueados = list_create();
-	//listaEjecutar = list_create();
-	//listaFinalizados = list_create();
-
 
 	//valida los parametros de entrada del main
 	if (argc != 2) {
@@ -318,7 +311,7 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 						FD_CLR(i, listen);
 					}else{
 						if(FD_ISSET(i, &cpu_fd_set)){
-							procesarMensajeCPU(codMensaje, i);
+							procesarMensajeCPU(codMensaje, i, listen);
 						}
 						if(FD_ISSET(i, &cons_fd_set)){
 							procesarMensajeConsola(codMensaje, i);
@@ -368,6 +361,8 @@ void checkearEntradaSalida()
 
 void terminarConexion(int fd)
 {
+	printf("Terminando conexion.\n");
+
 	//Tengo que buscar si la conexion es una cpu o una consola y eliminar las estructuras
 	int i;
 	for(i=0; i<list_size(listaCpu) ;i++)
@@ -480,7 +475,7 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 }
 
 
-void procesarMensajeCPU(int codigoMensaje, int fd){
+void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 	printf("procesarMensajeCPU con el msj.%d\n",codigoMensaje);
 	int *puntero_inutil;
 
@@ -549,14 +544,32 @@ void procesarMensajeCPU(int codigoMensaje, int fd){
 		queue_push(finished,pid);
 		printf("Ya puse el pid en finished.\n");
 
+		//Libero la cpu
+		liberarCpu(fd);
+
 	break;
 
 	case DESCONEXION_CPU:
 		printf("Se ha desconectado una cpu.\n");
 
+		//Pregunto a ver si debo recibir el pcb
+		int mensaje;
+		recv(fd,&mensaje,sizeof(int),0);
+
+		if(mensaje != BLOQUEADO)
+		{//Tengo que recibir el pcb
+			printf("Debo recibir el pcb.\n");
+			//Recibo el FIN_QUANTUM que se envia siempre
+			recv(fd,&mensaje,sizeof(int),0);
+
+			pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
+			queue_push(ready,pcb_recibido);
+		}
+
 		//Elimino la cpu de las listas correspondientes
 		terminarConexion(fd);
 		close(fd);
+		FD_CLR(fd,listen);
 
 		break;
 	default:
@@ -1029,7 +1042,6 @@ int crearPCB(int source_size,char *source){
 	printf("Imprimo el indice de etiquetas:\n\n");
 	fwrite(indiceEtiquetas.etiquetas,sizeof(char),indiceEtiquetas.etiquetas_size,stdout);
 	printf("\n\n");
-	sleep(10);
 
 	//Creo la entrada del stack del main
 	pcb->stack.cant_entradas = 1;
@@ -1196,6 +1208,9 @@ void limpiarTerminados(fd_set *listen){
 			return ((t_consola*)elemento)->pid == *pid;
 		}
 		t_consola *consola = list_find(listaConsola,igualPid);
+
+		if(consola == NULL)
+			printf("ERROR ELIMINACION ESTRUCTURAS.\n");
 
 		send(consola->socketConsola,&mensaje,sizeof(int),0);
 

@@ -82,8 +82,6 @@ t_pcb_stream serializarPcb(t_pcb pcb)
 	size = sizeof(int);
 	serializar(&pcb.stack.cant_entradas)
 
-	printf("cant_entradas_stack: %d.\n",pcb.stack.cant_entradas);
-
 	int i;//Serializo cada entrada del stack
 	for(i=0; i<pcb.stack.cant_entradas; i++)
 	{
@@ -171,20 +169,16 @@ t_pcb deSerializarPcb(t_pcb_stream stream)
 	size = sizeof(int);
 	deserializar(&pcb.stack.cant_entradas)
 
-	printf("cant entradas stack: %d.\n",pcb.stack.cant_entradas);
-
 	pcb.stack.entradas = malloc(sizeof(t_entrada_stack) * pcb.stack.cant_entradas);
 
 	int i;//Deserializo cada entrada del stack
 	for(i=0; i<pcb.stack.cant_entradas; i++)
 	{
-		printf("Deserializo entrada n°: %d.\n",i);
-
 		size = sizeof(int);
 		deserializar(&pcb.stack.entradas[i].cant_arg)
-		printf("cant_arg: %d.\n",pcb.stack.entradas[i].cant_arg);
+
 		deserializar(&pcb.stack.entradas[i].cant_var)
-		printf("cant_var: %d.\n",pcb.stack.entradas[i].cant_var);
+
 		deserializar(&pcb.stack.entradas[i].dirRetorno)
 
 		deserializar(&pcb.stack.entradas[i].pagRet)

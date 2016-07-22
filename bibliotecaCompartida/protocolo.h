@@ -43,6 +43,7 @@
 #define DESCONEXION_CPU 3999 		//Avisa que se va a desconectar(exit feliz :D)
 #define ANSISOP_WAIT 3070			//(int pid, int tamañoCadena, char *identificador)
 #define ANSISOP_SIGNAL 3080			//(int pid, int tamañoCadena, char *identificador)
+#define BLOQUEADO 3200				//Avisa que NO le va a enviar el pcb al desconectarse
 //Defines faltantes
 #define ENVIO_PCB_ACTUALIZADO 3500
 #define SOLICITUD_INSTRUCCION 3510
@@ -56,6 +57,8 @@
 #define SOLICITUD_PAGINA 4031 	//(int pid, int pag) Pido a swap que me de la pagina indicada
 #define UMC_FINALIZAR_PROGRAMA 4090 //(int pid) Le aviso a swap que tiene que borrar el programa y liberar sus recursos
 #define RESERVA_ESPACIO	4050	//(int pid, int cant_pag)Umc pide a swap reservar espacio para el programa pid.
+#define OVERFLOW 4100			//Ante un pedido de lectura/escritura, avisa si fue incorrecto
+#define PEDIDO_OK 4101			//Avisa si el pedido fue correcto
 
 //Mensajes de Swap
 #define SOY_SWAP 5000

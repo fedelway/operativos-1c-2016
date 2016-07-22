@@ -75,6 +75,7 @@ int tamanio_pagina, quantum;
 int socket_umc, socket_nucleo;
 t_pcb pcb_actual;
 int estado = 0;
+bool senial_activada = false;
 FILE *log;
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/

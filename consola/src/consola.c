@@ -44,9 +44,7 @@ int main(int argc,char *argv[]) {
 
 	int status = 0;
 	int header_mensaje;
-	while(status == 0){
-
-		printf("Esperando mensajes..\n"); //TODO Eliminar
+	while(1){
 
 		status = recv(socket_nucleo, &header_mensaje, sizeof(int), 0);
 
@@ -77,16 +75,7 @@ int main(int argc,char *argv[]) {
 				printf("obtuve otro id %d\n", header_mensaje);
 				break;
 		}
-/*
-		if (status != 0){
-			printf("recibo mensaje de nucleo %d\n", status);
-			printf("recibi este mensaje: %s\n", message);
-			status = 0;
-		}else{
-			sleep(1);
-			printf(".\n");
-		}
-*/
+
 	}
 
 	return EXIT_SUCCESS;

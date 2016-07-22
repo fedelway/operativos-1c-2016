@@ -1017,6 +1017,20 @@ void leerParaCpu(int cpu_fd){
 
 	printf("Solicitud de lectura:\npag: %d, offset: %d, size: %d, pid:%d.\n",pag,offset,size,pid);
 
+	//Me fijo si hay stack overflow
+	int mensaje;
+	if(pag > programa->cant_total_pag)
+	{
+		mensaje = OVERFLOW;
+		send(cpu_fd,&mensaje,sizeof(int),0);
+
+		return;
+	}else
+	{
+		mensaje = PEDIDO_OK;
+		send(cpu_fd,&mensaje,sizeof(int),0);
+	}
+
 	char *resultado = malloc(size);
 	leerEnMemoria(resultado, pag, offset, size, programa);
 	//TODO:terminar el programa si esto da -1
@@ -1054,6 +1068,20 @@ void escribirParaCpu(int cpu_fd){
 	}
 
 	t_prog *programa = buscarPrograma(pid);
+
+	//Me fijo si hay stack overflow
+	int mensaje;
+	if(pag > programa->cant_total_pag)
+	{
+		mensaje = OVERFLOW;
+		send(cpu_fd,&mensaje,sizeof(int),0);
+
+		return;
+	}else
+	{
+		mensaje = PEDIDO_OK;
+		send(cpu_fd,&mensaje,sizeof(int),0);
+	}
 
 	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
 		printf("Error en la escritura en memoria.\n");

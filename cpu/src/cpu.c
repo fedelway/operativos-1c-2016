@@ -90,8 +90,6 @@ void ejecutar()
 	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 
 	printf("quantum: %d.\n", quantum);
-	printf("%d",pcb_actual.stack.entradas[0].cant_var);
-	printf("%d,%d, %d",pcb_actual.stack.entradas[0].cant_var,pcb_actual.stack.cant_entradas - 1, pcb_actual.pid);
 
 	//Vuelvo el estado al original
 	estado = TODO_OK;
@@ -102,18 +100,28 @@ void ejecutar()
 		if(estado != TODO_OK)
 			break;
 
+		if(senial_activada)
+			break;
+
 		t_intructions instruction = pcb_actual.indice_cod.instrucciones[pcb_actual.PC];
 
 		instruccion = solicitarInstruccion(instruction);
 
-		printf("voy a entrar a analizador linea.\n");
+		if(estado == OVERFLOW)
+			break;
+
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
-		printf("Ya pase por analizador linea.\n");
 
 		//Avanzo el PC
 		pcb_actual.PC++;
 
 		free(instruccion);
+	}
+
+	if( senial_activada )
+	{
+		printf("Terminando ejecucion por SIGUSR1.\n");
+		apagarse();
 	}
 
 	if(estado == TODO_OK)
@@ -128,13 +136,10 @@ void ejecutar()
 	{
 		printf("Termino el programa.\n");
 		return;
-	}else if( estado == SIGUSR1)
+	}else if( estado == OVERFLOW )
 	{
-		printf("Terminando ejecucion por SIGUSR1.\n");
-		sleep(10);
-		apagarse();
+		socketes_finalizar();
 	}
-
 }
 
 char *solicitarInstruccion(t_intructions instruccion)
@@ -150,6 +155,16 @@ char *solicitarInstruccion(t_intructions instruccion)
 	printf("msj %d, pag %d, offset %d, size %d, pid %d.\n", mensaje[0],mensaje[1],mensaje[2],mensaje[3],mensaje[4]);
 
 	send(socket_umc, &mensaje, 5*sizeof(int), 0);
+
+	//Recibo la respuesta si hay stack_overflow
+	recv(socket_umc,&mensaje[0],sizeof(int),0);
+	if(mensaje[0] == OVERFLOW)
+	{
+		printf("Error al solicitar instruccion: STACK_OVERFLOW");
+		estado = OVERFLOW;
+		char *puntero;
+		return puntero;
+	}
 
 	char *resultado = malloc(instruccion.offset + 1);
 
@@ -175,13 +190,25 @@ void apagarse()
 	int mensaje = DESCONEXION_CPU;
 	send(socket_nucleo,&mensaje,sizeof(int),0);
 
-	//Envio el pcb y cierro el socket
-	enviarPcb(pcb_actual, socket_nucleo, -1);
+	if(estado == TODO_OK)
+	{
+		//Envio el pcb y cierro el socket
+		printf("Envio el pcb.\n");
+		//Necesito mandarle un mensaje a nucleo diciendo que le voy a enviar el pcb
+		mensaje = FIN_QUANTUM;
+		send(socket_nucleo,&mensaje,sizeof(int),0);
+
+		enviarPcb(pcb_actual, socket_nucleo, -1);
+	}else
+	{//No le tengo que enviar el pcb
+		mensaje = BLOQUEADO;
+		send(socket_nucleo,&mensaje,sizeof(int),0);
+	}
 	close(socket_nucleo);
 
 	//Lo mismo con umc
 	send(socket_umc,&mensaje,sizeof(int),0);
-	close(socket_nucleo);
+	close(socket_umc);
 
 	//Libero recursos
 	fclose(log);
@@ -441,7 +468,7 @@ void handler_seniales(int senial) {
 
 	switch (senial) {
 		case SIGUSR1:
-			estado = SIGUSR1;
+			senial_activada = true;
 			sleep(3);
 			break;
 		default:
@@ -591,20 +618,14 @@ t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 	fprintf(log,"ANSISOP ------- Ejecuto Definir Variable. Variable: %c ----\n", identificador_variable);
 	/*Agrego una variable a la entrada de stack correspondiente*/
 
-	printf("pid: %d.\n",pcb_actual.pid);
-	printf("funcionActual %d.\n",(pcb_actual.stack.cant_entradas - 1));
-
 	if(pcb_actual.stack.entradas[funcionActual].variables == NULL)
 	{
 		printf("\nNULL.\n");
 	}
 
-	printf("cant var: %d.\n",pcb_actual.stack.entradas[funcionActual].cant_var);
 
 	pcb_actual.stack.entradas[funcionActual].cant_var++;
-	printf("cant var nueva :%d.\n",pcb_actual.stack.entradas[funcionActual].cant_var);
 	pcb_actual.stack.entradas[funcionActual].variables = realloc(pcb_actual.stack.entradas[funcionActual].variables,pcb_actual.stack.entradas[funcionActual].cant_var * sizeof(t_var));
-	printf("Pude realloc.\n");
 
 	varActual = calcularVariable(pcb_actual);
 	varActual.identificador = identificador_variable;
@@ -612,7 +633,6 @@ t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 	t_puntero puntero = varActual.pag * tamanio_pagina + varActual.offset;
 
 	printf("pag: %d, offset: %d.\n",varActual.pag,varActual.offset);
-	printf("puntero: %d.\n",puntero);
 
 	return puntero;
 
@@ -676,6 +696,14 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 
 	send(socket_umc, &mensaje, 5*sizeof(int), 0);
 
+	recv(socket_umc,&mensaje,sizeof(int),0);
+	if(mensaje[0] == OVERFLOW)
+	{
+		printf("Error al solicitar instruccion: STACK_OVERFLOW");
+		estado = OVERFLOW;
+		return 0;
+	}
+
 	int resultado;
 
 	printf("Espero el resultado...\n");
@@ -684,7 +712,7 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 		perror("Error al recibir instruccion");
 	}
 
-	printf("Valor de la variable: %d",resultado);
+	printf("\nValor de la variable: %d %d\n\n",resultado, mensaje[0]);
 
 	return resultado;
 
@@ -714,6 +742,14 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	if( sendAll(socket_umc, &mensaje, 6*sizeof(int), 0) <= 0)
 	{
 		perror("Error al asignar variable");
+	}
+
+	//Recibo la respuesta si el pedido fue correcto o no
+	recv(socket_umc,&mensaje,sizeof(int),0);
+	if(mensaje[0] == OVERFLOW)
+	{
+		printf("Pedido incorrecto: STACK_OVERFLOW.\n");
+		estado = OVERFLOW;
 	}
 
 	return;
@@ -806,15 +842,23 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 						pcb_actual.indice_etiquetas.etiquetas,
 						pcb_actual.indice_etiquetas.etiquetas_size);
 
+	printf("\n ETIQUETAS SIZE: %d\n",pcb_actual.indice_etiquetas.etiquetas_size);
+
 	printf("INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 	fprintf(log,"INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 
-	if(pcb_actual.PC == -1)
-		printf("ERROR INDICE DE ETIQUETAS DEVOLVIO -1");
+	if(pcb_actual.PC == -1){
+		printf("ERROR INDICE DE ETIQUETAS DEVOLVIO -1.\n");
+		fprintf(log,"ERORR INDICE DE ETIQUETAS DEVOLVIO -1.\n");
+	}
 
-	printf("INFORMACION INDICE ETIQUETAS:\n");
+	printf("INFORMACION INDICE ETIQUETAS:\n\n");
 	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,stdout);
-	printf("\n");
+	printf("\n\n");
+
+	fprintf(log,"INFORMACION INDICE ETIQUETAS:\n\n");
+	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,log);
+	fprintf(log,"\n\n");
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
