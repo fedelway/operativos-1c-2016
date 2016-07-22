@@ -298,11 +298,15 @@ void trabajarNucleo(){
 		switch(msj_recibido){
 
 		case INICIALIZAR_PROGRAMA :
+			pthread_mutex_lock(&mutex_total);
 			inicializarPrograma();
+			pthread_mutex_unlock(&mutex_total);
 			break;
 
 		case FINALIZAR_PROGRAMA:
+			pthread_mutex_lock(&mutex_total);
 			finalizarPrograma();
+			pthread_mutex_unlock(&mutex_total);
 			break;
 		}
 	}
@@ -445,15 +449,6 @@ void inicializarPrograma(){
 		return;
 	}
 
-	//Archivo enviado exitosamente, le doy el ok a nucleo
-//	int msj[2];
-//
-//	msj[0] = ACEPTO_PROGRAMA;
-//	msj[1] = pid;
-//
-//	printf("Mensaje para nucleo: ACEPTO_PROGRAMA: %d, pid %d.\n",msj[0],msj[1]);
-//
-//	send(nucleo_fd, &msj, 2*sizeof(int),0);
 	int msj[2];
 	msj[0] = ACEPTO_PROGRAMA;
 	msj[1] = pid;
@@ -982,11 +977,15 @@ void trabajarCpu(int cpu_fd){
 		switch(msj_recibido)
 		{
 			case LEER:
+				pthread_mutex_lock(&mutex_total);
 				leerParaCpu(cpu_fd);
+				pthread_mutex_unlock(&mutex_total);
 				break;
 
 			case ESCRIBIR:
+				pthread_mutex_lock(&mutex_total);
 				escribirParaCpu(cpu_fd);
+				pthread_mutex_unlock(&mutex_total);
 				break;
 
 			case DESCONEXION_CPU:
@@ -1320,6 +1319,7 @@ void terminal(){
 		//Formateo los datos
 		cant_parametros = sscanf(buffer, "%s %s", comando, parametro);
 
+		pthread_mutex_lock(&mutex_total);
 		//El switch
 		if(!strcmp(comando, "flushTlb") )
 		{
@@ -1514,6 +1514,7 @@ void terminal(){
 			printf("\nComando erroneo.\nComandos disponibles: flushTlb [pid]\nflushMemory\ndump [pid]\nretardo [ret en segundos]\nexit\n");
 		}
 
+		pthread_mutex_unlock(&mutex_total);
 	}
 
 }

@@ -84,6 +84,8 @@ pthread_mutex_t mutex_memoria = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_listaProgramas = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_tlb = PTHREAD_MUTEX_INITIALIZER;
 
+pthread_mutex_t mutex_total = PTHREAD_MUTEX_INITIALIZER;
+
 void crearConfiguracion(char* config_path);
 bool validarParametrosDeConfiguracion();
 void handshakeSWAP();
