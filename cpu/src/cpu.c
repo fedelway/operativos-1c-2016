@@ -712,7 +712,11 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 		perror("Error al recibir instruccion");
 	}
 
-	printf("\nValor de la variable: %d %d\n\n",resultado, mensaje[0]);
+	printf("\nValor de la variable: %d \n",resultado);
+
+	printf("Print puro: ");
+	fwrite(&resultado,sizeof(char),4,stdout);
+	printf("\n\n");
 
 	return resultado;
 
@@ -751,6 +755,10 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 		printf("Pedido incorrecto: STACK_OVERFLOW.\n");
 		estado = OVERFLOW;
 	}
+
+	printf("Print puro de la asignacion: %d\n", valor);
+	fwrite(&valor,sizeof(char),4,stdout);
+	printf("\n\n");
 
 	return;
 
@@ -835,10 +843,24 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
  */
 void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 
+	printf("Longitud etiqueta: %d.\n",strlen(etiqueta));
+	etiqueta[strlen(etiqueta) - 1] = '\0';
+
+	int size = strlen(etiqueta - 1);
+	char *etiqueta_bien = malloc(size);
+
+	int i;
+	for(i=0;i<size;i++)
+	{
+		etiqueta_bien[i] = etiqueta[i];
+	}
+
+	fwrite(etiqueta_bien,sizeof(char),size,stdout);
+
 	printf("ANSISOP_IR_A_LABEL %s.\n",etiqueta);
 	fprintf(log,"ANSISOP_IR_A_LABEL %s.\n",etiqueta);
 	//Ya esta hecho :D
-	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta,
+	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta_bien,
 						pcb_actual.indice_etiquetas.etiquetas,
 						pcb_actual.indice_etiquetas.etiquetas_size);
 

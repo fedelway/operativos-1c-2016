@@ -847,7 +847,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 
 		if(pos_a_escribir != -1){
 			//TLB_HIT
-			pos_a_escribir++;
+			pos_a_escribir+=offset;
 		}else{
 			//TLB_MISS
 			//Verifico que la pagina esta en memoria
@@ -1066,6 +1066,10 @@ void escribirParaCpu(int cpu_fd){
 	if( recvAll(cpu_fd, buffer, size, 0) == -1){
 		printf("Error al recibir la solicitud.\n");
 	}
+
+	printf("contenido a escribir:\n\n");
+	fwrite(buffer,sizeof(char),size,stdout);
+	printf("\n\n");
 
 	t_prog *programa = buscarPrograma(pid);
 

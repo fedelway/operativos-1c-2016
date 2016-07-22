@@ -377,6 +377,7 @@ void terminarConexion(int fd)
 	{
 		if( getListaConsola(i)->socketConsola == fd )
 		{
+			//TODO: Tengo que terminar el programa ademas
 			list_remove_and_destroy_element(listaConsola,i, free);
 		}
 	}
