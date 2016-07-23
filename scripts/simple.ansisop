@@ -1,0 +1,11 @@
+#!../consola/Debug/consola ../consola/resource/config.cfg
+begin
+variables i,b
+    i = 1
+    :inicio_for
+    i = i + 1
+    print i
+    b = i - 10
+    jnz b inicio_for
+    #fuera del for
+end

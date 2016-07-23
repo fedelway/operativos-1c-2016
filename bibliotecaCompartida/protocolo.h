@@ -23,6 +23,9 @@
 #define IMPRIMIR_VALOR 1200			//(int valor)
 #define IMPRIMIR_CADENA 1201		//(int tamanio_cadena, char* cadena)
 
+#define KILL_PROGRAMA 1300			//Hubo un error se debe finalizar la ejecucion
+#define OP_OK 1301					//Puede continuar la ejecucion
+
 //Mensajes de Consola
 #define SOY_CONSOLA 2000
 #define CONSOLA_OK 2010

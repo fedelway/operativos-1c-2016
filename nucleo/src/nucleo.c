@@ -172,10 +172,10 @@ void crearIO()
 		t_IO *nuevoIO = malloc(sizeof(t_IO));
 
 		nuevoIO->identificador = ioArray[i];
-		nuevoIO->sleep = atoi(ioSleep[i]);
+		nuevoIO->sleep = atoi(ioSleep[i]) / 1000;
 		nuevoIO->procesos_esperando = queue_create();
 
-		printf("id:%s,valor:%d.\n",nuevoIO->identificador,nuevoIO->sleep);
+		printf("id:%s,sleep:%f.\n",nuevoIO->identificador,nuevoIO->sleep);
 
 		list_add(IO, nuevoIO);
 	}
@@ -342,7 +342,7 @@ void checkearEntradaSalida()
 		{
 			proceso = queue_peek(io->procesos_esperando);
 
-			if( difftime(proceso->tiempo_inicio,time(NULL)) >= proceso->tiempo_espera )
+			if( difftime(proceso->tiempo_inicio,time(NULL)) >= (proceso->tiempo_espera * io->sleep) )
 			{//Ya paso el tiempo: agrego el pcb a ready
 
 				queue_push(ready,proceso->pcb);
@@ -495,6 +495,9 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 			liberarCpu(fd);
 			printf("Termine de ejecutar fin quantum.\n");
 
+			//Sleep enunciado
+			sleep(config_get_int_value(config,"QUANTUM_SLEEP"));
+
 		break;
 
 	case ENTRADA_SALIDA:
@@ -526,14 +529,12 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 	case ANSISOP_IMPRIMIR:
 		printf("mensaje recibido CPU imprimir\n");
 		imprimirValor(fd);
-
-	break;
+		break;
 
 	case ANSISOP_IMPRIMIR_TEXTO:
 		printf("mensaje recibido CPU imprimir texto\n");
 		imprimirTexto(fd);
-
-	break;
+		break;
 
 	case ANSISOP_FIN_PROGRAMA:
 		printf("mensaje recibido CPU Finalizar.\n");
@@ -548,7 +549,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 		//Libero la cpu
 		liberarCpu(fd);
 
-	break;
+		break;
 
 	case DESCONEXION_CPU:
 		printf("Se ha desconectado una cpu.\n");
@@ -590,7 +591,7 @@ void procesarEntradaSalida(int fd)
 	recv(fd,&tamanio_cadena,sizeof(int),0);
 
 	identificador = malloc(tamanio_cadena);
-	recv(fd,identificador,tamanio_cadena,0);
+	recvAll(fd,identificador,tamanio_cadena,0);
 
 	//Ya tengo todos los datos, ahora tengo que recibir el pcb.
 	//Recibo el mensaje inutil
@@ -611,11 +612,30 @@ void procesarEntradaSalida(int fd)
 	//Busco la entradaSalida y agrego el nodo
 	bool mismoId(void *elemento)
 	{
-		if(strcmp(identificador, ((t_IO*)elemento)->identificador)){
+		if(!strcmp(identificador, ((t_IO*)elemento)->identificador)){
 			return true;
 		}else return false;
 	}
 	t_IO *io = list_find(IO,mismoId);
+
+	int mensaje;
+	if(io == NULL)
+	{
+		printf("No existe la entrada salida: ");
+		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
+		printf("\n");
+
+		free(identificador);
+		free(proceso);
+
+		mensaje = KILL_PROGRAMA;
+		send(fd,&mensaje,sizeof(int),0);
+
+		return;
+	}
+
+	mensaje = OP_OK;
+	send(fd,&mensaje,sizeof(int),0);
 
 	queue_push(io->procesos_esperando,proceso);
 
@@ -636,11 +656,31 @@ void obtenerValorCompartido(int fd)
 
 	bool mismoId(void *elemento)
 	{
-		if(strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
+		if(!strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
 			return true;
 		}else return false;
 	}
 	t_SHARED *shared = list_find(SHARED,mismoId);
+
+	printf("SHARED ID: %s",shared->identificador);
+
+	int mensaje;
+	if(shared == NULL)
+	{
+		printf("No existe la variable compartida: ");
+		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
+		printf(".\n");
+
+		free(identificador);
+
+		mensaje = KILL_PROGRAMA;
+		send(fd,&mensaje,sizeof(int),0);
+
+		return;
+	}
+
+	mensaje = OP_OK;
+	send(fd,&mensaje,sizeof(int),0);
 
 	int valor = shared->valor;
 
@@ -665,11 +705,29 @@ void asignarValorCompartido(int fd)
 
 	bool mismoId(void *elemento)
 	{
-		if(strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
+		if(!strcmp(identificador, ((t_SHARED*)elemento)->identificador)){
 			return true;
 		}else return false;
 	}
 	t_SHARED *shared = list_find(SHARED,mismoId);
+
+	int mensaje;
+	if(shared == NULL)
+	{
+		printf("No existe la variable compartida: ");
+		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
+		printf("\n");
+
+		free(identificador);
+
+		mensaje = KILL_PROGRAMA;
+		send(fd,&mensaje,sizeof(int),0);
+
+		return;
+	}
+
+	mensaje = OP_OK;
+	send(fd,&mensaje,sizeof(int),0);
 
 	shared->valor = valor;
 
@@ -690,16 +748,33 @@ void ansisopWait(int fd)
 
 	bool mismoId(void *elemento)
 	{
-		if(strcmp(identificador, ((t_SEM*)elemento)->identificador)){
+		if(!strcmp(identificador, ((t_SEM*)elemento)->identificador)){
 			return true;
 		}else return false;
 	}
 	t_SEM *sem = list_find(SEM,mismoId);
 
+	int mensaje;
+	if(sem == NULL)
+	{
+		printf("No existe el semaforo: ");
+		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
+		printf("\n");
+
+		free(identificador);
+
+		mensaje = KILL_PROGRAMA;
+		send(fd,&mensaje,sizeof(int),0);
+
+		return;
+	}
+
+	mensaje = OP_OK;
+	send(fd,&mensaje,sizeof(int),0);
+
 	sem->valor--;
 
 	//Envio mensaje de si puede seguir ejecutando o no
-	int mensaje;
 	if(sem->valor > 0)
 		mensaje = ANSISOP_PODES_SEGUIR;
 	else mensaje = ANSISOP_BLOQUEADO;
@@ -729,11 +804,29 @@ void ansisopSignal(int fd)
 
 	bool mismoId(void *elemento)
 	{
-		if(strcmp(identificador, ((t_SEM*)elemento)->identificador)){
+		if(!strcmp(identificador, ((t_SEM*)elemento)->identificador)){
 			return true;
 		}else return false;
 	}
 	t_SEM *sem = list_find(SEM,mismoId);
+
+	int mensaje;
+	if(sem == NULL)
+	{
+		printf("No existe el semaforo: ");
+		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
+		printf("\n");
+
+		free(identificador);
+
+		mensaje = KILL_PROGRAMA;
+		send(fd,&mensaje,sizeof(int),0);
+
+		return;
+	}
+
+	mensaje = OP_OK;
+	send(fd,&mensaje,sizeof(int),0);
 
 	sem->valor++;
 

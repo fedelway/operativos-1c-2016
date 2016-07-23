@@ -42,7 +42,7 @@ typedef struct{
 
 typedef struct{
 	char *identificador;
-	int sleep;
+	double sleep;
 	t_queue *procesos_esperando;
 }t_IO;
 

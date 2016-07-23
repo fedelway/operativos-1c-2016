@@ -35,6 +35,7 @@ char *archivoMapeado;
 	int CANTIDAD_PAGINAS;
 	int TAMANIO_PAGINA;
 	int RETARDO_COMPACTACION;
+	int RETARDO_ACCESO;
 
 //bitMap usando bitarray
 

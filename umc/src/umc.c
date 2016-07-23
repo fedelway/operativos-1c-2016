@@ -299,12 +299,14 @@ void trabajarNucleo(){
 
 		case INICIALIZAR_PROGRAMA :
 			pthread_mutex_lock(&mutex_total);
+			usleep(config_get_int_value(config,"RETARDO") * 1000);
 			inicializarPrograma();
 			pthread_mutex_unlock(&mutex_total);
 			break;
 
 		case FINALIZAR_PROGRAMA:
 			pthread_mutex_lock(&mutex_total);
+			usleep(config_get_int_value(config,"RETARDO") * 1000);
 			finalizarPrograma();
 			pthread_mutex_unlock(&mutex_total);
 			break;
@@ -978,12 +980,14 @@ void trabajarCpu(int cpu_fd){
 		{
 			case LEER:
 				pthread_mutex_lock(&mutex_total);
+				usleep(config_get_int_value(config,"RETARDO") * 1000);
 				leerParaCpu(cpu_fd);
 				pthread_mutex_unlock(&mutex_total);
 				break;
 
 			case ESCRIBIR:
 				pthread_mutex_lock(&mutex_total);
+				usleep(config_get_int_value(config,"RETARDO") * 1000);
 				escribirParaCpu(cpu_fd);
 				pthread_mutex_unlock(&mutex_total);
 				break;

@@ -34,6 +34,7 @@
 #define ENTRADA_SALIDA 1
 #define WAIT 2
 #define FIN_PROGRAMA 3
+#define ERROR 4
 
 /****************************************************************************************/
 /*                           DEFINICION DE ESTRUCTURAS								    */
@@ -99,6 +100,7 @@ void finalizarCpuPorError(void);
 void ejecutar();
 char *solicitarInstruccion(t_intructions);
 void apagarse();
+int buscarEtiqueta(char *etiqueta);
 
 void recibirPCB(void);
 void enviarPaqueteAUMC(char* package);

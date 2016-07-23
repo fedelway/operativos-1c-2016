@@ -107,7 +107,7 @@ void ejecutar()
 
 		instruccion = solicitarInstruccion(instruction);
 
-		if(estado == OVERFLOW)
+		if(estado == ERROR)
 			break;
 
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
@@ -136,7 +136,7 @@ void ejecutar()
 	{
 		printf("Termino el programa.\n");
 		return;
-	}else if( estado == OVERFLOW )
+	}else if( estado == ERROR )
 	{
 		socketes_finalizar();
 	}
@@ -161,7 +161,7 @@ char *solicitarInstruccion(t_intructions instruccion)
 	if(mensaje[0] == OVERFLOW)
 	{
 		printf("Error al solicitar instruccion: STACK_OVERFLOW");
-		estado = OVERFLOW;
+		estado = ERROR;
 		char *puntero;
 		return puntero;
 	}
@@ -214,6 +214,26 @@ void apagarse()
 	fclose(log);
 
 	exit(0);
+}
+
+int buscarEtiqueta(char *etiqueta)
+{
+	char *etiquetas = pcb_actual.indice_etiquetas.etiquetas;
+	int size = pcb_actual.indice_etiquetas.etiquetas_size;
+
+	int cant_leida = 0;
+	while(cant_leida < size)
+	{
+		if( !strncmp(etiqueta,etiquetas + cant_leida,strlen(etiqueta)) )
+		{
+			return (int) *(etiquetas + cant_leida + strlen(etiqueta));
+		}else{
+			cant_leida+=strlen(etiqueta);
+			cant_leida+=4;
+		}
+	}
+
+	return -1;
 }
 /****************************************************************************************/
 /*                            CONFIGURACION Y CONEXIONES								*/
@@ -700,7 +720,7 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 	if(mensaje[0] == OVERFLOW)
 	{
 		printf("Error al solicitar instruccion: STACK_OVERFLOW");
-		estado = OVERFLOW;
+		estado = ERROR;
 		return 0;
 	}
 
@@ -713,10 +733,6 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 	}
 
 	printf("\nValor de la variable: %d \n",resultado);
-
-	printf("Print puro: ");
-	fwrite(&resultado,sizeof(char),4,stdout);
-	printf("\n\n");
 
 	return resultado;
 
@@ -753,12 +769,8 @@ void socketes_asignar(t_puntero direccion_variable, t_valor_variable valor) {
 	if(mensaje[0] == OVERFLOW)
 	{
 		printf("Pedido incorrecto: STACK_OVERFLOW.\n");
-		estado = OVERFLOW;
+		estado = ERROR;
 	}
-
-	printf("Print puro de la asignacion: %d\n", valor);
-	fwrite(&valor,sizeof(char),4,stdout);
-	printf("\n\n");
 
 	return;
 
@@ -791,6 +803,13 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 		perror("Error al enviar mensaje para obtener compartida");
 	}
 	free(buffer);
+
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
+	if( mensaje == KILL_PROGRAMA )
+	{
+		estado = ERROR;
+		return 0;
+	}
 
 	//Espero la vuelta del mensaje
 	int valor_compartida;
@@ -832,6 +851,13 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 	}
 	free(buffer);
 
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
+	if( mensaje == KILL_PROGRAMA )
+	{
+		estado = ERROR;
+		return 0;
+	}
+
 	return valor_asignado;
 
 }
@@ -845,22 +871,12 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 
 	printf("Longitud etiqueta: %d.\n",strlen(etiqueta));
 	etiqueta[strlen(etiqueta) - 1] = '\0';
+	etiqueta[strlen(etiqueta)] = '\0';
 
-	int size = strlen(etiqueta - 1);
-	char *etiqueta_bien = malloc(size);
-
-	int i;
-	for(i=0;i<size;i++)
-	{
-		etiqueta_bien[i] = etiqueta[i];
-	}
-
-	fwrite(etiqueta_bien,sizeof(char),size,stdout);
-
-	printf("ANSISOP_IR_A_LABEL %s.\n",etiqueta);
-	fprintf(log,"ANSISOP_IR_A_LABEL %s.\n",etiqueta);
+	printf("ANSISOP_IR_A_LABEL: %s.\n",etiqueta);
+	fprintf(log,"ANSISOP_IR_A_LABEL: %s.\n",etiqueta);
 	//Ya esta hecho :D
-	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta_bien,
+	pcb_actual.PC = metadata_buscar_etiqueta(etiqueta,
 						pcb_actual.indice_etiquetas.etiquetas,
 						pcb_actual.indice_etiquetas.etiquetas_size);
 
@@ -881,6 +897,10 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 	fprintf(log,"INFORMACION INDICE ETIQUETAS:\n\n");
 	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,log);
 	fprintf(log,"\n\n");
+
+	//printf("Mi propio buscar etiqueta devuelve: %d", buscarEtiqueta(etiqueta) );
+	//pcb_actual.PC = buscarEtiqueta(etiqueta);
+	pcb_actual.PC--;
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
@@ -1010,8 +1030,15 @@ void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 	}
 	free(buffer);
 
-	//Ya envie el mensaje, ahora envio el pcb
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
 
+	if(mensaje == KILL_PROGRAMA)
+	{
+		estado = ERROR;
+		return;
+	}
+
+	//Ya envie el mensaje, ahora envio el pcb
 	estado = ENTRADA_SALIDA;
 	enviarPcb(pcb_actual,socket_nucleo,-1);//Tener en cuenta que esto envia FIN_QUANTUM
 
@@ -1044,6 +1071,13 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 		perror("Error al mandar wait");
 	}
 	free(buffer);
+
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
+	if( mensaje == KILL_PROGRAMA )
+	{
+		estado = ERROR;
+		return;
+	}
 
 	//Espero a que nucleo me responda si puedo seguir ejecutando o no.
 	recv(socket_nucleo,&mensaje,sizeof(int),0);
@@ -1108,21 +1142,13 @@ void socketes_signal(t_nombre_semaforo identificador_semaforo){
 	}
 	free(buffer);
 
-/*	int header_mensaje = ANSISOP_SIGNAL;
+	recv(socket_nucleo,&mensaje,sizeof(int),0);
+	if( mensaje == KILL_PROGRAMA )
+	{
+		estado = ERROR;
+		return;
+	}
 
-	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
-
-	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
-
-	memcpy(mensaje, &header_mensaje, sizeof(int));
-	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
-
-	printf("Envio mensaje SIGNAL al Núcleo con el identificador del semaforo\n");
-
-	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);*/
-
-	//TODO esperar la respuesta.
-	//(?)Qué es lo que tiene que devolver? Yo tengo que almacenar el valor del semaforo?
 }
 
 

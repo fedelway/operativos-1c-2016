@@ -52,32 +52,35 @@ int main(int argc, char *argv[]){
 void crearConfiguracion(char *config_path){
 
 	config = config_create(config_path);
-	PUERTO_ESCUCHA = config_get_string_value(config, "PUERTO_ESCUCHA");
-	NOMBRE_SWAP = config_get_string_value(config, "NOMBRE_SWAP");
-	CANTIDAD_PAGINAS = config_get_int_value(config, "CANTIDAD_PAGINAS");
-	TAMANIO_PAGINA = config_get_int_value(config, "TAMANIO_PAGINA");
-	RETARDO_COMPACTACION = config_get_int_value(config, "RETARDO_COMPACTACION");
-
 
 	if(validarParametrosDeConfiguracion()){
-		//log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
-		return;
-	}else{
-		//log_error(logger, "Configuración no válida");
-		// TODO: VER SI ESTA OK DESTROY ACÁ
-		//log_destroy(logger);
+
+		PUERTO_ESCUCHA = config_get_string_value(config, "PUERTO_ESCUCHA");
+		NOMBRE_SWAP = config_get_string_value(config, "NOMBRE_SWAP");
+		CANTIDAD_PAGINAS = config_get_int_value(config, "CANTIDAD_PAGINAS");
+		TAMANIO_PAGINA = config_get_int_value(config, "TAMANIO_PAGINA");
+		RETARDO_COMPACTACION = config_get_int_value(config, "RETARDO_COMPACTACION");
+		RETARDO_ACCESO = config_get_int_value(config,"RETARDO_ACCESO");
+	}else
+	{
+		printf("configuracion no valida.\n");
 		exit(EXIT_FAILURE);
 	}
+
+
+
+
 }
 
 //Valida que todos los parámetros existan en el archivo de configuración
 bool validarParametrosDeConfiguracion(){
 
-	return (config_has_property(config, "PUERTO_ESCUCHA")
+	return config_has_property(config, "PUERTO_ESCUCHA")
 			&& config_has_property(config, "NOMBRE_SWAP")
 			&& config_has_property(config, "CANTIDAD_PAGINAS")
 			&& config_has_property(config, "TAMANIO_PAGINA")
-			&& config_has_property(config, "RETARDO_COMPACTACION"));
+			&& config_has_property(config, "RETARDO_COMPACTACION")
+			&& config_has_property(config, "RETARDO_ACCESO");
 }
 
 //----------------------------------- CONEXIONES ---------------------------------------//
@@ -234,6 +237,8 @@ void trabajarUmc(){
 			close(socket_umc);
 			exit(1);
 		}
+
+		usleep(RETARDO_ACCESO * 1000);
 
 		if(estaCompactando){ //ver si hay que poner = 1
 			encolarProgramas(msj_recibido);
@@ -482,7 +487,7 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 
 		if(hayFragmentacion(cant_paginas)){
 
-			comenzarCompactacion();
+			compactar();
 
 			//Ya compacte, llamo de vuelta a crearPrograma para ver si ahora si hay espacio
 			crearProgramaAnSISOP(pid, cant_paginas);
@@ -661,6 +666,8 @@ int hayProgramasEnEspera(){
 #define paginaInicial(i) (proceso(i)->posSwap / CANTIDAD_PAGINAS)
 void compactar()
 {
+	usleep(RETARDO_COMPACTACION * 1000);
+
 	const int bitmapSize = CANTIDAD_PAGINAS;
 	bool compacto = true;//bool para saber si compacto en la ultima pasada
 	int cant_pasadas = 0;
