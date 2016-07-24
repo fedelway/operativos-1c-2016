@@ -25,6 +25,8 @@
 
 #define KILL_PROGRAMA 1300			//Hubo un error se debe finalizar la ejecucion
 #define OP_OK 1301					//Puede continuar la ejecucion
+#define ABORTA_PROGRAMA 1302		//Se desconecto la consola asociada, finalizar ejecucion
+#define CAMBIO_QUANTUM_SLEEP 1500	//Notifica un cambio del quantum sleep
 
 //Mensajes de Consola
 #define SOY_CONSOLA 2000

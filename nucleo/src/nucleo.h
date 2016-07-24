@@ -31,6 +31,7 @@
 #include <pthread.h>
 #include <sys/inotify.h>
 
+#define getPcb(lista, i) ((t_pcb*)list_get(lista,i))
 #define getListaCpu(i) ((t_cpu*)list_get(listaCpu,i))
 #define getListaConsola(i) ((t_consola*)list_get(listaConsola,i))
 
@@ -62,6 +63,9 @@ typedef struct{
 	int socket;
 	bool libre;
 	int pid;
+	t_pcb *pcb;
+	bool cambioQuantumSleep;
+	bool finForzoso;
 }t_cpu;
 
 typedef struct{
@@ -77,7 +81,7 @@ int max_pid = 0;
 int max_fd = 0;	 //El maximo valor de file descriptor
 int stack_size;
 int max_cpu = 0;
-int quantum;
+int quantum, quantum_sleep;
 int cant_cpus;
 int cant_consolas;
 t_list *listaCpu;
@@ -104,17 +108,6 @@ int cpu_fd, cons_fd;
 //Las colas con los dif estados de los pcb
 t_queue *ready, *blocked, *finished;
 t_list* new;
-
-
-//t_list * listaCPUs;
-//t_list * listaConsolas;
-//t_list * listaListos;
-//t_list * listaBloqueados;
-//t_list * listaEjecutar;
-//t_list * listaFinalizados;
-
-
-
 
 
 void crearConfiguracion(); //creo la configuracion y checkeo que sea valida
@@ -147,6 +140,9 @@ void procesarMensajeConsola(int codigoMensaje, int fd);
 void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 int recibirMensaje(int socket, int *ret_recv);
 void terminarConexion(int fd);
+void eliminarDeCola(t_queue *cola, int pid);
+void eliminarDeIO(t_queue *cola, int pid);
+
 
 void iniciarNuevaConsola (int fd);
 void validacionUMC();
@@ -154,6 +150,7 @@ void agregarConsola(int fd, int *max_fd, fd_set *listen, fd_set *consolas);
 void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus);
 void* enviarPaqueteACPU(void *nodoCPU);
 void limpiarTerminados(fd_set *listen);
+void finalizarPrograma(int pid);
 void planificar();
 void moverDeNewAList(int pid, t_list *destino);
 void moverDeNewAQueue(int pid, t_queue *destino);

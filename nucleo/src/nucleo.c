@@ -134,6 +134,15 @@ void cambiarConfig()
 
 		quantum = config_get_int_value(config, "QUANTUM");
 		printf("Valor del quantum cambiado a: %d.\n",quantum);
+		quantum_sleep = config_get_int_value(config,"QUANTUM_SLEEP");
+		printf("Valor del quantum sleep cambiado a: %d.\n",quantum_sleep);
+
+		//Cambio el flag de cambio quantum sleep
+		int i;
+		for(i=0;i<list_size(listaCpu);i++)
+		{
+			getListaCpu(i)->cambioQuantumSleep = true;
+		}
 	}
 
 	free(evento);
@@ -172,7 +181,7 @@ void crearIO()
 		t_IO *nuevoIO = malloc(sizeof(t_IO));
 
 		nuevoIO->identificador = ioArray[i];
-		nuevoIO->sleep = atoi(ioSleep[i]) / 1000;
+		nuevoIO->sleep = ((double)atoi(ioSleep[i])) / 1000;
 		nuevoIO->procesos_esperando = queue_create();
 
 		printf("id:%s,sleep:%f.\n",nuevoIO->identificador,nuevoIO->sleep);
@@ -368,8 +377,15 @@ void terminarConexion(int fd)
 	for(i=0; i<list_size(listaCpu) ;i++)
 	{
 		if( getListaCpu(i)->socket == fd)
-		{//Remuevo y elimino
-			list_remove_and_destroy_element(listaCpu,i, free);
+		{
+			printf("La conexion es una cpu.\n");
+
+			t_cpu *cpu = list_remove(listaCpu,i);
+
+			//Paso el pcb que estaba asignado a la cpu a ready
+			queue_push(ready,cpu->pcb);
+
+			free(cpu);
 		}
 	}
 
@@ -377,8 +393,37 @@ void terminarConexion(int fd)
 	{
 		if( getListaConsola(i)->socketConsola == fd )
 		{
-			//TODO: Tengo que terminar el programa ademas
-			list_remove_and_destroy_element(listaConsola,i, free);
+			t_consola *consola = list_remove(listaConsola,i);
+
+			finalizarPrograma(consola->pid);
+
+			free(consola);
+		}
+	}
+}
+
+void finalizarPrograma(int pid)
+{//Busco en todas las listas si esta el pcb y lo elimino.
+
+	eliminarDeCola(ready,pid);
+
+	int i;
+	for(i=0;i<list_size(SEM);i++)
+	{
+		eliminarDeCola( ((t_SEM*)list_get(SEM,i))->procesos_esperando, pid);
+	}
+
+	for(i=0;i<list_size(IO);i++)
+	{
+		eliminarDeIO( ((t_IO*)list_get(IO,i))->procesos_esperando, pid);
+	}
+
+	//Busco en la lista de cpus
+	for(i=0;i<list_size(listaCpu);i++)
+	{
+		if(getListaCpu(i)->pcb->pid == pid)
+		{
+			getListaCpu(i)->finForzoso = true;
 		}
 	}
 }
@@ -439,12 +484,13 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 	printf("Se ha conectado una nueva CPU.\n");
 
-	int buffer[2];
+	int buffer[3];
 
 	buffer[0] = SOY_NUCLEO;
 	buffer[1] = quantum;
+	buffer[2] = quantum_sleep;
 
-	send(nuevo_fd, &buffer, 2*sizeof(int),0);
+	send(nuevo_fd, &buffer, 3*sizeof(int),0);
 	recv(nuevo_fd, &msj_recibido, sizeof(int),0);
 
 	if(msj_recibido == SOY_CPU){
@@ -464,6 +510,8 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 		cpu_nueva->socket = nuevo_fd;
 		cpu_nueva->libre = true;
 		cpu_nueva->pid = 0;
+		cpu_nueva->finForzoso = false;
+		cpu_nueva->cambioQuantumSleep = false;
 
 		list_add(listaCpu,cpu_nueva);
 
@@ -487,16 +535,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 	case FIN_QUANTUM:
 			printf("mensaje recibido CPU Fin Quantum.\n");
 
-			//Termino el quantum, recibo el pcb y lo pongo al final de la cola de listos
-			pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
-			queue_push(ready,pcb_recibido);
-
-			//Tengo que poner la cpu como libre
-			liberarCpu(fd);
-			printf("Termine de ejecutar fin quantum.\n");
-
-			//Sleep enunciado
-			sleep(config_get_int_value(config,"QUANTUM_SLEEP"));
+			procesarFinQuantum(fd);
 
 		break;
 
@@ -569,7 +608,14 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 		}
 
 		//Elimino la cpu de las listas correspondientes
-		terminarConexion(fd);
+		bool igualPid(void *elemento){
+			if(((t_cpu*)elemento)->pcb->pid == pcb_recibido->pid)
+				return true;
+			else return false;
+		}
+		t_cpu *cpu_a_eliminar = list_remove_by_condition(listaCpu,igualPid);
+		free(cpu_a_eliminar->pcb);
+		free(cpu_a_eliminar);
 		close(fd);
 		FD_CLR(fd,listen);
 
@@ -577,6 +623,45 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 	default:
 		printf("mensaje recibido CPU Erroneo.\n");
 	}
+}
+
+void procesarFinQuantum(int fd)
+{
+	t_pcb *pcb_recibido;
+	int *puntero_inutil;
+	int mensaje;
+
+	//Termino el quantum, recibo el pcb y lo pongo al final de la cola de listos
+	pcb_recibido = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
+
+	//checkeo que no haya cambios importantes
+	bool mismoFd(void *elemento){
+		if( ((t_cpu*)elemento)->socket == fd)
+			return true;
+		else return false;
+	}
+	t_cpu *cpu = list_find(listaCpu,mismoFd);
+
+	if(cpu->finForzoso){
+		//Elimino el pcb y no lo paso a ready
+		cpu->libre = true;
+		freePcb(pcb_recibido);
+		cpu->finForzoso = false;
+		return;
+	}
+
+	if(cpu->cambioQuantumSleep){
+		mensaje = CAMBIO_QUANTUM_SLEEP;
+		send(fd,&mensaje,sizeof(int),0);
+		send(fd,&quantum_sleep,sizeof(int),0);
+		cpu->cambioQuantumSleep = false;
+	}
+
+	queue_push(ready,pcb_recibido);
+
+	//Tengo que poner la cpu como libre
+	liberarCpu(fd);
+	printf("Termine de ejecutar fin quantum.\n");
 }
 
 void procesarEntradaSalida(int fd)
@@ -759,7 +844,7 @@ void ansisopWait(int fd)
 	{
 		printf("No existe el semaforo: ");
 		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
-		printf("\n");
+		printf(".\n");
 
 		free(identificador);
 
@@ -772,17 +857,20 @@ void ansisopWait(int fd)
 	mensaje = OP_OK;
 	send(fd,&mensaje,sizeof(int),0);
 
-	sem->valor--;
-
 	//Envio mensaje de si puede seguir ejecutando o no
 	if(sem->valor > 0)
 		mensaje = ANSISOP_PODES_SEGUIR;
 	else mensaje = ANSISOP_BLOQUEADO;
 
+	sem->valor--;
+
 	send(fd,&mensaje,sizeof(int),0);
 
 	if(sem->valor <= 0)
 	{//Agrego el proceso a la cola del semaforo
+		//Recibo el FIN_QUANTUM
+		recv(fd,&pid,sizeof(int),0);
+
 		int *puntero_inutil;
 		t_pcb *pcb = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
 
@@ -1343,12 +1431,15 @@ void planificar(){
 				printf("CPU LIBRE.\n");
 				t_pcb *pcb_a_ejecutar = queue_pop(ready);
 
+				if(pcb_a_ejecutar == NULL)
+					break;
+
 				getListaCpu(i)->libre = false;
 				getListaCpu(i)->pid = pcb_a_ejecutar->pid;
 
 				enviarPcb(*pcb_a_ejecutar, getListaCpu(i)->socket, quantum);
 
-				freePcb(pcb_a_ejecutar);
+				getListaCpu(i)->pcb = pcb_a_ejecutar;
 			}
 		}
 	}
@@ -1377,4 +1468,83 @@ void liberarCpu(int fd)
 	t_cpu *cpu = list_find(listaCpu,mismoFd);
 
 	cpu->libre = true;
+	freePcb(cpu->pcb);
+}
+
+void eliminarDeCola(t_queue *cola, int pid)
+{
+	if(queue_size(cola) == 0)
+		return;
+
+	if(queue_size(cola) == 1)
+	{
+		t_pcb *pcb = queue_peek(cola);
+		if(pcb->pid == pid)
+		{
+			queue_pop(cola);
+			free(pcb);
+		}
+	}
+
+	//La cola tiene mas de 1 elemento
+	t_queue *nueva_cola = queue_create();
+	t_list *lista = list_create();
+
+	while(queue_size(cola) > 0)
+	{//Paso lo que esta en cola a la lista
+		t_pcb *pcb = queue_pop(cola);
+
+		if(pcb->pid != pid)
+			list_add(lista,pcb);
+	}
+	queue_destroy(cola);///Ya no tiene nada esta cola
+
+	//Reinserto los elementos en la cola
+	int i;
+	for(i=list_size(lista)-1;i>=0;i--)
+	{
+		queue_push(nueva_cola,list_remove(lista,i));
+	}
+
+	cola = nueva_cola;
+	list_destroy(lista);
+}
+
+void eliminarDeIO(t_queue *cola, int pid)
+{
+	if(queue_size(cola) == 0)
+		return;
+
+	if(queue_size(cola) == 1)
+	{
+		t_proceso_esperando *proceso = queue_peek(cola);
+		if(proceso->pcb->pid == pid)
+		{
+			queue_pop(cola);
+			free(pcb);
+		}
+	}
+
+	//La cola tiene mas de 1 elemento
+	t_queue *nueva_cola = queue_create();
+	t_list *lista = list_create();
+
+	while(queue_size(cola) > 0)
+	{//Paso lo que esta en cola a la lista
+		t_proceso_esperando *proceso = queue_pop(cola);
+
+		if(proceso->pcb->pid == pid)
+			list_add(lista,queue_pop(cola));
+	}
+	queue_destroy(cola);///Ya no tiene nada esta cola
+
+	//Reinserto los elementos en la cola
+	int i;
+	for(i=list_size(lista)-1;i>=0;i--)
+	{
+		queue_push(nueva_cola,list_remove(lista,i));
+	}
+
+	cola = nueva_cola;
+	list_destroy(lista);
 }

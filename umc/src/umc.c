@@ -1300,7 +1300,6 @@ void algoritmoClock(t_prog *programa){
 
 	if(programa->timer < config_get_int_value(config,"TIMER_RESET")){
 		int i;
-		//for(i=0;i<cant_frames;i++){
 		for(i=0; i<programa->cant_total_pag ;i++){
 			programa->paginas[i].referenciado = false;
 		}

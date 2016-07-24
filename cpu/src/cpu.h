@@ -72,7 +72,7 @@ typedef struct{
 /****************************************************************************************/
 
 t_log* logger;
-int tamanio_pagina, quantum;
+int tamanio_pagina, quantum, quantum_sleep;
 int socket_umc, socket_nucleo;
 t_pcb pcb_actual;
 int estado = 0;

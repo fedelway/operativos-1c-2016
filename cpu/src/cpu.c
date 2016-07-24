@@ -55,6 +55,11 @@ int main(int argc,char *argv[]) {
 			case EJECUTA:
 				ejecutar();
 				break;
+
+			case CAMBIO_QUANTUM_SLEEP:
+				recv(socket_nucleo,&quantum_sleep,sizeof(int),0);
+				break;
+
 			default:
 				printf("obtuve otro id %d\n", header);
 				sleep(3);
@@ -84,6 +89,7 @@ void crearLog()
 
 void ejecutar()
 {
+	int mensaje, retRecv;
 	int quantum;
 	char *instruccion;
 
@@ -97,6 +103,8 @@ void ejecutar()
 	int i;
 	for(i=0;i<quantum;i++)
 	{
+		usleep(quantum_sleep * 1000);//Sleep enunciado
+
 		if(estado != TODO_OK)
 			break;
 
@@ -337,6 +345,8 @@ void handshakeNucleo(){
 
 	if(msj_recibido == SOY_NUCLEO){
 		recv(socket_nucleo, &quantum, sizeof(int), 0);
+		recv(socket_nucleo, &quantum_sleep,sizeof(int),0);
+
 		log_info(logger, "Nucleo validado. Quantum recibido: %d",quantum);
 		send(socket_nucleo, &soy_cpu, sizeof(int), 0); //Envio ID de la CPU
 	}else{
