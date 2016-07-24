@@ -272,6 +272,7 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum)
 	{//Nucleo recibe solo el tamaño
 
 		recv(fd, &tamanio, sizeof(int),0);
+		printf("tamaño pcb: %d.\n",tamanio);
 	}else{
 		//Cpu recibe ademas el quantum
 		recv(fd, quantum, sizeof(int), 0);

@@ -95,6 +95,7 @@ void ejecutar()
 
 	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 
+	printf("Ejecuto el programa pid: %d",pcb_actual.pid);
 	printf("quantum: %d.\n", quantum);
 
 	//Vuelvo el estado al original
@@ -137,8 +138,12 @@ void ejecutar()
 		enviarPcb(pcb_actual, socket_nucleo, -1);
 		printf("Se me termino el quantum.\n");
 	}
-	else if( estado == ENTRADA_SALIDA || estado == WAIT)
+	else if( estado == ENTRADA_SALIDA || estado == WAIT )
 	{
+		printf("Estoy bloqueado...\n");
+		//Envio el pcb
+		enviarPcb(pcb_actual,socket_nucleo,-1);
+
 		return;
 	}else if( estado == FIN_PROGRAMA)
 	{
@@ -797,6 +802,17 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 	printf("ANSISOP ------- Ejecuto ObtenerValorCompartida. Variable: %s ----\n", variable);
 	fprintf(log,"ANSISOP ------- Ejecuto ObtenerValorCompartida. Variable: %s ----\n", variable);
 
+	printf("tamaño cadena: %d.\n",strlen(variable));
+
+	if(variable[strlen(variable) - 1] == '\n'){
+		variable[strlen(variable) - 1] = '\0';
+		printf("Saco el barra n de la cadena.\n");
+	}
+
+	printf("Nuevo tamaño cadena: %d.\n",strlen(variable));
+
+	printf("Nueva cadena: %s.\n",variable);
+
 	int mensaje = ANSISOP_OBTENER_VALOR_COMPARTIDO;
 	int pid = pcb_actual.pid;
 	int tamanio_cadena = strlen(variable) + 1;
@@ -807,6 +823,8 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 	memcpy(buffer + sizeof(int),&pid,sizeof(int));
 	memcpy(buffer + 2*sizeof(int),&tamanio_cadena,sizeof(int));
 	memcpy(buffer + 3*sizeof(int),variable,tamanio_cadena);
+
+	buffer[4*sizeof(int) + tamanio_cadena - 1] = '\0';
 
 	if( sendAll(socket_nucleo,buffer,3*sizeof(int) + tamanio_cadena,0) <= 0 )
 	{
@@ -843,6 +861,17 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 	printf("ANSISOP ------- Ejecuto asignarValorCompartida. Variable: %s. | Valor asignado: %d. ----\n", variable, valor_asignado);
 	fprintf(log,"ANSISOP ------- Ejecuto asignarValorCompartida. Variable: %s. | Valor asignado: %d. ----\n", variable, valor_asignado);
 
+	printf("tamaño cadena: %d.\n",strlen(variable));
+
+	if(variable[strlen(variable) - 1] == '\n'){
+		variable[strlen(variable) - 1] = '\0';
+		printf("Saco el barra n de la cadena.\n");
+	}
+
+	printf("Nuevo tamaño cadena: %d.\n",strlen(variable));
+
+	printf("Nueva cadena: %s.\n",variable);
+
 	int mensaje = ANSISOP_ASIGNAR_VALOR_COMPARTIDO;
 	int pid = pcb_actual.pid;
 	int tamanio_cadena = strlen(variable) + 1;
@@ -854,6 +883,8 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
 	memcpy(buffer + 2*sizeof(int),&valor_asignado,sizeof(int));
 	memcpy(buffer + 3*sizeof(int),&tamanio_cadena,sizeof(int));
 	memcpy(buffer + 4*sizeof(int),variable,tamanio_cadena);
+
+	buffer[4*sizeof(int) + tamanio_cadena - 1] = '\0';
 
 	if( sendAll(socket_nucleo,buffer,4*sizeof(int) + tamanio_cadena, 0) <= 0 )
 	{
@@ -1050,9 +1081,7 @@ void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 
 	//Ya envie el mensaje, ahora envio el pcb
 	estado = ENTRADA_SALIDA;
-	enviarPcb(pcb_actual,socket_nucleo,-1);//Tener en cuenta que esto envia FIN_QUANTUM
-
-
+	//enviarPcb(pcb_actual,socket_nucleo,-1);//Tener en cuenta que esto envia FIN_QUANTUM
 }
 
 /*
@@ -1064,6 +1093,13 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 
 	printf("ANSISOP ------- Ejecuto WAIT: %s ----\n", identificador_semaforo);
 	fprintf(log,"ANSISOP ------- Ejecuto WAIT: %s ----\n", identificador_semaforo);
+
+	printf("tamaño cadena: %d.\n",strlen(identificador_semaforo));
+
+	identificador_semaforo[strlen(identificador_semaforo) - 1] = '\0';
+	identificador_semaforo[strlen(identificador_semaforo)] = '\0';
+
+	printf("Nuevo tamaño cadena: %d.\n",strlen(identificador_semaforo));
 
 	int mensaje = ANSISOP_WAIT;
 	int pid = pcb_actual.pid;
@@ -1094,13 +1130,14 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 
 	if(mensaje == ANSISOP_PODES_SEGUIR)
 	{
+		printf("Puedo seguir ejecutando.\n");
 		return;
 	}
 	else if(mensaje == ANSISOP_BLOQUEADO)
 	{
-		estado = WAIT;
+		printf("Me bloquee.\n");
 
-		enviarPcb(pcb_actual,socket_nucleo,-1);
+		estado = WAIT;
 
 		return;
 	}else
@@ -1134,6 +1171,13 @@ void socketes_signal(t_nombre_semaforo identificador_semaforo){
 
 	printf("ANSISOP ------- Ejecuto SIGNAL: %s ----\n", identificador_semaforo);
 	fprintf(log,"ANSISOP ------- Ejecuto SIGNAL: %s ----\n", identificador_semaforo);
+
+	printf("tamaño cadena: %d.\n",strlen(identificador_semaforo));
+
+	identificador_semaforo[strlen(identificador_semaforo) - 1] = '\0';
+	identificador_semaforo[strlen(identificador_semaforo)] = '\0';
+
+	printf("Nuevo tamaño cadena: %d.\n",strlen(identificador_semaforo));
 
 	int mensaje = ANSISOP_SIGNAL;
 	int pid = pcb_actual.pid;

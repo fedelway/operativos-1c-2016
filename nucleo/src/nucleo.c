@@ -426,6 +426,12 @@ void finalizarPrograma(int pid)
 			getListaCpu(i)->finForzoso = true;
 		}
 	}
+
+	//Lo agrego a la lista de finished
+	int *puntero_pid = malloc(sizeof(int));
+	*puntero_pid = pid;
+
+	queue_push(finished,puntero_pid);
 }
 
 int recibirMensaje(int socket, int *ret_recv){
@@ -661,7 +667,6 @@ void procesarFinQuantum(int fd)
 
 	//Tengo que poner la cpu como libre
 	liberarCpu(fd);
-	printf("Termine de ejecutar fin quantum.\n");
 }
 
 void procesarEntradaSalida(int fd)
@@ -735,6 +740,8 @@ void obtenerValorCompartido(int fd)
 	recv(fd,&pid,sizeof(int),0);
 	recv(fd,&tamanio_cadena,sizeof(int),0);
 
+	printf("Datos obtener valor compartido:\npid: %d tamaño: %d.\n",pid,tamanio_cadena);
+
 	char *identificador = malloc(tamanio_cadena);
 
 	recv(fd,identificador,tamanio_cadena,0);
@@ -747,7 +754,7 @@ void obtenerValorCompartido(int fd)
 	}
 	t_SHARED *shared = list_find(SHARED,mismoId);
 
-	printf("SHARED ID: %s",shared->identificador);
+	printf("SHARED ID: %s.\n",identificador);
 
 	int mensaje;
 	if(shared == NULL)
@@ -768,7 +775,6 @@ void obtenerValorCompartido(int fd)
 	send(fd,&mensaje,sizeof(int),0);
 
 	int valor = shared->valor;
-
 	send(fd,&valor,sizeof(int),0);
 
 	free(identificador);
@@ -831,6 +837,8 @@ void ansisopWait(int fd)
 
 	recv(fd,identificador,tamanio_cadena,0);
 
+	printf("Datos de la solucitud wait:\npid: %d tamaño: %d identificador: %s.\n",pid,tamanio_cadena,identificador);
+
 	bool mismoId(void *elemento)
 	{
 		if(!strcmp(identificador, ((t_SEM*)elemento)->identificador)){
@@ -846,6 +854,8 @@ void ansisopWait(int fd)
 		fwrite(identificador,sizeof(char),tamanio_cadena,stdout);
 		printf(".\n");
 
+		printf("tamaño cadena: %d.\n",tamanio_cadena);
+
 		free(identificador);
 
 		mensaje = KILL_PROGRAMA;
@@ -854,6 +864,7 @@ void ansisopWait(int fd)
 		return;
 	}
 
+	printf("identificador OK.\n");
 	mensaje = OP_OK;
 	send(fd,&mensaje,sizeof(int),0);
 
@@ -862,12 +873,12 @@ void ansisopWait(int fd)
 		mensaje = ANSISOP_PODES_SEGUIR;
 	else mensaje = ANSISOP_BLOQUEADO;
 
-	sem->valor--;
-
 	send(fd,&mensaje,sizeof(int),0);
 
 	if(sem->valor <= 0)
 	{//Agrego el proceso a la cola del semaforo
+		printf("Bloqueado. Recibo pcb.\n");
+
 		//Recibo el FIN_QUANTUM
 		recv(fd,&pid,sizeof(int),0);
 
@@ -875,7 +886,14 @@ void ansisopWait(int fd)
 		t_pcb *pcb = pasarAPuntero( recibirPcb(fd,true,puntero_inutil) );
 
 		queue_push(sem->procesos_esperando,pcb);
-	}
+
+		liberarCpu(fd);
+	}else printf("Puede seguir ejecutando.\n");
+
+	sem->valor--;
+
+	printf("Valor semaforo: %d.\n",sem->valor);
+
 }
 
 void ansisopSignal(int fd)
@@ -917,9 +935,13 @@ void ansisopSignal(int fd)
 	send(fd,&mensaje,sizeof(int),0);
 
 	sem->valor++;
+	printf("Incremento el semaforo.\n");
+	printf("Nuevo valor: %d.\n",sem->valor);
 
-	if(sem->valor > 0)
+	if(sem->valor >= 0)
 	{//Paso el primer pcb a ready
+		printf("Libero un proceso.\n");
+
 		if(!queue_is_empty(sem->procesos_esperando))
 		{
 			queue_push(ready, queue_pop(sem->procesos_esperando));
@@ -1393,14 +1415,15 @@ void limpiarTerminados(fd_set *listen){
 
 		if(consola == NULL)
 			printf("ERROR ELIMINACION ESTRUCTURAS.\n");
+		else{
+			send(consola->socketConsola,&mensaje,sizeof(int),0);
 
-		send(consola->socketConsola,&mensaje,sizeof(int),0);
-
-		//Elimino la consola y cierro el socket
-		list_remove_by_condition(listaConsola,(void*)igualPid);
-		FD_CLR(consola->socketConsola,listen);
-		close(consola->socketConsola);
-		free(consola);
+			//Elimino la consola y cierro el socket
+			list_remove_by_condition(listaConsola,(void*)igualPid);
+			FD_CLR(consola->socketConsola,listen);
+			close(consola->socketConsola);
+			free(consola);
+		}
 
 		//Aviso a umc que termino la ejecucion
 		int msjLargo[2] = {FINALIZAR_PROGRAMA,*pid};

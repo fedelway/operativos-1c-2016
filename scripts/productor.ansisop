@@ -1,4 +1,4 @@
-#!../Debug/consola ../resource/config.cfg
+#!../consola/Debug/consola ../consola/resource/config.cfg
 begin	
 	:etiqueta
 	
