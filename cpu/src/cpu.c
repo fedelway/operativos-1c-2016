@@ -136,6 +136,7 @@ void ejecutar()
 	if(estado == TODO_OK)
 	{//Termino el quantum. Envio el pcb con las modificaciones que tuvo
 		enviarPcb(pcb_actual, socket_nucleo, -1);
+		liberarPcb(pcb_actual);
 		printf("Se me termino el quantum.\n");
 	}
 	else if( estado == ENTRADA_SALIDA || estado == WAIT )
@@ -143,6 +144,7 @@ void ejecutar()
 		printf("Estoy bloqueado...\n");
 		//Envio el pcb
 		enviarPcb(pcb_actual,socket_nucleo,-1);
+		liberarPcb(pcb_actual);
 
 		return;
 	}else if( estado == FIN_PROGRAMA)
@@ -212,6 +214,7 @@ void apagarse()
 		send(socket_nucleo,&mensaje,sizeof(int),0);
 
 		enviarPcb(pcb_actual, socket_nucleo, -1);
+		liberarPcb(pcb_actual);
 	}else
 	{//No le tengo que enviar el pcb
 		mensaje = BLOQUEADO;

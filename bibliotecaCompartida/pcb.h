@@ -71,5 +71,6 @@ t_pcb recibirPcb(int fd, bool nucleo, int *quantum);
 t_pcb *pasarAPuntero(t_pcb);
 
 void freePcb(t_pcb*);
+void liberarPcb(t_pcb); //Libera los punteros de un pcb.
 
 #endif /* PCB_H_ */

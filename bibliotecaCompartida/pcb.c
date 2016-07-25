@@ -320,20 +320,6 @@ t_pcb* pasarAPuntero(t_pcb pcb)
 	pasar(stack);
 
 	return puntero;
-	/*//Transformo indice cod
-	pasar(indice_cod);
-	pasar(indice_cod.instrucciones_size);
-	pasar(indice_cod.instruccion_inicio);
-	puntero->indice_cod.instrucciones = malloc(pcb.indice_cod.instrucciones_size * sizeof(t_intructions));
-
-	//Transformo indice etiquetas
-	pasar(indice_etiquetas);
-	pasar(indice_etiquetas.etiquetas_size);
-	puntero->indice_etiquetas.etiquetas = malloc(pcb.indice_etiquetas.etiquetas_size);
-
-	//Transformo stack
-	pasar(stack);*/
-
 
 }
 
@@ -351,4 +337,18 @@ void freePcb(t_pcb *pcb)
 	free(pcb->stack.entradas);
 
 	free(pcb);
+}
+
+void liberarPcb(t_pcb pcb)
+{
+	free(pcb.indice_cod.instrucciones);
+	free(pcb.indice_etiquetas.etiquetas);
+
+	int i;
+	for(i=0;i<pcb.stack.cant_entradas;i++);
+	{
+		free(pcb.stack.entradas[i].argumentos);
+		free(pcb.stack.entradas[i].variables);
+	}
+	free(pcb.stack.entradas);
 }

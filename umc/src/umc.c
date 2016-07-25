@@ -915,8 +915,9 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 			pos_a_leer = frames[programa->paginas[pag].frame].posicion;
 			pos_a_leer += offset;
 
-			printf("offset: %d", offset);
+			printf("offset: %d.\n", offset);
 			printf("posicion frame: %d, pos_a_leer: %d.\n", frames[programa->paginas[pag].frame].posicion,pos_a_leer);
+			printf("Nro frame: %d.\n",programa->paginas[pag].frame);
 
 			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
 
@@ -1406,10 +1407,20 @@ void terminal(){
 				printf("Error al abrir el archivo.\n");
 			}
 
+			//Para el archivo seria interesante agregarle el dia y hora del dump.
+			time_t rawtime;
+			struct tm *timeinfo;
+
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+
+			fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
+
 			if(cant_parametros == 1){
 				//No se introdujo parametro. Se imprimen todas las tablas.
 				//pthread_mutex_lock(&mutex_listaProgramas);
 				//pthread_mutex_lock(&mutex_memoria);
+
 				for(i=0;i<list_size(programas);i++)
 				{//Itero sobre todos los programas
 					programa = list_get(programas, i);
@@ -1417,39 +1428,21 @@ void terminal(){
 					pid = programa->pid;
 					printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					//Para el archivo seria interesante agregarle el dia y hora del dump.
-					time_t rawtime;
-					struct tm *timeinfo;
-
-					time(&rawtime);
-					timeinfo = localtime(&rawtime);
-
-					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
 					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					printf("fpp: %d cant_total_pag: %d",fpp,programa->cant_total_pag);
-					for(j=0;j<min(fpp,programa->cant_total_pag);j++)
-					{//Itero sobre cada pagina de la tabla
-						printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
-						fprintf(dump_log, "Pagina nro %d: ", programa->paginas[j].nro_pag);
+					printf("fpp: %d cant_total_pag: %d.\n",fpp,programa->cant_total_pag);
 
-						if(frames[programa->paginas[j].frame].libre){
-							printf("Pagina libre.\n");
-							fprintf(dump_log, "Pagina libre.\n");
-						}else{
-							fputc('\n',stdout);
-							fputc('\n',dump_log);
-							int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
-							for(k=0;k<frame_size;k++)
-							{//Escribo el contenido de cada caracter en pantalla
-								fputc(memoria[pos_en_memoria + k], stdout);
-								fputc(memoria[pos_en_memoria + k], dump_log);
-							}
-							printf("\n");//Para lograr un salto de linea despues del texto sin formato.
-							fprintf(dump_log, "\n");
-						}
+					for(j=0;j<programa->cant_total_pag;j++)
+					{
+						printf("Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
+								programa->paginas[j].referenciado, programa->paginas[j].frame);
 
+						fprintf(dump_log,"Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
+								programa->paginas[j].referenciado, programa->paginas[j].frame);
 					}
+
 				}
 				//pthread_mutex_unlock(&mutex_listaProgramas);
 				//pthread_mutex_unlock(&mutex_memoria);
@@ -1462,40 +1455,19 @@ void terminal(){
 				{
 					printf("Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
 
-					//Para el archivo seria interesante agregarle el dia y hora del dump.
-					time_t rawtime;
-					struct tm *timeinfo;
-
-					time(&rawtime);
-					timeinfo = localtime(&rawtime);
-
-					fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
-					fprintf(dump_log, "Impresion de las tablas de paginas del proceso pid: %d. \n", pid);
-
 					//pthread_mutex_lock(&mutex_memoria);
 
 					programa = buscarPrograma(pid);
 
-					for(j=0;j<fpp;j++)
-					{//Itero sobre cada pagina de la tabla
-						printf("Pagina nro %d: ", programa->paginas[j].nro_pag);
-						fprintf(dump_log,"Pagina nro %d: ", programa->paginas[j].nro_pag);
+					for(j=0;j<programa->cant_total_pag;j++)
+					{
+						printf("Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
+								programa->paginas[j].referenciado, programa->paginas[j].frame);
 
-						if(frames[programa->paginas[j].frame].libre){
-							printf("Pagina libre.\n");
-							fprintf(dump_log,"Pagina libre.\n");
-						}else{
-							int pos_en_memoria = frames[programa->paginas[j].frame].posicion;
-							for(k=0;k<frame_size;k++)
-							{//Escribo el contenido de cada caracter en pantalla
-								fputc(memoria[pos_en_memoria + k], stdout);
-								fputc(memoria[pos_en_memoria + k], dump_log);
-							}
-						}
-
-						printf("\n"); //Para lograr un salto de linea despues del texto sin formato.
-						fprintf(dump_log, "\n");
-						//pthread_mutex_unlock(&mutex_memoria);
+						fprintf(dump_log,"Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
+								programa->paginas[j].referenciado, programa->paginas[j].frame);
 					}
 				}else{
 					printf("Pid invalido.\n");
@@ -1522,6 +1494,23 @@ void terminal(){
 			}
 
 			printf("Actualizacion realizada con exito.\n");
+		}
+		else if(!strcmp(comando, "dumpFrames"))
+		{//Imprime todos los frames
+			printf("\nIniciando dump de frames\n\n");
+			int i;
+			for(i=0;i<cant_frames;i++)
+			{
+				printf("Frame nro: %d",i);
+				if(frames[i].libre)
+					printf("libre.\n");
+				else{
+					printf("\n");
+					fwrite(memoria + frames[i].posicion,1,frame_size,stdout);
+					printf("\n\n");
+				}
+
+			}
 		}
 		else if(!strcmp(comando, "exit") )
 		{
