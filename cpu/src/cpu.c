@@ -95,7 +95,7 @@ void ejecutar()
 
 	pcb_actual = recibirPcb(socket_nucleo, false, &quantum);
 
-	printf("Ejecuto el programa pid: %d",pcb_actual.pid);
+	printf("Ejecuto el programa pid: %d.\n",pcb_actual.pid);
 	printf("quantum: %d.\n", quantum);
 
 	//Vuelvo el estado al original
@@ -104,7 +104,7 @@ void ejecutar()
 	int i;
 	for(i=0;i<quantum;i++)
 	{
-		usleep(quantum_sleep * 1000);//Sleep enunciado
+		//usleep(quantum_sleep * 1000);//Sleep enunciado
 
 		if(estado != TODO_OK)
 			break;
@@ -705,6 +705,7 @@ t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_varia
 	}
 
 	//Pase por estos 2 for y no encontro => hay error
+	printf("No se encontro la variable.\n");
 	return -1;
 
 }
@@ -844,7 +845,7 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 
 	recv(socket_nucleo,&valor_compartida,sizeof(int),0);
 
-	printf("El valor de la variable compartida: %s es: %d",variable,valor_compartida);
+	printf("El valor de la variable compartida: %s es: %d.\n",variable,valor_compartida);
 
 	return valor_compartida;
 

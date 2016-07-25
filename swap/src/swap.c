@@ -238,7 +238,7 @@ void trabajarUmc(){
 			exit(1);
 		}
 
-		usleep(RETARDO_ACCESO * 1000);
+		//usleep(RETARDO_ACCESO * 1000);
 
 		if(estaCompactando){ //ver si hay que poner = 1
 			encolarProgramas(msj_recibido);
@@ -666,7 +666,7 @@ int hayProgramasEnEspera(){
 #define paginaInicial(i) (proceso(i)->posSwap / CANTIDAD_PAGINAS)
 void compactar()
 {
-	usleep(RETARDO_COMPACTACION * 1000);
+	//usleep(RETARDO_COMPACTACION * 1000);
 
 	const int bitmapSize = CANTIDAD_PAGINAS;
 	bool compacto = true;//bool para saber si compacto en la ultima pasada
@@ -761,7 +761,7 @@ void comenzarCompactacion(){
 	int cantidad = 0;
 
 	puts("Compactación en curso.\n");
-	usleep(RETARDO_COMPACTACION); //ver cantidad - 60 segundos
+	//usleep(RETARDO_COMPACTACION); //ver cantidad - 60 segundos
 	estaCompactando = 1;
 
 	for(i = 0; i <= CANTIDAD_PAGINAS; i++) {

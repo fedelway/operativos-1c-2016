@@ -299,14 +299,14 @@ void trabajarNucleo(){
 
 		case INICIALIZAR_PROGRAMA :
 			pthread_mutex_lock(&mutex_total);
-			usleep(config_get_int_value(config,"RETARDO") * 1000);
+			//usleep(config_get_int_value(config,"RETARDO") * 1000);
 			inicializarPrograma();
 			pthread_mutex_unlock(&mutex_total);
 			break;
 
 		case FINALIZAR_PROGRAMA:
 			pthread_mutex_lock(&mutex_total);
-			usleep(config_get_int_value(config,"RETARDO") * 1000);
+			//usleep(config_get_int_value(config,"RETARDO") * 1000);
 			finalizarPrograma();
 			pthread_mutex_unlock(&mutex_total);
 			break;
@@ -597,7 +597,6 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 	int cant_paginas_ocupadas = 0;
 	int i;
-	int pos_a_escribir;
 
 	//Cuento la cantidad de paginas en memoria
 	for(i=0; i < fpp; i++){
@@ -605,7 +604,6 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			cant_paginas_ocupadas++;
 		}
 	}
-	printf("Conte la cant de pag en memoria.\n");
 
 	/* Si la cantidad de paginas en memoria es menor a fpp, significa que aun no se cargaron
 	 * todas las paginas que se pueden. Entonces la cargo directamente.*/
@@ -617,9 +615,12 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 		//pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
 
 		programa->paginas[pag].frame = recibirPagina(pag, programa->pid);
+		programa->paginas[pag].presencia = true;
 
 		return;
 	}
+
+	printf("Aplico algoritmo de reemplazo de paginas: %s.\n",config_get_string_value(config,"ALGORITMO_REEMPLAZO"));
 
 	//Todas las paginas estan ocupadas, tengo que reemplazar una. Aplico el algoritmo clock
 	if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"), "CLOCK-M") )
@@ -633,14 +634,16 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 					//pongo el bit de presencia en falso y libero el frame
 					pag_apuntada.presencia = false;
-					frames[pag_apuntada.frame].libre = true;
+
+					if(pag_apuntada.frame != -1)
+						frames[pag_apuntada.frame].libre = true;
 
 					//recibo la pagina
-					if(pag_apuntada.frame == -1)
-						pag_apuntada.frame = frameLibre();
-
-					pos_a_escribir = frames[pag_apuntada.frame].posicion;
 					pag_apuntada.frame = recibirPagina(pag, programa->pid);
+
+					//Actualizo la lista de pag en memoria
+					programa->pag_en_memoria[programa->puntero] = pag;
+					pag_apuntada.presencia = true;
 
 					//avanzo el puntero y salgo del ciclo
 					avanzarPuntero();
@@ -668,8 +671,11 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
 
 					//Recibo la pagina
-					pos_a_escribir = frames[pag_apuntada.frame].posicion;
 					pag_apuntada.frame = recibirPagina(pag, programa->pid);
+
+					//Actualizo la lista de pag en memoria
+					programa->pag_en_memoria[programa->puntero] = pag;
+					pag_apuntada.presencia = true;
 
 					//Avanzo el puntero y salgo
 					avanzarPuntero();
@@ -681,33 +687,6 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			}
 		}
 
-		//Clock viejo
-		//		//Si no esta referenciada, sustituyo esa pagina
-		//		if(!programa->paginas[ programa->pag_en_memoria[programa->puntero] ].referenciado){
-		//
-		//			//Le cambio el bit de presencia
-		//			programa->paginas[ programa->pag_en_memoria[programa->puntero] ].presencia = false;
-		//
-		//			//Me fijo el bit de modificado
-		//			if( programa->paginas[ programa->pag_en_memoria[programa->puntero] ].modificado ){
-		//				//Fue modificada, la envio a swap
-		//
-		//				int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
-		//				int pos_a_copiar = frames[programa->paginas[programa->pag_en_memoria[programa->puntero]].frame].posicion;
-		//
-		//				enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
-		//			}
-		//
-		//			//Recibo la pagina y salgo del ciclo
-		//			pos_a_escribir = frames[programa->paginas[ programa->pag_en_memoria[programa->puntero] ].frame].posicion;
-		//
-		//			programa->paginas[programa->pag_en_memoria[programa->puntero] ].frame = recibirPagina(pag, programa->pid);
-		//
-		//			//Avanzo el puntero
-		//			programa->puntero = (programa->puntero +1) % fpp;
-		//
-		//			return;
-		//
 	}else if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"),"CLOCK") )
 	{//CLOCK COMUN
 		for(i=0;i<fpp;i++)
@@ -728,6 +707,10 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 				//Recibo la pagina
 				pag_apuntada.frame = recibirPagina(pag, programa->pid);
+
+				//Actualizo la lista de pag en memoria
+				programa->pag_en_memoria[programa->puntero] = pag;
+				pag_apuntada.presencia = true;
 			}
 
 			avanzarPuntero();
@@ -743,6 +726,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 void enviarPagina(int pag, int pid, int pos_a_enviar){
 
+	printf("Envio pagina a swap\npid: %d, pag:%d.\n",pid,pag);
 	int mensaje[3];
 	char *buffer;
 
@@ -810,6 +794,7 @@ int frameLibre(){
 	}
 
 	//Sali del for, por lo tanto no hay frames libres
+	printf("No hay frames disponibles.\n");
 	return -1;
 }
 
@@ -980,14 +965,14 @@ void trabajarCpu(int cpu_fd){
 		{
 			case LEER:
 				pthread_mutex_lock(&mutex_total);
-				usleep(config_get_int_value(config,"RETARDO") * 1000);
+				//usleep(config_get_int_value(config,"RETARDO") * 1000);
 				leerParaCpu(cpu_fd);
 				pthread_mutex_unlock(&mutex_total);
 				break;
 
 			case ESCRIBIR:
 				pthread_mutex_lock(&mutex_total);
-				usleep(config_get_int_value(config,"RETARDO") * 1000);
+				//usleep(config_get_int_value(config,"RETARDO") * 1000);
 				escribirParaCpu(cpu_fd);
 				pthread_mutex_unlock(&mutex_total);
 				break;
@@ -1036,8 +1021,8 @@ void leerParaCpu(int cpu_fd){
 	}
 
 	char *resultado = malloc(size);
-	leerEnMemoria(resultado, pag, offset, size, programa);
-	//TODO:terminar el programa si esto da -1
+	if( leerEnMemoria(resultado, pag, offset, size, programa) == -1 )
+		printf("\n-----------------------\nERROR AL LEER\n-----------------------\n");
 
 	printf("Resultado:\n\n");
 	fwrite(resultado,sizeof(char),size,stdout);
