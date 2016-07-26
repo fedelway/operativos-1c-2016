@@ -683,22 +683,6 @@ void procesarEntradaSalida(int fd)
 	identificador = malloc(tamanio_cadena);
 	recvAll(fd,identificador,tamanio_cadena,0);
 
-	//Ya tengo todos los datos, ahora tengo que recibir el pcb.
-	//Recibo el mensaje inutil
-	int msj_inutil;
-	recv(fd,&msj_inutil,sizeof(int),0);
-	if(msj_inutil == FIN_QUANTUM)printf("Recibi mensaje inutil.\n");
-
-	//recibo el pcb
-	int *ptr_inutil;
-	pcb_actualizado = pasarAPuntero( recibirPcb(fd,true,ptr_inutil) );
-
-	//Creo nodo de la lista de entradaSalida
-	t_proceso_esperando *proceso = malloc(sizeof(t_proceso_esperando));
-	proceso->pcb = pcb_actualizado;
-	proceso->tiempo_espera = tiempo;
-	proceso->tiempo_inicio = time(NULL);
-
 	//Busco la entradaSalida y agrego el nodo
 	bool mismoId(void *elemento)
 	{
@@ -716,7 +700,6 @@ void procesarEntradaSalida(int fd)
 		printf("\n");
 
 		free(identificador);
-		free(proceso);
 
 		mensaje = KILL_PROGRAMA;
 		send(fd,&mensaje,sizeof(int),0);
@@ -724,8 +707,26 @@ void procesarEntradaSalida(int fd)
 		return;
 	}
 
+	//El identificador existe
 	mensaje = OP_OK;
 	send(fd,&mensaje,sizeof(int),0);
+
+	//Ya tengo todos los datos, ahora tengo que recibir el pcb.
+	//Recibo el mensaje inutil
+	int msj_inutil;
+	recv(fd,&msj_inutil,sizeof(int),0);
+	if(msj_inutil == FIN_QUANTUM)printf("Recibi mensaje inutil.\n");
+	else printf("QUILOMBOOOOOOOOO.\n");
+
+	//recibo el pcb
+	int *ptr_inutil;
+	pcb_actualizado = pasarAPuntero( recibirPcb(fd,true,ptr_inutil) );
+
+	//Creo nodo de la lista de entradaSalida
+	t_proceso_esperando *proceso = malloc(sizeof(t_proceso_esperando));
+	proceso->pcb = pcb_actualizado;
+	proceso->tiempo_espera = tiempo;
+	proceso->tiempo_inicio = time(NULL);
 
 	queue_push(io->procesos_esperando,proceso);
 
@@ -1414,7 +1415,7 @@ void limpiarTerminados(fd_set *listen){
 		t_consola *consola = list_find(listaConsola,igualPid);
 
 		if(consola == NULL)
-			printf("ERROR ELIMINACION ESTRUCTURAS.\n");
+			printf("Consola ya eliminada.\n");
 		else{
 			send(consola->socketConsola,&mensaje,sizeof(int),0);
 

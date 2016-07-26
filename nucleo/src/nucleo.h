@@ -124,6 +124,7 @@ void liberarCpu(int fd);
 
 //Respuesta a mensajes CPU
 void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen);
+void procesarFinQuantum(int fd);
 void procesarEntradaSalida(int fd);
 void checkearEntradaSalida();
 void imprimirValor(int fd);

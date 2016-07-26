@@ -237,6 +237,8 @@ int enviarPcb(t_pcb pcb, int fd, int quantum)
 			return -1;
 		}
 
+		free(stream.data_pcb);
+		printf("Pcb enviado correctamente.\n");
 		//all ok
 		return 0;
 	}else{//Es el nucleo
@@ -256,6 +258,7 @@ int enviarPcb(t_pcb pcb, int fd, int quantum)
 		}
 
 		//all ok
+		free(stream.data_pcb);
 		printf("Pcb enviado correctamente.\n");
 		return 0;
 	}
@@ -341,8 +344,12 @@ void freePcb(t_pcb *pcb)
 
 void liberarPcb(t_pcb pcb)
 {
+	printf("Liberar pcb.\n");
+
 	free(pcb.indice_cod.instrucciones);
 	free(pcb.indice_etiquetas.etiquetas);
+
+	printf("Cantidad de entradas stack: %d.\n",pcb.stack.cant_entradas);
 
 	int i;
 	for(i=0;i<pcb.stack.cant_entradas;i++);

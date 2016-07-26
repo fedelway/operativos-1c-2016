@@ -89,7 +89,6 @@ void crearLog()
 
 void ejecutar()
 {
-	int mensaje, retRecv;
 	int quantum;
 	char *instruccion;
 
@@ -116,9 +115,12 @@ void ejecutar()
 
 		instruccion = solicitarInstruccion(instruction);
 
-		if(estado == ERROR)
+		if(instruccion == NULL){
+			estado = ERROR;
 			break;
+		}
 
+		printf("Voy a entrar a analizador linea.\n");
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
 
 		//Avanzo el PC
@@ -136,7 +138,7 @@ void ejecutar()
 	if(estado == TODO_OK)
 	{//Termino el quantum. Envio el pcb con las modificaciones que tuvo
 		enviarPcb(pcb_actual, socket_nucleo, -1);
-		liberarPcb(pcb_actual);
+		//liberarPcb(pcb_actual);
 		printf("Se me termino el quantum.\n");
 	}
 	else if( estado == ENTRADA_SALIDA || estado == WAIT )
@@ -144,7 +146,7 @@ void ejecutar()
 		printf("Estoy bloqueado...\n");
 		//Envio el pcb
 		enviarPcb(pcb_actual,socket_nucleo,-1);
-		liberarPcb(pcb_actual);
+		//liberarPcb(pcb_actual);
 
 		return;
 	}else if( estado == FIN_PROGRAMA)
@@ -175,10 +177,8 @@ char *solicitarInstruccion(t_intructions instruccion)
 	recv(socket_umc,&mensaje[0],sizeof(int),0);
 	if(mensaje[0] == OVERFLOW)
 	{
-		printf("Error al solicitar instruccion: STACK_OVERFLOW");
-		estado = ERROR;
-		char *puntero;
-		return puntero;
+		printf("Error al solicitar instruccion: STACK_OVERFLOW\n");
+		return NULL;
 	}
 
 	char *resultado = malloc(instruccion.offset + 1);
@@ -214,7 +214,7 @@ void apagarse()
 		send(socket_nucleo,&mensaje,sizeof(int),0);
 
 		enviarPcb(pcb_actual, socket_nucleo, -1);
-		liberarPcb(pcb_actual);
+		//liberarPcb(pcb_actual);
 	}else
 	{//No le tengo que enviar el pcb
 		mensaje = BLOQUEADO;
@@ -496,12 +496,6 @@ void devuelvoPcbActualizadoAlNucleo(){
 	log_info(logger, "Se envió exitosamente el PCB actualizado al Núcleo.");*/
 }
 
-void liberarEspacioDelPCB(){
-	log_info(logger, "Libero espacio del PCB.");
-	//free(pcb_actual); //TODO chequear si con esto alcanza
-}
-
-//TODO: Terminar Implementacion
 void handler_seniales(int senial) {
 
 	switch (senial) {
@@ -738,7 +732,7 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 	recv(socket_umc,&mensaje,sizeof(int),0);
 	if(mensaje[0] == OVERFLOW)
 	{
-		printf("Error al solicitar instruccion: STACK_OVERFLOW");
+		printf("Error al solicitar instruccion: STACK_OVERFLOW\n");
 		estado = ERROR;
 		return 0;
 	}
@@ -828,7 +822,7 @@ t_valor_variable socketes_obtenerValorCompartida(t_nombre_compartida variable){
 	memcpy(buffer + 2*sizeof(int),&tamanio_cadena,sizeof(int));
 	memcpy(buffer + 3*sizeof(int),variable,tamanio_cadena);
 
-	buffer[4*sizeof(int) + tamanio_cadena - 1] = '\0';
+	buffer[3*sizeof(int) + tamanio_cadena - 1] = '\0';
 
 	if( sendAll(socket_nucleo,buffer,3*sizeof(int) + tamanio_cadena,0) <= 0 )
 	{
@@ -1000,7 +994,7 @@ t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 /*
  *  FUNCION     : Envia al Núcleo el contenido de valor_mostrar, para que se muestre en la consola correspondiente.
  *  Recibe      : el valor del variable a mostrar
- *  Devuelve    : void / int (TODO chequear)
+ *  Devuelve    : void / int
  */
 void socketes_imprimir(t_valor_variable valor_mostrar) {
 
@@ -1021,7 +1015,7 @@ void socketes_imprimir(t_valor_variable valor_mostrar) {
 /*
  *  FUNCION     : Envia al Núcleo una cadena de texto, para que se muestre en la consola correspondiente.
  *  Recibe      : cadena a mostrar por consola del programa
- *  Devuelve    : void / int (TODO chequear)
+ *  Devuelve    : void / int
  */
 void socketes_imprimirTexto(char* texto) {
 
@@ -1083,9 +1077,8 @@ void socketes_entradaSalida(t_nombre_dispositivo dispositivo, int tiempo){
 		return;
 	}
 
-	//Ya envie el mensaje, ahora envio el pcb
+	//Cambio el estado a entrada salida
 	estado = ENTRADA_SALIDA;
-	//enviarPcb(pcb_actual,socket_nucleo,-1);//Tener en cuenta que esto envia FIN_QUANTUM
 }
 
 /*

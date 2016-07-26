@@ -377,9 +377,6 @@ void inicializarPrograma(){
 	recv(nucleo_fd, &cant_paginas_cod, sizeof(int), 0);
 	recv(nucleo_fd, &source_size, sizeof(int), 0);
 
-	printf("pid %d.\n", pid);
-	printf("cant paginas buggeadas:\npagCod: %d, pagStack: %d.\n", cant_paginas_cod, stack_size);
-
 	//Recibo el archivo
 	buffer = malloc(source_size);
 	if(buffer == NULL){
@@ -399,6 +396,16 @@ void inicializarPrograma(){
 	}
 	printf("Archivo recibido satisfactoriamente.%s\n",buffer);
 	source = buffer; //Me guardo el archivo en el puntero source
+
+	//Checkeo que tenga marcos disponibles para alojar el proceso.
+	if(list_size(programas) * fpp >= cant_frames)
+	{
+		printf("No alcanzan los marcos para recibir este proceso.\n");
+		terminarPrograma(pid);
+		free(buffer);
+		return;
+	}
+
 
 	//Creo las paginas que a las que va a poder acceder el programa(tabla de paginas)
 	t_pag *paginas;
@@ -610,12 +617,17 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 	if(cant_paginas_ocupadas < fpp){
 		printf("Cargo directamente.\n");
 
-		programa->pag_en_memoria[cant_paginas_ocupadas] = pag;
+		if(frameLibre() == -1){
+			reemplazarDirectamente(pag,programa);
+		}
+		else
+		{
+			programa->pag_en_memoria[cant_paginas_ocupadas] = pag;
 
-		//pos_a_escribir = frames[programa->paginas[pag].frame].posicion;
-
-		programa->paginas[pag].frame = recibirPagina(pag, programa->pid);
-		programa->paginas[pag].presencia = true;
+			programa->paginas[pag].frame = recibirPagina(pag, programa->pid);
+			programa->paginas[pag].presencia = true;
+			programa->paginas[pag].modificado = false;
+		}
 
 		return;
 	}
@@ -644,6 +656,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					//Actualizo la lista de pag en memoria
 					programa->pag_en_memoria[programa->puntero] = pag;
 					pag_apuntada.presencia = true;
+					pag_apuntada.modificado = false;
 
 					//avanzo el puntero y salgo del ciclo
 					avanzarPuntero();
@@ -676,6 +689,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					//Actualizo la lista de pag en memoria
 					programa->pag_en_memoria[programa->puntero] = pag;
 					pag_apuntada.presencia = true;
+					pag_apuntada.modificado = false;
 
 					//Avanzo el puntero y salgo
 					avanzarPuntero();
@@ -711,6 +725,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 				//Actualizo la lista de pag en memoria
 				programa->pag_en_memoria[programa->puntero] = pag;
 				pag_apuntada.presencia = true;
+				programa->paginas[pag].modificado = false;
 			}
 
 			avanzarPuntero();
@@ -722,6 +737,35 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 	traerPaginaDeSwap(pag, programa);
 
+}
+
+void reemplazarDirectamente(int pag, t_prog *programa)
+{
+	//Como no tengo paginas suficientes, reemplazo la primera pagina que este en memoria.
+
+	printf("No hay paginas suficientes...Reemplazo directamente.\n");
+
+	int i;
+	for(i=0;i<programa->cant_total_pag;i++)
+	{
+		printf("Pag nro: %d presencia: %d\n",i,programa->paginas[i].presencia);
+
+		if(programa->paginas[i].presencia)
+		{//Si no fue referenciada y esta en memoria, reemplazo.
+			programa->paginas[i].presencia = false;
+			programa->paginas[i].referenciado = false;
+			frames[programa->paginas[i].frame].libre = true;
+
+			//Recibo la pagina
+			programa->paginas[pag].frame = recibirPagina(pag, programa->pid);//Esta vez no deberia fallar
+			programa->paginas[pag].presencia = true;
+			programa->paginas[pag].modificado = false;
+
+			return;
+		}
+	}
+
+	printf("No deberia haber pasado por aca....\n");
 }
 
 void enviarPagina(int pag, int pid, int pos_a_enviar){
@@ -818,11 +862,6 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		return -1;
 	}
 
-	if(size/frame_size > fpp - pag){
-		printf("No hay espacio para escribir esto en memoria.\n");//Habria que pasar cosas a swap.
-		return 1;
-	}
-
 	while(cant_escrita < size){
 		//Aplico el mutex para que no haya quilombo con los threads
 		//pthread_mutex_lock(&mutex_memoria);
@@ -837,6 +876,8 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 			pos_a_escribir+=offset;
 		}else{
 			//TLB_MISS
+			//usleep(config_get_int_value(config,"RETARDO") * 1000);
+
 			//Verifico que la pagina esta en memoria
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap
@@ -853,6 +894,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
 		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
 
+		//usleep(config_get_int_value(config,"RETARDO") * 1000);
 		memcpy(memoria + pos_a_escribir, src, cant_a_escribir);
 
 		//Actualizo la cant_escrita
@@ -905,6 +947,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		}else{
 			//TLB_MISS
 			printf("TLB_MISS.\n");
+			//usleep(config_get_int_value(config,"RETARDO") * 1000);
 
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap
@@ -918,16 +961,16 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 			printf("offset: %d.\n", offset);
 			printf("posicion frame: %d, pos_a_leer: %d.\n", frames[programa->paginas[pag].frame].posicion,pos_a_leer);
 			printf("Nro frame: %d.\n",programa->paginas[pag].frame);
-
-			actualizarTlb(programa->pid, pag, frames[programa->paginas[pag].frame].posicion);
-
-			printf("Tlb actualizada:\npid:%d, pag: %d, traduccion: %d",programa->pid,pag,pos_a_leer);
 		}
 
 		//Para no pasarme de largo y leer otros frames
 		cant_a_leer = min(size - cant_leida, frame_size - offset);
 
+		//usleep(config_get_int_value(config,"RETARDO") * 1000);
 		memcpy(resultado + cant_leida, memoria + pos_a_leer, cant_a_leer);
+
+		//Actualizo el bit de referencia
+		programa->paginas[pag].referenciado = true;
 
 		cant_leida += cant_a_leer;
 
@@ -1146,6 +1189,9 @@ void inicializarTlb(){
 
 int buscarEnTlb(int pag, int pid){
 
+	if(cache_tlb.cant_entradas == 0)
+		return -1;
+
 	//incremento timer
 	cache_tlb.timer++;
 
@@ -1165,6 +1211,9 @@ int buscarEnTlb(int pag, int pid){
 
 void actualizarTlb(int pid, int pag, int traduccion){
 
+	if(cache_tlb.cant_entradas == 0)
+		return;
+
 	int i;
 	//Checkeo si hubo un mal pedido
 	for(i=0; i<cache_tlb.cant_entradas; i++){
@@ -1183,6 +1232,8 @@ void actualizarTlb(int pid, int pag, int traduccion){
 			cache_tlb.entradas[i].nro_pag = pag;
 			cache_tlb.entradas[i].traduccion = traduccion;
 			cache_tlb.entradas[i].tiempo_accedido = cache_tlb.timer;
+
+			printf("Tlb actualizada:\npid:%d, pag: %d, traduccion: %d.\n",pid,pag,traduccion);
 			return;
 		}
 	}
@@ -1211,21 +1262,7 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 	cache_tlb.entradas[posicion_reemplazo].traduccion = traduccion;
 	cache_tlb.entradas[posicion_reemplazo].tiempo_accedido = cache_tlb.timer;
 
-	if(cache_tlb.entradas[posicion_reemplazo].modificado){
-		//Cambiar el modificado en tabla de paginas
-
-		/*		bool igualPid(t_prog *elemento){
-			return elemento->pid == pid;
-		}
-
-		t_prog *programa_a_modificar = list_find(programas, igualPid);
-
-		programa_a_modificar->paginas[pag].modificado = true;*/
-
-		t_prog *programa_a_modificar = buscarPrograma(pid);
-
-		programa_a_modificar->paginas[pag].modificado = true;
-	}
+	printf("Tlb actualizada:\npid:%d, pag: %d, traduccion: %d.\n",pid,pag,traduccion);
 	return;
 }
 
@@ -1434,11 +1471,11 @@ void terminal(){
 
 					for(j=0;j<programa->cant_total_pag;j++)
 					{
-						printf("Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+						printf("Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n",
 								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
 								programa->paginas[j].referenciado, programa->paginas[j].frame);
 
-						fprintf(dump_log,"Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n\n",
+						fprintf(dump_log,"Pagina nro: %d presencia: %d modificado: %d\nreferenciado: %d frame: %d.\n",
 								j,programa->paginas[j].presencia,programa->paginas[j].modificado,
 								programa->paginas[j].referenciado, programa->paginas[j].frame);
 					}
@@ -1497,20 +1534,46 @@ void terminal(){
 		}
 		else if(!strcmp(comando, "dumpFrames"))
 		{//Imprime todos los frames
+			//Primero necesito abrir el archivo
+			FILE *dump_log = fopen("../resource/dump_log", "a");
+
+			//Checkeo de errores
+			if(dump_log == NULL){
+				printf("Error al abrir el archivo.\n");
+			}
+
+			//Para el archivo seria interesante agregarle el dia y hora del dump.
+			time_t rawtime;
+			struct tm *timeinfo;
+
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+
+			fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
+
 			printf("\nIniciando dump de frames\n\n");
 			int i;
 			for(i=0;i<cant_frames;i++)
 			{
 				printf("Frame nro: %d",i);
-				if(frames[i].libre)
+				fprintf(dump_log,"Frame nro: %d",i);
+				if(frames[i].libre){
 					printf("libre.\n");
-				else{
+					fprintf(dump_log,"libre.\n");
+				}
+				else
+				{
 					printf("\n");
 					fwrite(memoria + frames[i].posicion,1,frame_size,stdout);
 					printf("\n\n");
-				}
 
+					fprintf(dump_log,"\n");
+					fwrite(memoria + frames[i].posicion,1,frame_size,dump_log);
+					fprintf(dump_log,"\n\n");
+				}
 			}
+
+			fclose(dump_log);
 		}
 		else if(!strcmp(comando, "exit") )
 		{
