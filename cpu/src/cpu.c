@@ -103,7 +103,7 @@ void ejecutar()
 	int i;
 	for(i=0;i<quantum;i++)
 	{
-		//usleep(quantum_sleep * 1000);//Sleep enunciado
+		usleep(quantum_sleep * 1000);//Sleep enunciado
 
 		if(estado != TODO_OK)
 			break;
@@ -122,6 +122,7 @@ void ejecutar()
 
 		printf("Voy a entrar a analizador linea.\n");
 		analizadorLinea(instruccion, &funciones, &funciones_kernel);
+		printf("Salgo de analizador linea.\n");
 
 		//Avanzo el PC
 		pcb_actual.PC++;
@@ -452,20 +453,6 @@ void ejecutoInstruccion(char* programa_ansisop, t_metadata_program* metadata, in
 	free(instruccion);
 }
 
-int ejecutoInstrucciones(){
-	/*printf("Ejecuto instrucciones después de recibir PCB\n");
-	int nroInstr;
-	for (nroInstr = 0; nroInstr < quantum; ++nroInstr) {
-		int nroInstruccionAEjecutar = pcb_actual->PC;
-		int start = pcb_actual->indice_cod->instrucciones[nroInstruccionAEjecutar].start;
-		int offset = pcb_actual->indice_cod->instrucciones[nroInstruccionAEjecutar].offset;
-		char* instruccion = solicitoInstruccionAUMC(start, offset);
-		analizadorLinea(instruccion, &funciones, &funciones_kernel);
-		pcb_actual->PC++;
-	}
-	return nroInstr;*/
-}
-
 void devuelvoPcbActualizadoAlNucleo(){
 
 	/*log_info(logger, "Devuelvo PCB Actualizado al nucleo");
@@ -686,6 +673,9 @@ t_puntero socketes_obtenerPosicionVariable(t_nombre_variable identificador_varia
 	{
 		if(pcb_actual.stack.entradas[funcionActual].variables[i].identificador == identificador_variable)
 		{
+			printf("Pag: %d, offset: %d\n",pcb_actual.stack.entradas[funcionActual].variables[i].pag,
+					pcb_actual.stack.entradas[funcionActual].variables[i].offset);
+
 			return pcb_actual.stack.entradas[funcionActual].variables[i].pag * tamanio_pagina +
 				   pcb_actual.stack.entradas[funcionActual].variables[i].offset;
 		}
@@ -738,13 +728,13 @@ t_valor_variable socketes_dereferenciar(t_puntero direccion_variable) {
 
 	int resultado;
 
-	printf("Espero el resultado...\n");
 	if( recv(socket_umc,&resultado,sizeof(int),0) <= 0)
 	{
 		perror("Error al recibir instruccion");
 	}
 
-	printf("\nValor de la variable: %d \n",resultado);
+	printf("Valor de la variable: %d \n",resultado);
+	fprintf(log,"Valor de la variable: %d \n",resultado);
 
 	return resultado;
 
@@ -906,6 +896,7 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
  *  Devuelve    : void
  */
 void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
+	printf("ir a label.\n");
 
 	if(etiqueta[strlen(etiqueta) - 1] == '\n'){
 		etiqueta[strlen(etiqueta) - 1] = '\0';
@@ -919,7 +910,7 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 						pcb_actual.indice_etiquetas.etiquetas,
 						pcb_actual.indice_etiquetas.etiquetas_size);
 
-	printf("\nETIQUETAS SIZE: %d\n",pcb_actual.indice_etiquetas.etiquetas_size);
+	//printf("\nETIQUETAS SIZE: %d\n",pcb_actual.indice_etiquetas.etiquetas_size);
 
 	printf("INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 	fprintf(log,"INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
@@ -929,13 +920,18 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 		fprintf(log,"ERORR INDICE DE ETIQUETAS DEVOLVIO -1.\n");
 	}
 
-	printf("INFORMACION INDICE ETIQUETAS:\n\n");
+	/*printf("INFORMACION INDICE ETIQUETAS:\n\n");
 	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,stdout);
-	printf("\n\n");
+	printf("\n\n");*/
 
 	//printf("Mi propio buscar etiqueta devuelve: %d", buscarEtiqueta(etiqueta) );
 	//pcb_actual.PC = buscarEtiqueta(etiqueta);
 	pcb_actual.PC--;
+}
+
+void socketes_llamarSinRetorno(t_nombre_etiqueta etiqueta)
+{
+	printf("Llamar sin retorno.\n");
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
@@ -1025,10 +1021,10 @@ void socketes_imprimirTexto(char* texto) {
 	fprintf(log,"ANSISOP ------- Ejecuto ImprimirTexto: %s ----\n", texto);
 
 	int id_mensaje = ANSISOP_IMPRIMIR_TEXTO;
-	int tamanio_texto = strlen(texto) + 1;
+	int tamanio_texto = strlen(texto);
 	int pid = pcb_actual.pid;
 
-	char *buffer = malloc(3*sizeof(int) +tamanio_texto);
+	char *buffer = malloc(3*sizeof(int) + tamanio_texto);
 
 	memcpy(buffer, &id_mensaje, sizeof(int));
 	memcpy(buffer + sizeof(int),&pid,sizeof(int));
@@ -1037,7 +1033,7 @@ void socketes_imprimirTexto(char* texto) {
 
 	printf("Envio mensaje imprimir texto al Núcleo con el valor: %s\n", texto);
 
-	if( sendAll(socket_nucleo, &buffer, 3*sizeof(int) + tamanio_texto, 0) <= 0 )
+	if( sendAll(socket_nucleo, buffer, 3*sizeof(int) + tamanio_texto, 0) <= 0 )
 	{
 		perror("Error al enviar texto a nucleo");
 	}
@@ -1143,20 +1139,6 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo){
 	{
 		printf("Recibi un mensaje erroneo de nucleo al enviar wait: %d", mensaje);
 	}
-/*
-	int header_mensaje = ANSISOP_WAIT;
-
-	printf("Size of identificador: %d ----\n", sizeof(t_nombre_semaforo));
-
-	char *mensaje = (char *)malloc(sizeof(int)+sizeof(t_nombre_semaforo));
-
-	memcpy(mensaje, &header_mensaje, sizeof(int));
-	memcpy(mensaje + sizeof(int), &identificador_semaforo, sizeof(t_nombre_semaforo));
-
-	printf("Envio mensaje wait al Núcleo con el identificador del semaforo\n");
-
-	send(socket_nucleo, &mensaje, 2*sizeof(int), 0);
-*/
 
 }
 

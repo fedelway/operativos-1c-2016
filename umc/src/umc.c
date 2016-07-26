@@ -321,7 +321,7 @@ void finalizarPrograma()
 	int pid;
 	recv(nucleo_fd, &pid, sizeof(int),0);
 
-	printf("Termino la ejecucion del programa pid: %d.\nLimpiando estructuras",pid);
+	printf("Termino la ejecucion del programa pid: %d.\nLimpiando estructuras\n",pid);
 
 	t_prog *programa = buscarPrograma(pid);
 
@@ -632,7 +632,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 		return;
 	}
 
-	printf("Aplico algoritmo de reemplazo de paginas: .\n");
+	printf("Aplico algoritmo de reemplazo de paginas: ");
 
 	//Todas las paginas estan ocupadas, tengo que reemplazar una. Aplico el algoritmo clock
 	if(!strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"), "CLOCK-M") )
@@ -644,13 +644,14 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			{
 				if(!pag_apuntada.modificado)
 				{//No fue referenciada, ni modificada, se sustituye
+					printf("Reemplazo la pagina nro: %d.\n",programa->pag_en_memoria[programa->puntero]);
 
 					//pongo el bit de presencia en falso y libero el frame
 					pag_apuntada.presencia = false;
-
 					frames[pag_apuntada.frame].libre = true;
+					eliminarEntradaTlb(programa->pag_en_memoria[programa->puntero],programa->pid);
 
-					//Actualizo la lista de pag en memoria
+					//Actualizo pag en memoria
 					programa->pag_en_memoria[programa->puntero] = pag;
 					pag_apuntada.presencia = true;
 					pag_apuntada.modificado = false;
@@ -672,10 +673,12 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			{
 				if(pag_apuntada.modificado)
 				{//Encontre una pagina que no fue referencia, la reemplazo
+					printf("Reemplazo la pagina nro: %d.\n",programa->pag_en_memoria[programa->puntero]);
 
 					//Presencia en falso y libero el frame
 					pag_apuntada.presencia = false;
 					frames[pag_apuntada.frame].libre = true;
+					eliminarEntradaTlb(programa->pag_en_memoria[programa->puntero],programa->pid);
 
 					//Como fue modificada, la envio a swap
 					int pag_a_enviar = programa->pag_en_memoria[programa->puntero];
@@ -712,6 +715,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 				pag_apuntada.presencia = false;
 				frames[pag_apuntada.frame].libre = true;
+				eliminarEntradaTlb(programa->pag_en_memoria[programa->puntero],programa->pid);
 
 				if(pag_apuntada.modificado)
 				{//Si fue modificada debo enviarla a swap
@@ -882,10 +886,10 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		pos_a_escribir = buscarEnTlb(pag, programa->pid);
 
 		if(pos_a_escribir != -1){
-			//TLB_HIT
+			printf("TLB_HIT.\n");
 			pos_a_escribir+=offset;
 		}else{
-			//TLB_MISS
+			printf("TLB_MISS.\n");
 			//usleep(config_get_int_value(config,"RETARDO") * 1000);
 
 			//Verifico que la pagina esta en memoria
@@ -971,6 +975,8 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 			printf("offset: %d.\n", offset);
 			printf("posicion frame: %d, pos_a_leer: %d.\n", frames[programa->paginas[pag].frame].posicion,pos_a_leer);
 			printf("Nro frame: %d, presencia: %d.\n",programa->paginas[pag].frame,programa->paginas[pag].presencia);
+
+			actualizarTlb(programa->pid,pag,frames[programa->paginas[pag].frame].posicion);
 		}
 
 		//Para no pasarme de largo y leer otros frames
@@ -1276,6 +1282,19 @@ void reemplazarEntradaTlb(int pid, int pag, int traduccion){
 	return;
 }
 
+void eliminarEntradaTlb(int pag, int pid)
+{
+	int i;
+	for(i=0; i<cache_tlb.cant_entradas; i++)
+	{
+		if(cache_tlb.entradas[i].nro_pag == pag && cache_tlb.entradas[i].pid == pid)
+		{
+			cache_tlb.entradas[i].nro_pag = -1;
+			cache_tlb.entradas[i].pid = -1;
+		}
+	}
+}
+
 void flushTlb(){
 
 	int i;
@@ -1332,6 +1351,7 @@ void algoritmoClock(t_prog *programa){
 	programa->timer++;
 
 	if(programa->timer > config_get_int_value(config,"TIMER_RESET")){
+		printf("TLB: TIMER RESET.\n");
 		int i;
 		for(i=0; i<programa->cant_total_pag ;i++){
 			programa->paginas[i].referenciado = false;

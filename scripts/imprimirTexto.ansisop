@@ -1,0 +1,4 @@
+#!../consola/Debug/consola ../consola/resource/config.cfg
+begin
+	textPrint prueba
+end

@@ -131,6 +131,8 @@ void socketes_wait(t_nombre_semaforo identificador_semaforo);
 void socketes_signal(t_nombre_semaforo identificador_semaforo);
 void socketes_finalizar();
 
+void socketes_llamarSinRetorno(t_nombre_etiqueta);
+
 
 /****************************************************************************************/
 /*                      DEFINICION DE ESTRUCTURAS ANSISOP							    */
@@ -144,6 +146,7 @@ AnSISOP_funciones funciones = {
 		.AnSISOP_obtenerValorCompartida	= socketes_obtenerValorCompartida,
 		.AnSISOP_asignarValorCompartida = socketes_asignarValorCompartida,
 		.AnSISOP_irAlLabel				= socketes_irAlLabel,
+		.AnSISOP_llamarSinRetorno		= socketes_llamarSinRetorno,
 		.AnSISOP_llamarConRetorno		= socketes_llamarConRetorno,
 		.AnSISOP_finalizar				= socketes_finalizar,
 		.AnSISOP_imprimir				= socketes_imprimir,

@@ -979,20 +979,26 @@ void imprimirTexto(int fd)
 	int pid;
 	int tamanio_cadena;
 
+	//Recibo el string de cpu
 	recv(fd,&pid,sizeof(int),0);
 	recv(fd,&tamanio_cadena,sizeof(int),0);
 
 	char *cadena = malloc(tamanio_cadena);
 	recv(fd,cadena,tamanio_cadena,0);
 
+	//Envio a consola la order de impresion
+	printf("Texto a enviar: %s.\n",cadena);
+	printf("Tamaño cadena: %d.\n",tamanio_cadena);
+
+	int mensaje = IMPRIMIR_CADENA;
+	char *buffer = malloc(tamanio_cadena + 2*sizeof(int));
+
+	memcpy(buffer,&mensaje,sizeof(int));
+	memcpy(buffer + sizeof(int),&tamanio_cadena,sizeof(int));
+	memcpy(buffer + 2*sizeof(int),cadena,tamanio_cadena);
+
 	int consolaFd = buscarConsolaFd(pid);
-
-	char *buffer = malloc(tamanio_cadena + sizeof(int));
-
-	memcpy(buffer,&tamanio_cadena,sizeof(int));
-	memcpy(buffer,cadena,tamanio_cadena);
-
-	send(consolaFd, buffer, tamanio_cadena + sizeof(int), 0);
+	send(consolaFd, buffer, tamanio_cadena + 2*sizeof(int), 0);
 
 	free(buffer);
 	free(cadena);

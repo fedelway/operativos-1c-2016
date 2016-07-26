@@ -104,6 +104,7 @@ void inicializarTlb();
 int buscarEnTlb(int pag, int pid);
 void actualizarTlb(int pag, int pid, int traduccion);
 void reemplazarEntradaTlb(int pag, int pid, int traduccion);
+void eliminarEntradaTlb(int pag, int pid);
 int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa);
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa);
 void terminarPrograma(int pid);

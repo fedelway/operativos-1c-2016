@@ -169,7 +169,7 @@ void atenderPeticiones(int msj_recibido){
 
 	default:
 
-		printf("Mensaje Erroneo");
+		printf("Mensaje Erroneo %d",msj_recibido);
 
 	}
 	free(contenido);
@@ -666,7 +666,7 @@ int hayProgramasEnEspera(){
 #define paginaInicial(i) (proceso(i)->posSwap / CANTIDAD_PAGINAS)
 void compactar()
 {
-	//usleep(RETARDO_COMPACTACION * 1000);
+	usleep(RETARDO_COMPACTACION * 1000);
 
 	const int bitmapSize = CANTIDAD_PAGINAS;
 	bool compacto = true;//bool para saber si compacto en la ultima pasada
