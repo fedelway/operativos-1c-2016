@@ -11,7 +11,7 @@ variables f,  A,  g
 :Proximo
 	
     f = 8	  
-    g <- doble !compartida	
+    g <- doble !compartida
     io LPT1 20
 
     textPrint    Hola Mundo!

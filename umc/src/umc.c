@@ -648,16 +648,15 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					//pongo el bit de presencia en falso y libero el frame
 					pag_apuntada.presencia = false;
 
-					if(pag_apuntada.frame != -1)
-						frames[pag_apuntada.frame].libre = true;
-
-					//recibo la pagina
-					pag_apuntada.frame = recibirPagina(pag, programa->pid);
+					frames[pag_apuntada.frame].libre = true;
 
 					//Actualizo la lista de pag en memoria
 					programa->pag_en_memoria[programa->puntero] = pag;
 					pag_apuntada.presencia = true;
 					pag_apuntada.modificado = false;
+
+					//recibo la pagina
+					pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
 					//avanzo el puntero y salgo del ciclo
 					avanzarPuntero();
@@ -684,13 +683,13 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 					enviarPagina(pag_a_enviar, programa->pid, pos_a_enviar);
 
-					//Recibo la pagina
-					pag_apuntada.frame = recibirPagina(pag, programa->pid);
-
 					//Actualizo la lista de pag en memoria
 					programa->pag_en_memoria[programa->puntero] = pag;
 					pag_apuntada.presencia = true;
 					pag_apuntada.modificado = false;
+
+					//Recibo la pagina
+					pag_apuntada.frame = recibirPagina(pag, programa->pid);
 
 					//Avanzo el puntero y salgo
 					avanzarPuntero();
@@ -723,16 +722,13 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 					enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
 				}
 
-				/*//Recibo la pagina
-				pag_apuntada.frame = recibirPagina(pag, programa->pid);*/
-
 				//Actualizo pag en memoria
 				programa->pag_en_memoria[programa->puntero] = pag;
+				pag_apuntada.presencia = true;
+				pag_apuntada.modificado = false;
 
 				//Recibo la pagina aca
 				pag_apuntada.frame = recibirPagina(pag,programa->pid);
-				pag_apuntada.presencia = true;
-				pag_apuntada.modificado = false;
 
 				printf("Retorno.\n");
 				return;
@@ -1335,7 +1331,7 @@ void algoritmoClock(t_prog *programa){
 
 	programa->timer++;
 
-	if(programa->timer < config_get_int_value(config,"TIMER_RESET")){
+	if(programa->timer > config_get_int_value(config,"TIMER_RESET")){
 		int i;
 		for(i=0; i<programa->cant_total_pag ;i++){
 			programa->paginas[i].referenciado = false;

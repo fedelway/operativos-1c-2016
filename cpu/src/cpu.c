@@ -655,7 +655,6 @@ t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 		printf("\nNULL.\n");
 	}
 
-
 	pcb_actual.stack.entradas[funcionActual].cant_var++;
 	pcb_actual.stack.entradas[funcionActual].variables = realloc(pcb_actual.stack.entradas[funcionActual].variables,pcb_actual.stack.entradas[funcionActual].cant_var * sizeof(t_var));
 
@@ -908,9 +907,10 @@ t_valor_variable socketes_asignarValorCompartida(t_nombre_compartida variable, t
  */
 void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 
-	printf("Longitud etiqueta: %d.\n",strlen(etiqueta));
-	etiqueta[strlen(etiqueta) - 1] = '\0';
-	etiqueta[strlen(etiqueta)] = '\0';
+	if(etiqueta[strlen(etiqueta) - 1] == '\n'){
+		etiqueta[strlen(etiqueta) - 1] = '\0';
+		printf("Saco el barra n de la etiqueta.\n");
+	}
 
 	printf("ANSISOP_IR_A_LABEL: %s.\n",etiqueta);
 	fprintf(log,"ANSISOP_IR_A_LABEL: %s.\n",etiqueta);
@@ -919,7 +919,7 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 						pcb_actual.indice_etiquetas.etiquetas,
 						pcb_actual.indice_etiquetas.etiquetas_size);
 
-	printf("\n ETIQUETAS SIZE: %d\n",pcb_actual.indice_etiquetas.etiquetas_size);
+	printf("\nETIQUETAS SIZE: %d\n",pcb_actual.indice_etiquetas.etiquetas_size);
 
 	printf("INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
 	fprintf(log,"INSTRUCCION DEL IR A LABEL: %d.\n", pcb_actual.PC);
@@ -933,17 +933,13 @@ void socketes_irAlLabel(t_nombre_etiqueta etiqueta){
 	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,stdout);
 	printf("\n\n");
 
-	fprintf(log,"INFORMACION INDICE ETIQUETAS:\n\n");
-	fwrite(pcb_actual.indice_etiquetas.etiquetas,sizeof(char),pcb_actual.indice_etiquetas.etiquetas_size,log);
-	fprintf(log,"\n\n");
-
 	//printf("Mi propio buscar etiqueta devuelve: %d", buscarEtiqueta(etiqueta) );
 	//pcb_actual.PC = buscarEtiqueta(etiqueta);
 	pcb_actual.PC--;
 }
 
 void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
-	printf("Llamar con retorno:\n");
+	printf("Llamar con retorno %s:\n",etiqueta);
 	fprintf(log,"Llamar con retorno:\n");
 
 	//Cambio el PC
@@ -952,6 +948,11 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 	//Creo un nuevo contexto(entrada en el stack)
 	pcb_actual.stack.cant_entradas++;
 	pcb_actual.stack.entradas = realloc(pcb_actual.stack.entradas,pcb_actual.stack.cant_entradas * sizeof(t_entrada_stack));
+
+	if(pcb_actual.stack.entradas == NULL)
+		printf("Al llamar a la funcion no pudo hacer el realloc.\n");
+
+	printf("cant entradas: %d",pcb_actual.stack.cant_entradas);
 
 	pcb_actual.stack.entradas[funcionActual].cant_arg = 0;
 	pcb_actual.stack.entradas[funcionActual].cant_var = 0;
@@ -965,6 +966,7 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 }
 
 t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
+	printf("retornar.\n");
 
 	//Busco en el stack la posicion donde retornar, asigno el valor en esa posicion y listo.
 	printf("Primitiva Retornar ---- valor: %d.\n", retorno);

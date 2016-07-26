@@ -1451,7 +1451,6 @@ void planificar(){
 
 	//Miro que no este vacia la lista de ready
 	while(!queue_is_empty(ready)){
-		printf("Hay algo que planificar.\n");
 
 		if(cantCpuLibres() == 0)
 			break;
