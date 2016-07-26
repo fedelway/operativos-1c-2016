@@ -351,8 +351,9 @@ void checkearEntradaSalida()
 		{
 			proceso = queue_peek(io->procesos_esperando);
 
-			if( difftime(proceso->tiempo_inicio,time(NULL)) >= (proceso->tiempo_espera * io->sleep) )
+			if( ((double)time(NULL) - proceso->tiempo_inicio) >= ( ((double)proceso->tiempo_espera) * io->sleep) )
 			{//Ya paso el tiempo: agrego el pcb a ready
+				printf("Se desbloqueo un proceso.\n");
 
 				queue_push(ready,proceso->pcb);
 
@@ -362,7 +363,9 @@ void checkearEntradaSalida()
 
 				//Setteo el tiempo al siguiente proceso
 				proceso = queue_peek(io->procesos_esperando);
-				proceso->tiempo_inicio = time(NULL);
+
+				if(proceso != NULL)
+					proceso->tiempo_inicio = time(NULL);
 			}
 		}
 	}
@@ -545,7 +548,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 
 		break;
 
-	case ENTRADA_SALIDA:
+	case ANSISOP_ENTRADA_SALIDA:
 		printf("mensaje recibido CPU Entrada-Salida.\n");
 		procesarEntradaSalida(fd);
 
@@ -729,6 +732,9 @@ void procesarEntradaSalida(int fd)
 	proceso->tiempo_inicio = time(NULL);
 
 	queue_push(io->procesos_esperando,proceso);
+
+	//Libero la cpu
+	liberarCpu(fd);
 
 	free(identificador);
 }
@@ -1445,6 +1451,7 @@ void planificar(){
 
 	//Miro que no este vacia la lista de ready
 	while(!queue_is_empty(ready)){
+		printf("Hay algo que planificar.\n");
 
 		if(cantCpuLibres() == 0)
 			break;

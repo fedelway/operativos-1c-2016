@@ -632,11 +632,12 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 		return;
 	}
 
-	printf("Aplico algoritmo de reemplazo de paginas: %s.\n",config_get_string_value(config,"ALGORITMO_REEMPLAZO"));
+	printf("Aplico algoritmo de reemplazo de paginas: .\n");
 
 	//Todas las paginas estan ocupadas, tengo que reemplazar una. Aplico el algoritmo clock
-	if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"), "CLOCK-M") )
+	if(!strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"), "CLOCK-M") )
 	{//CLOCK MODIFICADO
+		printf("CLOCK MODIFICADO.\n");
 		for(i=0; i<fpp; i++){
 
 			if(!pag_apuntada.referenciado)
@@ -701,31 +702,43 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			}
 		}
 
-	}else if( strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"),"CLOCK") )
+	}else if(!strcmp(config_get_string_value(config,"ALGORITMO_REEMPLAZO"),"CLOCK") )
 	{//CLOCK COMUN
+		printf("CLOCK.\n");
 		for(i=0;i<fpp;i++)
 		{
 			if(!pag_apuntada.referenciado)
 			{//No esta refenciada, por lo tanto reemplazo esta pagina
+				printf("Reemplazo la pagina nro: %d.\n",programa->pag_en_memoria[programa->puntero]);
 
 				pag_apuntada.presencia = false;
 				frames[pag_apuntada.frame].libre = true;
 
 				if(pag_apuntada.modificado)
 				{//Si fue modificada debo enviarla a swap
+					printf("La pagina fue modificada.\n");
 					int pag_a_enviar = pag_apuntada.nro_pag;
 					int pos_a_copiar = frames[pag_apuntada.frame].posicion;
 
 					enviarPagina(pag_a_enviar, programa->pid, pos_a_copiar);
 				}
 
-				//Recibo la pagina
-				pag_apuntada.frame = recibirPagina(pag, programa->pid);
+				/*//Recibo la pagina
+				pag_apuntada.frame = recibirPagina(pag, programa->pid);*/
 
-				//Actualizo la lista de pag en memoria
+				//Actualizo pag en memoria
 				programa->pag_en_memoria[programa->puntero] = pag;
+
+				//Recibo la pagina aca
+				pag_apuntada.frame = recibirPagina(pag,programa->pid);
 				pag_apuntada.presencia = true;
-				programa->paginas[pag].modificado = false;
+				pag_apuntada.modificado = false;
+
+				printf("Retorno.\n");
+				return;
+			}else
+			{
+				pag_apuntada.referenciado = false;
 			}
 
 			avanzarPuntero();
@@ -734,6 +747,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
 	//repito la operacion
+	printf("Debo repetir el algoritmo.\n");
 
 	traerPaginaDeSwap(pag, programa);
 
@@ -960,7 +974,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 
 			printf("offset: %d.\n", offset);
 			printf("posicion frame: %d, pos_a_leer: %d.\n", frames[programa->paginas[pag].frame].posicion,pos_a_leer);
-			printf("Nro frame: %d.\n",programa->paginas[pag].frame);
+			printf("Nro frame: %d, presencia: %d.\n",programa->paginas[pag].frame,programa->paginas[pag].presencia);
 		}
 
 		//Para no pasarme de largo y leer otros frames
