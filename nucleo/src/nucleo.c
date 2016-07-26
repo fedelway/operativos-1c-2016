@@ -435,6 +435,8 @@ void finalizarPrograma(int pid)
 	*puntero_pid = pid;
 
 	queue_push(finished,puntero_pid);
+
+	printf("Salgo de finalizar programa.\n");
 }
 
 int recibirMensaje(int socket, int *ret_recv){
@@ -1512,8 +1514,9 @@ void eliminarDeCola(t_queue *cola, int pid)
 		if(pcb->pid == pid)
 		{
 			queue_pop(cola);
-			free(pcb);
+			freePcb(pcb);
 		}
+		return;
 	}
 
 	//La cola tiene mas de 1 elemento
@@ -1527,7 +1530,7 @@ void eliminarDeCola(t_queue *cola, int pid)
 		if(pcb->pid != pid)
 			list_add(lista,pcb);
 	}
-	queue_destroy(cola);///Ya no tiene nada esta cola
+	queue_destroy(cola);//Ya no tiene nada esta cola
 
 	//Reinserto los elementos en la cola
 	int i;
