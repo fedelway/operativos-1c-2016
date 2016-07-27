@@ -238,7 +238,7 @@ void trabajarUmc(){
 			exit(1);
 		}
 
-		//usleep(RETARDO_ACCESO * 1000);
+		usleep(RETARDO_ACCESO * 1000);
 
 		if(estaCompactando){ //ver si hay que poner = 1
 			encolarProgramas(msj_recibido);

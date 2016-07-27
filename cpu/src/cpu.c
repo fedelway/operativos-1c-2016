@@ -955,12 +955,6 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 	pcb_actual.stack.entradas[funcionActual].argumentos = NULL;
 	pcb_actual.stack.entradas[funcionActual].variables = NULL;
 	pcb_actual.stack.entradas[funcionActual].dirRetorno = pcb_actual.PC;
-	/*pcb_actual.stack.entradas[funcionActual].dirRetorno = metadata_buscar_etiqueta(etiqueta,
-																pcb_actual.indice_etiquetas.etiquetas,
-																pcb_actual.indice_etiquetas.etiquetas_size);
-
-	if(pcb_actual.stack.entradas[funcionActual].dirRetorno == -1)
-		printf("Etiqueta -1.......\n");*/
 
 	pcb_actual.stack.entradas[funcionActual].pagRet = donde_retornar / tamanio_pagina;
 	pcb_actual.stack.entradas[funcionActual].offsetRet = donde_retornar % tamanio_pagina;

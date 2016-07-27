@@ -748,7 +748,6 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
 	//repito la operacion
 	printf("Debo repetir el algoritmo.\n");
-
 	traerPaginaDeSwap(pag, programa);
 
 }
@@ -762,13 +761,18 @@ void reemplazarDirectamente(int pag, t_prog *programa)
 	int i;
 	for(i=0;i<programa->cant_total_pag;i++)
 	{
-		printf("Pag nro: %d presencia: %d\n",i,programa->paginas[i].presencia);
-
 		if(programa->paginas[i].presencia)
 		{//Si no fue referenciada y esta en memoria, reemplazo.
+			printf("Reemplazo Pag nro: %d presencia: %d\n",i,programa->paginas[i].presencia);
+
 			programa->paginas[i].presencia = false;
 			programa->paginas[i].referenciado = false;
 			frames[programa->paginas[i].frame].libre = true;
+			eliminarEntradaTlb(i,programa->pid);
+
+			//Si la pagina fue modificada debo enviarla a swap
+			if(programa->paginas[i].modificado)
+				enviarPagina(i,programa->pid,frames[programa->paginas[i].frame].posicion);
 
 			//Recibo la pagina
 			programa->paginas[pag].frame = recibirPagina(pag, programa->pid);//Esta vez no deberia fallar
@@ -890,7 +894,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 			pos_a_escribir+=offset;
 		}else{
 			printf("TLB_MISS.\n");
-			//usleep(config_get_int_value(config,"RETARDO") * 1000);
+			usleep(config_get_int_value(config,"RETARDO") * 1000);
 
 			//Verifico que la pagina esta en memoria
 			if(!programa->paginas[pag].presencia){
@@ -908,7 +912,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
 		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
 
-		//usleep(config_get_int_value(config,"RETARDO") * 1000);
+		usleep(config_get_int_value(config,"RETARDO") * 1000);
 		memcpy(memoria + pos_a_escribir, src, cant_a_escribir);
 
 		//Actualizo la cant_escrita
@@ -961,7 +965,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		}else{
 			//TLB_MISS
 			printf("TLB_MISS.\n");
-			//usleep(config_get_int_value(config,"RETARDO") * 1000);
+			usleep(config_get_int_value(config,"RETARDO") * 1000);
 
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap
@@ -982,7 +986,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		//Para no pasarme de largo y leer otros frames
 		cant_a_leer = min(size - cant_leida, frame_size - offset);
 
-		//usleep(config_get_int_value(config,"RETARDO") * 1000);
+		usleep(config_get_int_value(config,"RETARDO") * 1000);
 		memcpy(resultado + cant_leida, memoria + pos_a_leer, cant_a_leer);
 
 		//Actualizo el bit de referencia
