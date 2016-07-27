@@ -422,6 +422,11 @@ bool hayEspacioContiguo(int pag, int cant_paginas, char *map){
 	int i;
 	for(i=0;i<cant_paginas;i++)
 	{
+		if(pag + i >= CANTIDAD_PAGINAS)
+		{
+			return false;
+		}
+
 		if(map[pag+i] == 'o')
 		{
 			return false;
@@ -470,7 +475,7 @@ int ubicacionEnSwap(int pid){ //FUNCIONA
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
 void crearProgramaAnSISOP(int pid, int cant_paginas){
 
-	printf("Creando programa pid: %.\n",pid);
+	printf("Creando programa pid: %d.\n",pid);
 
 	int pagina = paginaDisponible(cant_paginas, bitmap);
 	if(pagina != -1){
@@ -665,9 +670,10 @@ int hayProgramasEnEspera(){
 //-------------------------- FUNCIONES PARA COMPACTACION --------------------------//
 //macro para escribir menos
 #define proceso(i) ((nodo_proceso*)list_get(listaProcesos,i))
-#define paginaInicial(i) (proceso(i)->posSwap / CANTIDAD_PAGINAS)
+#define paginaInicial(i) (proceso(i)->posSwap / TAMANIO_PAGINA)
 void compactar()
 {
+	printf("\n-----------------------------\nCOMENZANDO COMPACTACION\n-----------------------------\n\n");
 	usleep(RETARDO_COMPACTACION * 1000);
 
 	const int bitmapSize = CANTIDAD_PAGINAS;
@@ -681,6 +687,7 @@ void compactar()
 	{
 		compacto = false;//Para poder checkear si se realizo una compactacion
 		cant_pasadas++;
+		printf("Pasada nro: %d.\n",cant_pasadas);
 
 		int i;//Itero sobre los procesos para ver si alguno puede ser movido.
 		for(i=0; i<list_size(listaProcesos); i++)
@@ -688,20 +695,35 @@ void compactar()
 			//Copio en el bitmap auxiliar el bitmap posta
 			memcpy(bitmapAux,bitmap,bitmapSize);
 
+			mostrarBitmap(bitmapAux,"auxiliar");
+
 			int j;//Pongo en libre las paginas del proceso i
 			for(j=0; j<proceso(i)->cantidad_paginas; j++)
 			{
 				bitmapAux[paginaInicial(i) + j] = 'l';
 			}
 
+			mostrarBitmap(bitmapAux,"auxiliar despues de modificase");
+
 			//me fijo si puedo reubicar
 			int reubicacion = paginaDisponible(proceso(i)->cantidad_paginas,bitmapAux);
 			//Puedo hacer esto porque paginaDisponible devuelve la primera pagina que cumpla las condiciones
-			if(reubicacion != paginaInicial(i))
+
+			printf("Reubicacion: %d, paginaInicial: %d.\n",reubicacion,paginaInicial(i));
+
+			if(reubicacion != paginaInicial(i) && reubicacion != -1)
 			{//Se puede reubicar
+				printf("Se puede reubicar.\n");
 
 				//Actualizo el bitmap posta
-				memcpy(bitmap + reubicacion, bitmapAux + paginaInicial(i),proceso(i)->cantidad_paginas);
+				for(j=0;j<proceso(i)->cantidad_paginas; j++)
+				{//Libero las paginas
+					bitmap[paginaInicial(i) + j] = 'l';
+				}
+				for(j=0;j<proceso(i)->cantidad_paginas;j++)
+				{
+					bitmap[reubicacion + j] = 'o';
+				}
 
 				//Actualizo la memoria en si
 				int pos_escribir = reubicacion * TAMANIO_PAGINA;
@@ -714,15 +736,26 @@ void compactar()
 				proceso(i)->posSwap = pos_escribir;
 
 				compacto = true;
-			}
+			}else printf("No se puede reubicar.\n");
 		}
 	}
 	free(bitmapAux);
+
+	mostrarBitmap(bitmap, "posta despues de compactar");
 
 	if(hayFragmentacion(0))
 		printf("Acabo de fragmentar, pero hay fragmentacion...EEEEERRRRRROOOOOORRRRRR.\n");
 
 	printf("Se realizo el proceso de compactacion correctamente.\ncantidad de pasos: %d.\n\n",cant_pasadas);
+}
+
+void mostrarBitmap(char *map, char* nombre)
+{
+	printf("\nImpresion del bitmap: %s\n",nombre);
+	int k;
+	for(k=0;k<CANTIDAD_PAGINAS;k++){
+		putchar(map[k]);
+	}printf("\n\n");
 }
 
 void modificarArchivoSwap(int posicionAnterior, int posicionActual){
