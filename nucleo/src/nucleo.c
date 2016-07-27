@@ -386,7 +386,8 @@ void terminarConexion(int fd)
 			t_cpu *cpu = list_remove(listaCpu,i);
 
 			//Paso el pcb que estaba asignado a la cpu a ready
-			queue_push(ready,cpu->pcb);
+			if(cpu->pcb != NULL)
+				queue_push(ready,cpu->pcb);
 
 			free(cpu);
 		}
@@ -523,6 +524,7 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 		cpu_nueva->pid = 0;
 		cpu_nueva->finForzoso = false;
 		cpu_nueva->cambioQuantumSleep = false;
+		cpu_nueva->pcb = NULL;
 
 		list_add(listaCpu,cpu_nueva);
 
@@ -598,6 +600,8 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 
 		//Libero la cpu
 		liberarCpu(fd);
+
+		printf("Cantidad de ready: %d queue is empty: %d",queue_size(ready));
 
 		break;
 
@@ -947,7 +951,7 @@ void ansisopSignal(int fd)
 	printf("Incremento el semaforo.\n");
 	printf("Nuevo valor: %d.\n",sem->valor);
 
-	if(sem->valor >= 0)
+/*	if(sem->valor >= 0)
 	{//Paso el primer pcb a ready
 		printf("Libero un proceso.\n");
 
@@ -955,6 +959,13 @@ void ansisopSignal(int fd)
 		{
 			queue_push(ready, queue_pop(sem->procesos_esperando));
 		}
+	}*/
+	//Libero siempre un proceso.
+	printf("Libero un proceso.\n");
+
+	if(!queue_is_empty(sem->procesos_esperando))
+	{
+		queue_push(ready, queue_pop(sem->procesos_esperando));
 	}
 }
 
@@ -1242,7 +1253,6 @@ int crearPCB(int source_size,char *source){
 	//Cargo camposPCB
 	max_pid++;
 	pcb->pid = max_pid;
-	pcb->PC = 0;
 	pcb->cant_pag_cod = cant_paginas;
 	pcb->idCPU = 0;
 
@@ -1278,6 +1288,9 @@ int crearPCB(int source_size,char *source){
 	pcb->indice_etiquetas = indiceEtiquetas;
 
 	pcb->tamanio = tamanioPcb(*pcb);
+
+	//Cargo en el pcb la primera instruccion
+	pcb->PC = metadata->instruccion_inicio;
 
 	list_add(new, pcb);
 
@@ -1459,6 +1472,7 @@ void planificar(){
 
 	//Miro que no este vacia la lista de ready
 	while(!queue_is_empty(ready)){
+		printf("Cant readys: %d",queue_size(ready));
 
 		if(cantCpuLibres() == 0)
 			break;
@@ -1485,6 +1499,9 @@ void planificar(){
 
 int cantCpuLibres()
 {
+	if(list_is_empty(listaCpu))
+		return 0;
+
 	int cant = 0;
 	int i;
 	for(i=0; i<list_size(listaCpu); i++)
@@ -1507,6 +1524,7 @@ void liberarCpu(int fd)
 
 	cpu->libre = true;
 	freePcb(cpu->pcb);
+	cpu->pcb = NULL;
 }
 
 void eliminarDeCola(t_queue *cola, int pid)

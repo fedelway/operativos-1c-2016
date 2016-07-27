@@ -986,7 +986,7 @@ t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 
 	printf("Termino de ejecutar retornar.\n");
 
-	return instruccion_retorno;
+	return instruccion_retorno - 1;//-1 porque cada vez que salgo de analizar linea, se incrementa el PC
 }
 
 /*

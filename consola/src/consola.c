@@ -262,13 +262,16 @@ void imprimirCadena(int socket_nucleo){
 	char *cadena;
 
 	recv(socket_nucleo,&tamanio_cadena,sizeof(int),0);
-	printf("Tamaño cadena: %d.\n",tamanio_cadena);
 
 	cadena = malloc(tamanio_cadena + 1);
 
 	recv(socket_nucleo,cadena,tamanio_cadena,0);
 
 	cadena[tamanio_cadena] = '\0';
+
+	//Saco el \n de la cadena, creo que es accidental esto...
+	if(cadena[tamanio_cadena - 1] == '\n')
+		cadena[tamanio_cadena - 1] = '\0';
 
 	printf("%s.\n",cadena);
 

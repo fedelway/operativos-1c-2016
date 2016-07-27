@@ -148,6 +148,7 @@ AnSISOP_funciones funciones = {
 		.AnSISOP_irAlLabel				= socketes_irAlLabel,
 		.AnSISOP_llamarSinRetorno		= socketes_llamarSinRetorno,
 		.AnSISOP_llamarConRetorno		= socketes_llamarConRetorno,
+		.AnSISOP_retornar				= socketes_retornar,
 		.AnSISOP_finalizar				= socketes_finalizar,
 		.AnSISOP_imprimir				= socketes_imprimir,
 		.AnSISOP_imprimirTexto			= socketes_imprimirTexto,
