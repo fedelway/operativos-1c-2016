@@ -1603,6 +1603,7 @@ void eliminarDeIO(t_queue *cola, int pid)
 			queue_pop(cola);
 			free(pcb);
 		}
+		return;
 	}
 
 	//La cola tiene mas de 1 elemento
