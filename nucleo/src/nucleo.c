@@ -425,17 +425,20 @@ void finalizarPrograma(int pid)
 	//Busco en la lista de cpus
 	for(i=0;i<list_size(listaCpu);i++)
 	{
-		if(getListaCpu(i)->pcb->pid == pid)
+		if(getListaCpu(i)->pcb != NULL)
 		{
-			getListaCpu(i)->finForzoso = true;
+			if(getListaCpu(i)->pcb->pid == pid)
+			{
+				getListaCpu(i)->finForzoso = true;
+			}
 		}
 	}
 
-	//Lo agrego a la lista de finished
-	int *puntero_pid = malloc(sizeof(int));
+	//Lo agrego a la lista de finished(Esto lo deberia hacer en lo de fin forzoso)
+/*	int *puntero_pid = malloc(sizeof(int));
 	*puntero_pid = pid;
 
-	queue_push(finished,puntero_pid);
+	queue_push(finished,puntero_pid);*/
 
 	printf("Salgo de finalizar programa.\n");
 }
@@ -538,7 +541,7 @@ void agregarCpu(int fd, int *max_fd, fd_set *listen, fd_set *cpus){
 
 
 void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
-	printf("procesarMensajeCPU con el msj.%d\n",codigoMensaje);
+	//printf("procesarMensajeCPU con el msj.%d\n",codigoMensaje);
 	int *puntero_inutil;
 
 	t_pcb *pcb_recibido;
@@ -601,12 +604,10 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 		//Libero la cpu
 		liberarCpu(fd);
 
-		printf("Cantidad de ready: %d queue is empty: %d",queue_size(ready));
-
 		break;
 
 	case DESCONEXION_CPU:
-		printf("Se ha desconectado una cpu.\n");
+		printf("-------------------------------------\nSe ha desconectado una cpu.\n\n");
 
 		//Pregunto a ver si debo recibir el pcb
 		int mensaje;
@@ -623,12 +624,12 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 		}
 
 		//Elimino la cpu de las listas correspondientes
-		bool igualPid(void *elemento){
-			if(((t_cpu*)elemento)->pcb->pid == pcb_recibido->pid)
+		bool igualFd(void *elemento){
+			if(((t_cpu*)elemento)->socket == fd)
 				return true;
 			else return false;
 		}
-		t_cpu *cpu_a_eliminar = list_remove_by_condition(listaCpu,igualPid);
+		t_cpu *cpu_a_eliminar = list_remove_by_condition(listaCpu,igualFd);
 		free(cpu_a_eliminar->pcb);
 		free(cpu_a_eliminar);
 		close(fd);
@@ -636,7 +637,7 @@ void procesarMensajeCPU(int codigoMensaje, int fd, fd_set *listen){
 
 		break;
 	default:
-		printf("mensaje recibido CPU Erroneo.\n");
+		printf("mensaje recibido CPU Erroneo cod: %d",codigoMensaje);
 	}
 }
 
@@ -658,6 +659,11 @@ void procesarFinQuantum(int fd)
 	t_cpu *cpu = list_find(listaCpu,mismoFd);
 
 	if(cpu->finForzoso){
+		//Paso el pid a finished
+		int *pid = malloc(sizeof(int));
+		*pid = pcb_recibido->pid;
+		queue_push(finished,pid);
+
 		//Elimino el pcb y no lo paso a ready
 		cpu->libre = true;
 		freePcb(pcb_recibido);
@@ -982,7 +988,11 @@ void imprimirValor(int fd)
 
 	int mensaje[2] = {IMPRIMIR_VALOR,valor};
 
-	send(consolaFd,&mensaje,2*sizeof(int),0);
+	if(consolaFd != -1)
+		send(consolaFd,&mensaje,2*sizeof(int),0);
+	else printf("La consola ya se cerro.\n");
+
+	printf("Valor a imprimir: %d.\n",valor);
 }
 
 void imprimirTexto(int fd)
@@ -998,8 +1008,6 @@ void imprimirTexto(int fd)
 	recv(fd,cadena,tamanio_cadena,0);
 
 	//Envio a consola la order de impresion
-	printf("Texto a enviar: %s.\n",cadena);
-	printf("Tamaño cadena: %d.\n",tamanio_cadena);
 
 	int mensaje = IMPRIMIR_CADENA;
 	char *buffer = malloc(tamanio_cadena + 2*sizeof(int));
@@ -1009,7 +1017,10 @@ void imprimirTexto(int fd)
 	memcpy(buffer + 2*sizeof(int),cadena,tamanio_cadena);
 
 	int consolaFd = buscarConsolaFd(pid);
-	send(consolaFd, buffer, tamanio_cadena + 2*sizeof(int), 0);
+
+	if(consolaFd != -1)
+		send(consolaFd, buffer, tamanio_cadena + 2*sizeof(int), 0);
+	else printf("La consola ya se cerro.\n");
 
 	free(buffer);
 	free(cadena);
@@ -1024,7 +1035,10 @@ int buscarConsolaFd(int pid)
 	}
 
 	t_consola *consola = list_find(listaConsola,igualPid);
-	return consola->socketConsola;
+
+	if(consola == NULL)
+		return -1;
+	else return consola->socketConsola;
 }
 
 int obtenerSocketConsola(int socketCPU){
@@ -1482,7 +1496,6 @@ void planificar(){
 
 	//Miro que no este vacia la lista de ready
 	while(!queue_is_empty(ready)){
-		printf("Cant readys: %d",queue_size(ready));
 
 		if(cantCpuLibres() == 0)
 			break;

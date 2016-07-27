@@ -645,6 +645,9 @@ t_puntero socketes_definirVariable(t_nombre_variable identificador_variable) {
 	pcb_actual.stack.entradas[funcionActual].cant_var++;
 	pcb_actual.stack.entradas[funcionActual].variables = realloc(pcb_actual.stack.entradas[funcionActual].variables,pcb_actual.stack.entradas[funcionActual].cant_var * sizeof(t_var));
 
+	if(pcb_actual.stack.entradas[funcionActual].variables == NULL)
+		printf("ERROR DE REALLOC....QUILOMBO ENORME.\n");
+
 	varActual = calcularVariable(pcb_actual);
 	varActual.identificador = identificador_variable;
 
@@ -938,9 +941,6 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 	printf("Llamar con retorno %s:\n",etiqueta);
 	fprintf(log,"Llamar con retorno:\n");
 
-	//Cambio el PC
-	socketes_irAlLabel(etiqueta);
-
 	//Creo un nuevo contexto(entrada en el stack)
 	pcb_actual.stack.cant_entradas++;
 	pcb_actual.stack.entradas = realloc(pcb_actual.stack.entradas,pcb_actual.stack.cant_entradas * sizeof(t_entrada_stack));
@@ -954,11 +954,20 @@ void socketes_llamarConRetorno(t_nombre_etiqueta etiqueta, t_puntero donde_retor
 	pcb_actual.stack.entradas[funcionActual].cant_var = 0;
 	pcb_actual.stack.entradas[funcionActual].argumentos = NULL;
 	pcb_actual.stack.entradas[funcionActual].variables = NULL;
-	pcb_actual.stack.entradas[funcionActual].dirRetorno = metadata_buscar_etiqueta(etiqueta,
+	pcb_actual.stack.entradas[funcionActual].dirRetorno = pcb_actual.PC;
+	/*pcb_actual.stack.entradas[funcionActual].dirRetorno = metadata_buscar_etiqueta(etiqueta,
 																pcb_actual.indice_etiquetas.etiquetas,
 																pcb_actual.indice_etiquetas.etiquetas_size);
+
+	if(pcb_actual.stack.entradas[funcionActual].dirRetorno == -1)
+		printf("Etiqueta -1.......\n");*/
+
 	pcb_actual.stack.entradas[funcionActual].pagRet = donde_retornar / tamanio_pagina;
 	pcb_actual.stack.entradas[funcionActual].offsetRet = donde_retornar % tamanio_pagina;
+
+	//Cambio el PC
+	socketes_irAlLabel(etiqueta);
+
 }
 
 t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
@@ -986,7 +995,10 @@ t_puntero_instruccion socketes_retornar(t_valor_variable retorno){
 
 	printf("Termino de ejecutar retornar.\n");
 
-	return instruccion_retorno - 1;//-1 porque cada vez que salgo de analizar linea, se incrementa el PC
+	pcb_actual.PC = instruccion_retorno;
+	printf("Voy a la instruccion nro: %d", instruccion_retorno);
+
+	return instruccion_retorno;
 }
 
 /*
