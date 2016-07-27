@@ -1230,9 +1230,18 @@ void iniciarNuevaConsola (int socket){
 	list_add(listaConsola,nueva_consola);
 
 	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
-	if( solicitarPaginasUMC(source_size, source, pid) == -1)
-	{//Hubo error tengo que eliminar las consolas y eso...
+	if( solicitarPaginasUMC(source_size, source, pid) == -1 )
+	{//Hubo error le aviso a la consola que finalice
+		int mensaje = FINALIZAR;
+		send(socket,&mensaje,sizeof(int),0);
 
+		//Elimino la consola
+		bool igualFd(void *elemento){
+			if( ((t_consola*)elemento)->socketConsola == socket)
+				return true;
+			else return false;
+		}
+		list_remove_and_destroy_by_condition(listaConsola,igualFd,free);
 	}
 
 	//Libero la memoria
@@ -1346,13 +1355,14 @@ int solicitarPaginasUMC(int source_size, char *source, int pid){
 	}else if(msj[0] == RECHAZO_PROGRAMA)
 	{
 		printf("RECHAZO_PROGRAMA\n");
-		//Lo paso a finished
-		//moverDeNewAQueue(pid,finished);
-		int *ptr_pid = malloc(sizeof(int));
-		*ptr_pid = pid;
-		queue_push(finished,ptr_pid);
+		//Saco el pcb de new
+		int i;
+		for(i=0;i<list_size(new);i++){
+			if(((t_pcb*)list_get(new,i))->pid == pid)
+				list_remove_and_destroy_element(new,i,freePcb);
+		}
 
-		eliminarPcb(pid);
+		return -1;
 	}else{
 		printf("Recibi un mensaje incorrecto de umc.\n");
 		printf("%d %d \n", msj[0],msj[1]);
