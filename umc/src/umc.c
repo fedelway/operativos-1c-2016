@@ -1068,12 +1068,13 @@ void leerParaCpu(int cpu_fd){
 	if(programa == NULL)
 		printf("No hay programa.\n");
 
-	printf("Solicitud de lectura:\npag: %d, offset: %d, size: %d, pid:%d.\n",pag,offset,size,pid);
+	printf("Solicitud de lectura:\npag: %d, offset: %d, size: %d, pid:%d.\ncant pag: %d\n",pag,offset,size,pid,programa->cant_total_pag);
 
 	//Me fijo si hay stack overflow
 	int mensaje;
-	if(pag > programa->cant_total_pag)
+	if(pag >= programa->cant_total_pag || pag < 0)
 	{
+		printf("STACK OVERFLOW. Cant pag: %d, pag solicitada: %d\n",programa->cant_total_pag,pag);
 		mensaje = OVERFLOW;
 		send(cpu_fd,&mensaje,sizeof(int),0);
 
@@ -1128,8 +1129,9 @@ void escribirParaCpu(int cpu_fd){
 
 	//Me fijo si hay stack overflow
 	int mensaje;
-	if(pag > programa->cant_total_pag)
+	if(pag >= programa->cant_total_pag || pag < 0)
 	{
+		printf("STACK OVERFLOW. Cant pag: %d, pag solicitada: %d\n",programa->cant_total_pag,pag);
 		mensaje = OVERFLOW;
 		send(cpu_fd,&mensaje,sizeof(int),0);
 

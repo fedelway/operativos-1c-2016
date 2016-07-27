@@ -432,7 +432,6 @@ bool hayEspacioContiguo(int pag, int cant_paginas, char *map){
 }
 
 int paginaDisponible(int cant_paginas, char *map){
-	printf("pasó por pagina disponible \n");
 
 	int i;
 	for(i=0; i<CANTIDAD_PAGINAS; i++)
@@ -446,6 +445,7 @@ int paginaDisponible(int cant_paginas, char *map){
 		}
 	}
 	//Sali del ciclo, no hay pagina
+	printf("No hay pagina disponible.\n");
 	return -1;
 }
 
@@ -469,6 +469,8 @@ int ubicacionEnSwap(int pid){ //FUNCIONA
 
 //Copia el código en Swap, Agrega nodo a la lista de procesos, actualiza el BITMAP y retorna Resultado
 void crearProgramaAnSISOP(int pid, int cant_paginas){
+
+	printf("Creando programa pid: %.\n",pid);
 
 	int pagina = paginaDisponible(cant_paginas, bitmap);
 	if(pagina != -1){
@@ -672,15 +674,15 @@ void compactar()
 	bool compacto = true;//bool para saber si compacto en la ultima pasada
 	int cant_pasadas = 0;
 
+	//Hago un bitmap auxiliar para poder ver como queda el bitmap sin el proceso.
+	char *bitmapAux = malloc(bitmapSize);
+
 	while(compacto)
 	{
 		compacto = false;//Para poder checkear si se realizo una compactacion
 		cant_pasadas++;
 
-		//Hago un bitmap auxiliar para poder ver como queda el bitmap sin el proceso.
-		char *bitmapAux = malloc(bitmapSize);
-
-		int i;
+		int i;//Itero sobre los procesos para ver si alguno puede ser movido.
 		for(i=0; i<list_size(listaProcesos); i++)
 		{
 			//Copio en el bitmap auxiliar el bitmap posta
@@ -715,6 +717,10 @@ void compactar()
 			}
 		}
 	}
+	free(bitmapAux);
+
+	if(hayFragmentacion(0))
+		printf("Acabo de fragmentar, pero hay fragmentacion...EEEEERRRRRROOOOOORRRRRR.\n");
 
 	printf("Se realizo el proceso de compactacion correctamente.\ncantidad de pasos: %d.\n\n",cant_pasadas);
 }
@@ -885,7 +891,7 @@ void terminarProceso(int pid){
 	int i;
 	for(i=0;i<proceso->cantidad_paginas;i++)
 	{//Marco como libre las paginas en el bitmap
-		bitmap[proceso->posSwap/TAMANIO_PAGINA + 1] = 'l';
+		bitmap[proceso->posSwap/TAMANIO_PAGINA + i] = 'l';
 	}
 
 	//Libero la memoria de las estructuras
