@@ -561,7 +561,6 @@ void modificarPagina(int pid, int pagina, char *contenido){
 int espaciosLibres(int cantidad){
 
 	int i, cantLibres = 0;
-	//Recorro todo el bitMap buscando espacios separados
 	for(i = 0; i <= TAMANIO_PAGINA * CANTIDAD_PAGINAS; i++){
 		if(bitarray_test_bit(bitMap, i) == 0){//0 libre,  1 ocupado (no libre)
 			cantLibres++;
@@ -927,13 +926,15 @@ void terminarProceso(int pid){
 		bitmap[proceso->posSwap/TAMANIO_PAGINA + i] = 'l';
 	}
 
+	mostrarBitmap(bitmap, "posta despues de la finalizacion del proceso");
+
 	//Libero la memoria de las estructuras
 	proceso = list_remove_by_condition(listaProcesos,igualPid);
 
 	free(proceso);
 }
 
-buscarProceso(int pid)
+nodo_proceso *buscarProceso(int pid)
 {
 	bool igualPid(void *elemento){
 		if(((nodo_proceso*)elemento)->pid == pid)
@@ -948,7 +949,7 @@ buscarProceso(int pid)
 
 void eliminarBitmap(){
 
-	free(bitarray); // todo: ver si el destroy no hace internamente el free
+	free(bitarray);
 	bitarray_destroy(bitMap);
 
 }

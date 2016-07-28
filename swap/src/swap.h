@@ -98,6 +98,7 @@ int pid(nodo_proceso *nodo);
 int posicionSwap(nodo_proceso *nodo);
 
 void actualizarBitMap(int pagina, int cant_paginas);
+void mostrarBitmap(char *bitmap, char *nombre);
 //---------------------- INICIALIZACIÓN -------------------------------------------//
 
 void inicializarBitMap();

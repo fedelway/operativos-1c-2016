@@ -1,0 +1,5 @@
+#!../consola/Debug/consola ../consola/resource/config.cfg
+
+begin
+	io HDD1 100
+end

@@ -314,9 +314,9 @@ void trabajarConexionesSockets(fd_set *listen, int *max_fd, int cpu_fd, int cons
 					if ( recv(i,&codMensaje,sizeof(int),0) <= 0) {
 						// recibio 0 bytes, cierro la conexion y remuevo del set
 						perror("");
-						terminarConexion(i);
 						printf("Error al recibir el mensaje. Se cierra la conexion\n");
-						close(i);
+						terminarConexion(i);
+						close(i);//Esto se lo tengo que dejar a la funcion.
 						FD_CLR(i, listen);
 					}else{
 						if(FD_ISSET(i, &cpu_fd_set)){
@@ -423,6 +423,7 @@ void finalizarPrograma(int pid)
 	}
 
 	//Busco en la lista de cpus
+	bool estaEnEjecucion = false;
 	for(i=0;i<list_size(listaCpu);i++)
 	{
 		if(getListaCpu(i)->pcb != NULL)
@@ -430,15 +431,20 @@ void finalizarPrograma(int pid)
 			if(getListaCpu(i)->pcb->pid == pid)
 			{
 				getListaCpu(i)->finForzoso = true;
+				estaEnEjecucion = true;
 			}
 		}
 	}
 
-	//Lo agrego a la lista de finished(Esto lo deberia hacer en lo de fin forzoso)
-/*	int *puntero_pid = malloc(sizeof(int));
-	*puntero_pid = pid;
+	//Si no esta en ejecucion, entonces debo mandarlo a finished.
+	if(!estaEnEjecucion)
+	{//Lo agrego a la lista de finished
+		printf("Debo terminar ahora la ejecucion ahora.\n");
+		int *puntero_pid = malloc(sizeof(int));
+		*puntero_pid = pid;
 
-	queue_push(finished,puntero_pid);*/
+		queue_push(finished,puntero_pid);
+	}
 
 	printf("Salgo de finalizar programa.\n");
 }
@@ -1241,21 +1247,23 @@ void iniciarNuevaConsola (int socket){
 	nueva_consola->pid = pid;
 	nueva_consola->socketConsola = socket;
 
-	list_add(listaConsola,nueva_consola);
-
 	//solicito paginas necesarias a UMC. Si el pgm fue enviado con exito, lo agrego a la lista.
 	if( solicitarPaginasUMC(source_size, source, pid) == -1 )
 	{//Hubo error le aviso a la consola que finalice
 		int mensaje = FINALIZAR;
 		send(socket,&mensaje,sizeof(int),0);
 
-		//Elimino la consola
+		/*//Elimino la consola
 		bool igualFd(void *elemento){
 			if( ((t_consola*)elemento)->socketConsola == socket)
 				return true;
 			else return false;
 		}
-		list_remove_and_destroy_by_condition(listaConsola,igualFd,free);
+		list_remove_and_destroy_by_condition(listaConsola,igualFd,free);*/
+		free(nueva_consola);
+	}else
+	{
+		list_add(listaConsola,nueva_consola);
 	}
 
 	//Libero la memoria
@@ -1463,7 +1471,10 @@ void limpiarTerminados(fd_set *listen){
 		{
 			return ((t_consola*)elemento)->pid == *pid;
 		}
-		t_consola *consola = list_find(listaConsola,igualPid);
+		t_consola *consola = NULL;
+		printf("Consola size: %d.\n",list_size(listaConsola));
+		if(list_size(listaConsola) > 0)
+			consola = list_find(listaConsola,igualPid);
 
 		if(consola == NULL)
 			printf("Consola ya eliminada.\n");
@@ -1471,7 +1482,7 @@ void limpiarTerminados(fd_set *listen){
 			send(consola->socketConsola,&mensaje,sizeof(int),0);
 
 			//Elimino la consola y cierro el socket
-			list_remove_by_condition(listaConsola,(void*)igualPid);
+			list_remove_by_condition(listaConsola,igualPid);
 			FD_CLR(consola->socketConsola,listen);
 			close(consola->socketConsola);
 			free(consola);
@@ -1567,7 +1578,6 @@ void eliminarDeCola(t_queue *cola, int pid)
 	}
 
 	//La cola tiene mas de 1 elemento
-	t_queue *nueva_cola = queue_create();
 	t_list *lista = list_create();
 
 	while(queue_size(cola) > 0)
@@ -1576,17 +1586,18 @@ void eliminarDeCola(t_queue *cola, int pid)
 
 		if(pcb->pid != pid)
 			list_add(lista,pcb);
+		else freePcb(pcb);
 	}
-	queue_destroy(cola);//Ya no tiene nada esta cola
 
+	printf("Tamaño cola despues de vaciarla: %d.\n",queue_size(cola));
 	//Reinserto los elementos en la cola
 	int i;
 	for(i=list_size(lista)-1;i>=0;i--)
 	{
-		queue_push(nueva_cola,list_remove(lista,i));
+		queue_push(cola,list_remove(lista,i));
 	}
+	printf("Tamaño cola despues de rellenarla: %d.\n",queue_size(cola));
 
-	cola = nueva_cola;
 	list_destroy(lista);
 }
 
@@ -1607,25 +1618,30 @@ void eliminarDeIO(t_queue *cola, int pid)
 	}
 
 	//La cola tiene mas de 1 elemento
-	t_queue *nueva_cola = queue_create();
 	t_list *lista = list_create();
+
+	printf("Tamaño cola IO (antes de eliminar): %d",list_size(cola));
 
 	while(queue_size(cola) > 0)
 	{//Paso lo que esta en cola a la lista
 		t_proceso_esperando *proceso = queue_pop(cola);
 
-		if(proceso->pcb->pid == pid)
+		if(proceso->pcb->pid != pid)
 			list_add(lista,queue_pop(cola));
+		else{
+			freePcb(proceso->pcb);
+			free(proceso);
+		}
 	}
-	queue_destroy(cola);///Ya no tiene nada esta cola
 
 	//Reinserto los elementos en la cola
 	int i;
 	for(i=list_size(lista)-1;i>=0;i--)
 	{
-		queue_push(nueva_cola,list_remove(lista,i));
+		queue_push(cola,list_remove(lista,i));
 	}
 
-	cola = nueva_cola;
+	printf("Tamaño cola IO (dps de eliminar): %d",list_size(cola));
+
 	list_destroy(lista);
 }

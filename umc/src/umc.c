@@ -1357,7 +1357,7 @@ void algoritmoClock(t_prog *programa){
 	programa->timer++;
 
 	if(programa->timer > config_get_int_value(config,"TIMER_RESET")){
-		printf("TLB: TIMER RESET.\n");
+		printf("CLOCK: TIMER RESET.\n");
 		int i;
 		for(i=0; i<programa->cant_total_pag ;i++){
 			programa->paginas[i].referenciado = false;
@@ -1561,7 +1561,7 @@ void terminal(){
 				{
 					if(programa(i)->paginas[j].modificado)
 					{
-						enviarPagina(j,programa(i)->pid,frames[programa(i)->paginas[k].frame].posicion);
+						enviarPagina(j,programa(i)->pid,frames[programa(i)->paginas[j].frame].posicion);
 					}
 				}
 			}

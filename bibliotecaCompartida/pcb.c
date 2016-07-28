@@ -351,11 +351,16 @@ void liberarPcb(t_pcb pcb)
 
 	printf("Cantidad de entradas stack: %d.\n",pcb.stack.cant_entradas);
 
+	if(pcb.stack.entradas == NULL)
+		printf("PROBLEMAS.\n");
+
 	int i;
 	for(i=0;i<pcb.stack.cant_entradas;i++);
 	{
-		free(pcb.stack.entradas[i].argumentos);
-		free(pcb.stack.entradas[i].variables);
+		if(pcb.stack.entradas[i].argumentos != NULL)
+			free(pcb.stack.entradas[i].argumentos);
+		if(pcb.stack.entradas[i].variables != NULL)
+			free(pcb.stack.entradas[i].variables);
 	}
 	free(pcb.stack.entradas);
 }
