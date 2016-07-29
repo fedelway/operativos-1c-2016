@@ -109,8 +109,9 @@ int escribirEnMemoria(char *src, int pag, int offset, int size, t_prog *programa
 int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *programa);
 void terminarPrograma(int pid);
 int enviarCodigoASwap(char *source, int source_size, int pid);
-void traerPaginaDeSwap(int pag, t_prog *programa);
-void reemplazarDirectamente(int pag, t_prog *programa);
+int traerPaginaDeSwap(int pag, t_prog *programa);
+int reemplazarDirectamente(int pag, t_prog *programa);
+bool todosLosMarcosOcupados();
 void enviarPagina(int pag, int pid, int pos_a_enviar);
 int recibirPagina(int pag, int pid); //Devuelve el frame en donde escribio la pagina
 void algoritmoClock(t_prog *programa);

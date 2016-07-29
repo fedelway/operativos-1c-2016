@@ -490,6 +490,8 @@ void crearProgramaAnSISOP(int pid, int cant_paginas){
 		int mensaje = SWAP_PROGRAMA_OK;
 		send(socket_umc,&mensaje,sizeof(int),0);
 
+		mostrarBitmap(bitmap, "posta despues de la inicializacion.");
+
 	} else {
 
 		if(hayFragmentacion(cant_paginas)){

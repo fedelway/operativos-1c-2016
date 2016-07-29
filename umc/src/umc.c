@@ -120,6 +120,9 @@ void crearConfiguracion(char* config_path){
 
 	if(validarParametrosDeConfiguracion()){
 		printf("El archivo de configuracion tiene todos los parametros requeridos.\n");
+
+		//Pongo en retardo el retardo
+		retardo = config_get_int_value(config, "RETARDO");
 	}else{
 		printf("configuracion no valida\n");
 		exit(EXIT_SUCCESS);
@@ -398,7 +401,14 @@ void inicializarPrograma(){
 	source = buffer; //Me guardo el archivo en el puntero source
 
 	//Checkeo que tenga marcos disponibles para alojar el proceso.
-	if(list_size(programas) * fpp >= cant_frames)
+/*	if(list_size(programas) * fpp >= cant_frames)
+	{
+		printf("No alcanzan los marcos para recibir este proceso.\n");
+		terminarPrograma(pid);
+		free(buffer);
+		return;
+	}*/
+	if(frameLibre() == -1)
 	{
 		printf("No alcanzan los marcos para recibir este proceso.\n");
 		terminarPrograma(pid);
@@ -587,7 +597,7 @@ int enviarCodigoASwap(char *source, int source_size, int pid){
 
 }
 
-void traerPaginaDeSwap(int pag, t_prog *programa){
+int traerPaginaDeSwap(int pag, t_prog *programa){
 
 	//Funciones auxiliares
 //	t_pag pag_apuntada()
@@ -618,7 +628,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 		printf("Cargo directamente.\n");
 
 		if(frameLibre() == -1){
-			reemplazarDirectamente(pag,programa);
+			return reemplazarDirectamente(pag,programa);
 		}
 		else
 		{
@@ -627,9 +637,9 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 			programa->paginas[pag].frame = recibirPagina(pag, programa->pid);
 			programa->paginas[pag].presencia = true;
 			programa->paginas[pag].modificado = false;
-		}
 
-		return;
+			return 0;
+		}
 	}
 
 	printf("Aplico algoritmo de reemplazo de paginas: ");
@@ -661,7 +671,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 					//avanzo el puntero y salgo del ciclo
 					avanzarPuntero();
-					return;
+					return 0;
 				}
 			}
 		}
@@ -696,7 +706,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 
 					//Avanzo el puntero y salgo
 					avanzarPuntero();
-					return;
+					return 0;
 				}
 			}else{//Pagina referenciada, cambio el bit a false
 				pag_apuntada.referenciado = false;
@@ -735,7 +745,7 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 				pag_apuntada.frame = recibirPagina(pag,programa->pid);
 
 				printf("Retorno.\n");
-				return;
+				return 0;
 			}else
 			{
 				pag_apuntada.referenciado = false;
@@ -748,11 +758,11 @@ void traerPaginaDeSwap(int pag, t_prog *programa){
 	//Sali del ciclo, por lo tanto todas las paginas tenian el bit de referencia activado.
 	//repito la operacion
 	printf("Debo repetir el algoritmo.\n");
-	traerPaginaDeSwap(pag, programa);
+	return traerPaginaDeSwap(pag, programa);
 
 }
 
-void reemplazarDirectamente(int pag, t_prog *programa)
+int reemplazarDirectamente(int pag, t_prog *programa)
 {
 	//Como no tengo paginas suficientes, reemplazo la primera pagina que este en memoria.
 
@@ -779,11 +789,18 @@ void reemplazarDirectamente(int pag, t_prog *programa)
 			programa->paginas[pag].presencia = true;
 			programa->paginas[pag].modificado = false;
 
-			return;
+			return 0;
 		}
 	}
 
+	if(frameLibre() == -1)
+	{
+		printf("No quedan marcos disponibles. Debo terminar la ejecucion.\n");
+		return -1;
+	}
+
 	printf("No deberia haber pasado por aca....\n");
+	return -1;
 }
 
 void enviarPagina(int pag, int pid, int pos_a_enviar){
@@ -894,12 +911,15 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 			pos_a_escribir+=offset;
 		}else{
 			printf("TLB_MISS.\n");
-			usleep(config_get_int_value(config,"RETARDO") * 1000);
+			usleep(retardo * 1000);
 
 			//Verifico que la pagina esta en memoria
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap
-				traerPaginaDeSwap(pag,programa);
+				if( traerPaginaDeSwap(pag,programa) ){
+					//Debo finalizar la ejecucion.
+					return -1;
+				}
 			}
 
 			//Obtengo la posicion en memoria donde debo escribir
@@ -912,7 +932,7 @@ int escribirEnMemoria(char* src, int pag, int offset, int size, t_prog *programa
 		//Para no pasarme de la pagina y escribir en otro frame que no me pertenece
 		cant_a_escribir = min(size - cant_escrita, frame_size - offset);
 
-		usleep(config_get_int_value(config,"RETARDO") * 1000);
+		usleep(retardo * 1000);
 		memcpy(memoria + pos_a_escribir, src, cant_a_escribir);
 
 		//Actualizo la cant_escrita
@@ -945,10 +965,10 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		return -1;
 	}
 
-	if(size/frame_size > fpp){
+/*	if(size/frame_size > fpp){
 		printf("La cantidad de marcos por programa no alcanza para leer esta cantidad de info.\n");
 		return -1;
-	}
+	}*/
 
 	while(cant_leida < size){
 		//Mutex
@@ -965,11 +985,13 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		}else{
 			//TLB_MISS
 			printf("TLB_MISS.\n");
-			usleep(config_get_int_value(config,"RETARDO") * 1000);
+			usleep(retardo * 1000);
 
 			if(!programa->paginas[pag].presencia){
 				//La pagina no esta en memoria, la traigo de swap
-				traerPaginaDeSwap(pag, programa);
+				if( traerPaginaDeSwap(pag, programa) ){
+					return -1;
+				}
 			}
 
 			//Obtengo posicion de memoria
@@ -986,7 +1008,7 @@ int leerEnMemoria(char *resultado, int pag, int offset, int size, t_prog *progra
 		//Para no pasarme de largo y leer otros frames
 		cant_a_leer = min(size - cant_leida, frame_size - offset);
 
-		usleep(config_get_int_value(config,"RETARDO") * 1000);
+		usleep(retardo * 1000);
 		memcpy(resultado + cant_leida, memoria + pos_a_leer, cant_a_leer);
 
 		//Actualizo el bit de referencia
@@ -1087,7 +1109,12 @@ void leerParaCpu(int cpu_fd){
 
 	char *resultado = malloc(size);
 	if( leerEnMemoria(resultado, pag, offset, size, programa) == -1 )
-		printf("\n-----------------------\nERROR AL LEER\n-----------------------\n");
+	{
+		printf("\n-----------------------\nERROR AL LEER\n-----------------------\n\nDebo finalizar.\n");
+		int mensaje = OVERFLOW;
+		send(cpu_fd,&mensaje,sizeof(int),0);
+		return;
+	}
 
 	printf("Resultado:\n\n");
 	fwrite(resultado,sizeof(char),size,stdout);
@@ -1143,7 +1170,10 @@ void escribirParaCpu(int cpu_fd){
 	}
 
 	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
-		printf("Error en la escritura en memoria.\n");
+		printf("\n-----------------------\nERROR AL ESCRIBIR\n-----------------------\n\nDebo finalizar.\n");
+		int mensaje = RECHAZO_PROGRAMA;
+		send(nucleo_fd,&mensaje,sizeof(int),0);
+		return;
 	}
 
 	free(buffer);
@@ -1446,7 +1476,7 @@ void terminal(){
 
 				programa = list_get(programas, i);
 
-				for(j=0;j<fpp;j++){
+				for(j=0;j<programa->cant_total_pag;j++){
 					programa->paginas[j].modificado = true;
 				}
 			}
@@ -1619,7 +1649,7 @@ void terminal(){
 		}
 		else
 		{
-			printf("\nComando erroneo.\nComandos disponibles: flushTlb [pid]\nflushMemory\ndump [pid]\nretardo [ret en segundos]\nexit\n");
+			printf("\nComando erroneo.\nComandos disponibles: flushTlb [pid]\nflushMemory\ndump [pid]\ndumpFrames\nretardo [ret en milisegundos]\nexit\n");
 		}
 
 		pthread_mutex_unlock(&mutex_total);
