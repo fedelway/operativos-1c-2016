@@ -1101,10 +1101,6 @@ void leerParaCpu(int cpu_fd){
 		send(cpu_fd,&mensaje,sizeof(int),0);
 
 		return;
-	}else
-	{
-		mensaje = PEDIDO_OK;
-		send(cpu_fd,&mensaje,sizeof(int),0);
 	}
 
 	char *resultado = malloc(size);
@@ -1115,6 +1111,9 @@ void leerParaCpu(int cpu_fd){
 		send(cpu_fd,&mensaje,sizeof(int),0);
 		return;
 	}
+
+	mensaje = PEDIDO_OK;
+	send(cpu_fd,&mensaje,sizeof(int),0);
 
 	printf("Resultado:\n\n");
 	fwrite(resultado,sizeof(char),size,stdout);
@@ -1163,18 +1162,17 @@ void escribirParaCpu(int cpu_fd){
 		send(cpu_fd,&mensaje,sizeof(int),0);
 
 		return;
-	}else
-	{
-		mensaje = PEDIDO_OK;
-		send(cpu_fd,&mensaje,sizeof(int),0);
 	}
 
 	if( escribirEnMemoria(buffer, pag, offset, size, programa) == -1){
 		printf("\n-----------------------\nERROR AL ESCRIBIR\n-----------------------\n\nDebo finalizar.\n");
 		int mensaje = RECHAZO_PROGRAMA;
-		send(nucleo_fd,&mensaje,sizeof(int),0);
+		send(cpu_fd,&mensaje,sizeof(int),0);
 		return;
 	}
+
+	mensaje = PEDIDO_OK;
+	send(cpu_fd,&mensaje,sizeof(int),0);
 
 	free(buffer);
 
