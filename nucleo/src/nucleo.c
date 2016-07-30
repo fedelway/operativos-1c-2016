@@ -385,9 +385,19 @@ void terminarConexion(int fd)
 
 			t_cpu *cpu = list_remove(listaCpu,i);
 
-			//Paso el pcb que estaba asignado a la cpu a ready
+			/*//Paso el pcb que estaba asignado a la cpu a ready
 			if(cpu->pcb != NULL)
-				queue_push(ready,cpu->pcb);
+				queue_push(ready,cpu->pcb);*/
+
+			//Libero el pcb que estaba en la cpu
+			if(cpu->pcb != NULL){
+
+				printf("Finalizacion abrupta de una cpu. Terminando el proceso pid: %d.\n",cpu->pid);
+
+				finalizarPrograma(cpu->pid);
+
+				freePcb(cpu->pcb);
+			}
 
 			free(cpu);
 		}
@@ -1381,7 +1391,7 @@ int solicitarPaginasUMC(int source_size, char *source, int pid){
 		int i;
 		for(i=0;i<list_size(new);i++){
 			if(((t_pcb*)list_get(new,i))->pid == pid)
-				list_remove_and_destroy_element(new,i,freePcb);
+				list_remove_and_destroy_element(new,i,(void*)freePcb);
 		}
 
 		return -1;
@@ -1620,7 +1630,7 @@ void eliminarDeIO(t_queue *cola, int pid)
 	//La cola tiene mas de 1 elemento
 	t_list *lista = list_create();
 
-	printf("Tamaño cola IO (antes de eliminar): %d",list_size(cola));
+	printf("Tamaño cola IO (antes de eliminar): %d",queue_size(cola));
 
 	while(queue_size(cola) > 0)
 	{//Paso lo que esta en cola a la lista
@@ -1641,7 +1651,7 @@ void eliminarDeIO(t_queue *cola, int pid)
 		queue_push(cola,list_remove(lista,i));
 	}
 
-	printf("Tamaño cola IO (dps de eliminar): %d",list_size(cola));
+	printf("Tamaño cola IO (dps de eliminar): %d",queue_size(cola));
 
 	list_destroy(lista);
 }

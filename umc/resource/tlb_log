@@ -1,0 +1,56 @@
+
+-----------------------
+MOSTRAR TLB.
+-----------------------
+
+Dump del dia Fri Jul 29 22:14:15 2016
+. 
+
+Entrada nro: 0.
+Pid: 1.
+Numero de pagina: 2.
+Tiempo accedido: 6.
+
+Entrada nro: 1.
+Pid: 1.
+Numero de pagina: 4.
+Tiempo accedido: 9.
+
+Entrada nro: 2.
+Pid: 1.
+Numero de pagina: 3.
+Tiempo accedido: 10.
+
+
+-----------------------
+FIN MOSTRAR TLB.
+-----------------------
+
+
+-----------------------
+MOSTRAR TLB.
+-----------------------
+
+Dump del dia Fri Jul 29 22:15:59 2016
+. 
+
+Entrada nro: 0.
+Pid: -1.
+Numero de pagina: 2.
+Tiempo accedido: 6.
+
+Entrada nro: 1.
+Pid: -1.
+Numero de pagina: 4.
+Tiempo accedido: 9.
+
+Entrada nro: 2.
+Pid: -1.
+Numero de pagina: 3.
+Tiempo accedido: 10.
+
+
+-----------------------
+FIN MOSTRAR TLB.
+-----------------------
+

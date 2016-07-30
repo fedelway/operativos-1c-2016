@@ -1042,7 +1042,7 @@ void trabajarCpu(int cpu_fd){
 
 		if(recv(cpu_fd, &msj_recibido,sizeof(int),0) <= 0)
 		{
-			printf("Desconexion de la cpu.\n");
+			perror("Desconexion de la cpu");
 			close(cpu_fd);
 			return;
 		}
@@ -1054,6 +1054,7 @@ void trabajarCpu(int cpu_fd){
 				//usleep(config_get_int_value(config,"RETARDO") * 1000);
 				leerParaCpu(cpu_fd);
 				pthread_mutex_unlock(&mutex_total);
+				printf("Salgo de leer.\n");
 				break;
 
 			case ESCRIBIR:
@@ -1109,6 +1110,8 @@ void leerParaCpu(int cpu_fd){
 		printf("\n-----------------------\nERROR AL LEER\n-----------------------\n\nDebo finalizar.\n");
 		int mensaje = OVERFLOW;
 		send(cpu_fd,&mensaje,sizeof(int),0);
+
+		free(resultado);
 		return;
 	}
 
@@ -1120,10 +1123,9 @@ void leerParaCpu(int cpu_fd){
 	printf("\n\n");
 
 	//Ya tengo lo que se necesitaba leer en resultado, lo envio.
-	if( sendAll(cpu_fd, resultado, size, 0) == -1){
-		perror("Error en el envio de la lectura solicitada");
+	if( sendAll(cpu_fd, resultado, size, MSG_NOSIGNAL) <= 0){
+		perror("-----------------------\nError en el envio de la lectura solicitada\nPOSIBLE DESCONEXION\n-----------------------\n");
 	}
-
 	free(resultado);
 
 	return;
@@ -1168,6 +1170,8 @@ void escribirParaCpu(int cpu_fd){
 		printf("\n-----------------------\nERROR AL ESCRIBIR\n-----------------------\n\nDebo finalizar.\n");
 		int mensaje = RECHAZO_PROGRAMA;
 		send(cpu_fd,&mensaje,sizeof(int),0);
+
+		free(buffer);
 		return;
 	}
 
@@ -1449,7 +1453,7 @@ void terminal(){
 				//No hay segundo parametro
 				flushTlb();
 
-				printf("flush exitoso.\n");
+				printf("\n-----------------------\nflush de tlb exitoso.\n-----------------------\n\n");
 			}
 			else{
 				pid = atoi(parametro);
@@ -1457,7 +1461,7 @@ void terminal(){
 				if(pidValido(pid) ){
 					flushPid(pid);
 
-					printf("flush exitoso.\n");
+					printf("\n-----------------------\nflush de tlb exitoso.\n-----------------------\n\n");
 				}else{
 					printf("pid incorrecto.\n");
 				}
@@ -1481,24 +1485,24 @@ void terminal(){
 
 			//pthread_mutex_unlock(&mutex_listaProgramas);
 
-			printf("flush exitoso.\n");
+			printf("\n-----------------------\nflush de memoria exitoso.\n-----------------------\n\n");
 		}
 		else if(!strcmp(comando, "retardo") )
 		{
 			if(cant_parametros == 1){
-				printf("Mal uso de comando. Uso: retardo valor.\n");
+				printf("\n-----------------------\nMal uso de comando. Uso: retardo valor.\n-----------------------\n\n");
 			}
 			else{
 				int ret = atoi(parametro);
 
 				retardo = ret;
 
-				printf("\nRetardo cambiado exitosamente.\n");
+				printf("\n-----------------------\nRetardo cambiado exitosamente.\n-----------------------\n\n");
 			}
 		}
 		else if(!strcmp(comando, "dump") )
 		{
-			printf("\nComenzando con el dump.\n");
+			printf("\n-----------------------Comenzando con el dump.\n-----------------------\n\n");
 
 			//Primero necesito abrir el archivo
 			FILE *dump_log = fopen("../resource/dump_log", "a");
@@ -1544,6 +1548,9 @@ void terminal(){
 								programa->paginas[j].referenciado, programa->paginas[j].frame);
 					}
 
+					printf("\n");
+					fprintf(dump_log,"\n");
+
 				}
 				//pthread_mutex_unlock(&mutex_listaProgramas);
 				//pthread_mutex_unlock(&mutex_memoria);
@@ -1575,7 +1582,7 @@ void terminal(){
 				}
 			}
 
-			printf("\nDump finalizado exitosamente.\n");
+			printf("\n\n-----------------------\nDump finalizado exitosamente.\n-----------------------\n\n");
 
 			fclose(dump_log);
 		}
@@ -1598,6 +1605,8 @@ void terminal(){
 		}
 		else if(!strcmp(comando, "dumpFrames"))
 		{//Imprime todos los frames
+			printf("\n-----------------------\nComenzando con el dump de frames\n-----------------------\n\n");
+
 			//Primero necesito abrir el archivo
 			FILE *dump_log = fopen("../resource/dump_log", "a");
 
@@ -1615,7 +1624,6 @@ void terminal(){
 
 			fprintf(dump_log, "Dump del dia %s. \n", asctime(timeinfo) );//asctime me pasa estas estructuras de tiempo a un string leible
 
-			printf("\nIniciando dump de frames\n\n");
 			int i;
 			for(i=0;i<cant_frames;i++)
 			{
@@ -1638,6 +1646,41 @@ void terminal(){
 			}
 
 			fclose(dump_log);
+		}
+		else if(!strcmp(comando, "showTlb"))
+		{
+			FILE *tlb_log = fopen("../resource/tlb_log", "a");
+
+			if(tlb_log == NULL)
+				printf("Error al abrir archivo.\n");
+
+			time_t rawtime;
+			struct tm *timeinfo;
+
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+
+			printf("\n-----------------------\nMOSTRAR TLB.\n-----------------------\n\n");
+			fprintf(tlb_log,"\n-----------------------\nMOSTRAR TLB.\n-----------------------\n\n");
+
+			fprintf(tlb_log, "Dump del dia %s. \n\n", asctime(timeinfo) );
+
+			for(i=0;i<cache_tlb.cant_entradas;i++){
+				printf("Entrada nro: %d.\nPid: %d.\nNumero de pagina: %d.\nTiempo accedido: %d.\n\n",i,
+						cache_tlb.entradas[i].pid,
+						cache_tlb.entradas[i].nro_pag,
+						cache_tlb.entradas[i].tiempo_accedido);
+
+				fprintf(tlb_log,"Entrada nro: %d.\nPid: %d.\nNumero de pagina: %d.\nTiempo accedido: %d.\n\n",i,
+						cache_tlb.entradas[i].pid,
+						cache_tlb.entradas[i].nro_pag,
+						cache_tlb.entradas[i].tiempo_accedido);
+			}
+
+			printf("\n-----------------------\nFIN MOSTRAR TLB.\n-----------------------\n\n");
+			fprintf(tlb_log,"\n-----------------------\nFIN MOSTRAR TLB.\n-----------------------\n\n");
+
+			fclose(tlb_log);
 		}
 		else if(!strcmp(comando, "exit") )
 		{

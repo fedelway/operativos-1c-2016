@@ -18,7 +18,10 @@ int sendAll(int fd, char *cosa, int size, int flags){
 
 		if(aux == -1){
 			return -1;
+		}else if(aux == 0){
+			return -1;
 		}
+
 		cant_enviada += aux;
 	}
 
@@ -37,7 +40,9 @@ int recvAll(int fd, char *buffer, int size, int flags){
 
 		if(aux == -1){
 			return -1;
-		}
+		}else if(aux == 0)
+			return -1;
+
 		cant_recibida += aux;
 	}
 
