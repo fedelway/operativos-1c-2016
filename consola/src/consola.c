@@ -99,8 +99,9 @@ void levantarDatosDeConfiguracion(t_config_consola* configConsola, char* config_
 		log_info(logger, "El archivo de configuración tiene todos los parametros requeridos.");
 
 		char* nucleo_ip = config_get_string_value(config,"NUCLEO_IP");
-		configConsola->nucleo_ip = malloc(strlen(nucleo_ip));
+		configConsola->nucleo_ip = malloc(strlen(nucleo_ip) + 1);
 		memcpy(configConsola->nucleo_ip, nucleo_ip, strlen(nucleo_ip));
+		configConsola->nucleo_ip[strlen(nucleo_ip)] = '\0';
 
 		char* nucleo_puerto = config_get_string_value(config,"NUCLEO_PUERTO");
 		configConsola->nucleo_puerto = malloc(strlen(nucleo_puerto)+1);
